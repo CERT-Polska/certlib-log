@@ -1,0 +1,69 @@
+site_name: "Documentation for certlib.log"
+site_url: "https://certlib-log.readthedocs.io"
+site_description: "The documentation for `certlib.log` - a library extending the standard `logging` toolbox (e.g., facilitating structured logging with minimal fuss)."
+
+copyright: "Copyright (c) 2026, CERT Polska. All rights reserved. License: BSD-3-Clause."
+repo_url: "https://github.com/CERT-Polska/certlib-log"
+
+docs_dir: "doc-src"
+
+nav:
+  - Home: index.md
+  - User's Guide: guide.md
+  - API Reference: reference.md
+  - Changelog: changelog.md
+
+theme:
+  name: material
+  palette:
+    scheme: default
+    primary: white
+    accent: blue
+  features:
+    - navigation.indexes
+    - navigation.sections
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        # See: https://mkdocstrings.github.io/python/usage/
+        python:
+          inventories:
+            - url: https://docs.python.org/3/objects.inv
+              domains: [py]
+          paths: [../src]
+          options:
+            docstring_style: null
+            line_length: 80
+            heading_level: 1
+            members_order: source
+            merge_init_into_class: true
+            overloads_only: true
+            relative_crossrefs: true
+            scoped_crossrefs: true
+            separate_signature: true
+            show_bases: false
+            show_category_heading: false
+            show_if_no_docstring: true
+            show_labels: true
+            show_signature: true
+            show_overloads: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_root_members_full_path: false
+            show_signature_annotations: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            show_source: true
+
+markdown_extensions:
+  - admonition
+  - footnotes
+  - meta
+  - pymdownx.superfences
+  - smarty
+  - toc:
+      title: "Document Contents"
+      permalink: true
+      toc_depth: 6

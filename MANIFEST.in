@@ -1,0 +1,3 @@
+# Exclude `.git_archival.txt` from sdist builds to avoid setuptools-scm warnings
+# (see: https://setuptools-scm.readthedocs.io/en/latest/usage/#git-archives).
+exclude .git_archival.txt

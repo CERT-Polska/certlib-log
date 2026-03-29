@@ -1,0 +1,8 @@
+-r ../docs/doc-requirements.txt
+-r ../tests/test-requirements.txt
+build
+pip
+pip-tools
+setuptools>=80
+setuptools-scm[simple]>=9.2
+wheel

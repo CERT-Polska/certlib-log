@@ -1,0 +1,14 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is, to a large extent, based on [Keep a Changelog](https://keepachangelog.com/).
+This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+
+## [Unreleased] (2026-XX-XX)
+
+- TODO...
+
+
+[Unreleased]: https://github.com/CERT-Polska/certlib-log/TODO...

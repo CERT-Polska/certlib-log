@@ -1,0 +1,66 @@
+#
+# Project Basics
+#
+
+
+[project]
+
+name = "certlib-log"
+dynamic = ["version", "optional-dependencies"]
+description = """\
+    A library extending the standard logging toolbox \
+    (e.g., facilitating structured logging with minimal fuss).\
+"""
+requires-python = ">=3.10"
+
+readme = "README.md"
+maintainers = [
+    {name = "Jan Kaliszewski", email = "jan.kaliszewski@cert.pl"}
+]
+license = "BSD-3-Clause"
+license-files = ["LICENSE.txt"]
+keywords = ["logging", "structured logging", "formatting", "library"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Logging",
+]
+
+
+[project.urls]
+
+Homepage = "https://github.com/CERT-Polska/certlib-log"
+Documentation = "https://certlib-log.readthedocs.io/"
+Repository = "https://github.com/CERT-Polska/certlib-log.git"
+Issues = "https://github.com/CERT-Polska/certlib-log/issues"
+Changelog = "https://github.com/CERT-Polska/certlib-log/blob/main/CHANGELOG.md"
+
+
+#
+# `setuptools`-related settings
+#
+
+
+[build-system]
+
+requires = ["setuptools>=80", "setuptools-scm[simple]>=9.2"]
+build-backend = "setuptools.build_meta"
+
+
+[tool.setuptools.packages.find]
+
+where = ["src"]
+
+
+[tool.setuptools.dynamic.optional-dependencies.dev]
+
+file = ["dev/dev-requirements.txt"]
