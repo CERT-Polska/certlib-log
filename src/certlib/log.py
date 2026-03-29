@@ -2409,7 +2409,7 @@ class ExtendedMessage:
         """
         Invoked when [`str`][] is applied to an [`ExtendedMessage`][]
         -- which, in particular, is done by the machinery related to a
-        *typical formatter* (_**not**_ a [`StructuredLogsFormatter`][])
+        *typical formatter* (_**not**_ a [`StructuredLogsFormatter`][]),
         to obtain a `str` which will be assigned to the [log record's
         `message` attribute](https://docs.python.org/3/library/logging.html#logrecord-attributes).
 
