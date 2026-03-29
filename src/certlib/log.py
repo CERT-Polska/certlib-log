@@ -2464,7 +2464,7 @@ class ExtendedMessage:
         representations of arguments to the [`ExtendedMessage`][]
         ([`xm`][]) constructor that would be needed to create an
         instance being equivalent to the one on which the current
-        invocation of this method is made (i.e., to `self`).
+        invocation of this method is being made (i.e., to `self`).
         """
         if self.args or self.pattern or type(self.pattern) is not str:
             yield repr(self.pattern)
