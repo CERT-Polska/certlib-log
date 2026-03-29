@@ -1115,11 +1115,12 @@ class StructuredLogsFormatter(logging.Formatter):
 
         However, it differs from the original in the following ways:
 
-        * it does *not* append any *formatted traceback* or *formatted
+        * it *never* appends any *formatted traceback* or *formatted
           stack information* to the string returned by [`formatMessage`][]
-          (so, in particular, it does *not* invoke [`formatStack`][logging.Formatter.formatStack])
-          -- because that string is expected to represent the resultant
-          *output data* dict, already serialized;
+          (so, in particular, it *never* invokes [`formatStack`][logging.Formatter.formatStack])
+          -- because, in the case of this formatter class, that string
+          is expected to represent the resultant *output data* dict,
+          already serialized;
 
         * regarding how the target value of the log record's `message`
           attribute is obtained: if the `msg` attribute of the given log
@@ -1475,9 +1476,9 @@ class StructuredLogsFormatter(logging.Formatter):
         if p.kind is Parameter.KEYWORD_ONLY
     })
     """
-    The [`StructuredLogsFormatter.format_timestamp`][] keyword parameters'
-    default values (this mapping may come in handy when you extend that
-    method in a subclass...).
+    Default values of all [`StructuredLogsFormatter.format_timestamp`][]'s
+    *keyword-only* parameters (this mapping may come in handy when you
+    extend that method in a subclass...).
     """
 
     def get_prepared_output_data(self, record: logging.LogRecord) -> dict[str, Any]:
@@ -1708,9 +1709,9 @@ class StructuredLogsFormatter(logging.Formatter):
         if p.kind is Parameter.KEYWORD_ONLY
     })
     """
-    The [`StructuredLogsFormatter.prepare_value`][] keyword parameters'
-    default values (this mapping may come in handy when you extend that
-    method in a subclass...).
+    Default values of all [`StructuredLogsFormatter.prepare_value`][]'s
+    *keyword-only* parameters (this mapping may come in handy when you
+    extend that method in a subclass...).
     """
 
     def prepare_submapping_key(self, key: object) -> str:
