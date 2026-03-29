@@ -2237,7 +2237,7 @@ class ExtendedMessage:
     Regarding the [`ExtendedMessage`][]'s method [`format_message`][]:
     when any formatter (regardless of its type) is producing a log
     entry, that method is always invoked -- *directly* by the machinery
-    of [`SerializingFormatter`][], or *indirectly* (via [`__str__`][])
+    of [`StructuredLogsFormatter`][], or *indirectly* (via [`__str__`][])
     by the standard machinery that other formatters use.
 
     *Note*: if a text message pattern was passed to the constructor as
