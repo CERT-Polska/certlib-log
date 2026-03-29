@@ -41,3 +41,6 @@ else
     echo "OK, 'certlib.log' and its *dev*-only dependencies have" \
          "been installed in the current virtual environment."
 fi
+echo "Please also NOTE that this is a *development-only* installation" \
+     "(just for running tests with 'pytest', or building docs with" \
+     "'mkdocs serve -f docs/mkdocs.yml')"
