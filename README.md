@@ -78,19 +78,19 @@ logger = logging.getLogger(__name__)
 ...
 
 def example_with_text_message_formatting(city, humidity, error_summary=None):
-    logger.info(xm('Humidity in {} is {:.2%}', city, humidity))
-
     if error_summary:
         logger.error(xm(
             'An error occurred: {!r}', error_summary,
             exc_info=True, stack_info=True, stacklevel=2,
         ))
 
+    logger.warning(xm('Humidity in {} is {:.2%}', city, humidity))
+
     logger.info(xm(
-        'This is day #{today:%j} in year {today:%Y}',
+        'Today is day #{today:%j} of the year {today:%Y}',
         today=dt.date.today(),
 
-        # (arbitrary data items can also be given; this is especially
+        # (arbitrary data items can be given, which this is especially
         # useful when `certlib.log.StructuredLogsFormatter` is in use)
         some_extra_item=42,
         other_arbitrary_stuff={'foo': [
