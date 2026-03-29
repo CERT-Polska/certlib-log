@@ -24,7 +24,7 @@ python3 -m pip install --upgrade --require-virtualenv --use-pep517 pip 2>/dev/nu
 
 echo "OK, ready to install the actual stuff..."
 
-python3 -m pip install --require-virtualenv --use-pep517 --no-deps -r dev/dev-requirements.txt && \
+python3 -m pip install --require-virtualenv --use-pep517 -r dev/dev-requirements.txt && \
     python3 -m pip install --require-virtualenv --use-pep517 -c dev/dev-requirements.txt -e .[dev]
 [[ "$?" != 0 ]] && {
     echo "Failed to install 'certlib.log' and/or its *dev*-only dependencies!" >&2
