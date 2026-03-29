@@ -2460,10 +2460,10 @@ class ExtendedMessage:
         Invoked by the [`__repr__`][] method.
 
         The default implementation of this method yields string
-        representations of such arguments to the [`ExtendedMessage`][]
-        ([`xm`][]) constructor that would be needed to recreate an
-        instance equivalent to the one on which this method is being
-        invoked (i.e., to `self`).
+        representations of arguments to the [`ExtendedMessage`][]
+        ([`xm`][]) constructor that would be needed to create an
+        instance being equivalent to the one on which the current
+        invocation of this method is made (i.e., to `self`).
         """
         if self.args or self.pattern or type(self.pattern) is not str:
             yield repr(self.pattern)
