@@ -1,0 +1,42 @@
+# This workflow is based on the "Python package" one. It will install test dependencies and run tests.
+# See also: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python.
+
+name: Test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+        - "3.10"
+        - "3.11"
+        - "3.12"
+        - "3.13"
+        - "3.14"
+        - "3.15"
+        - "pypy3.10"
+        - "pypy3.14"
+
+    steps:
+    - uses: actions/checkout@v5
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install test dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install --use-pep517 -r tests/test-requirements.txt
+    - name: Test with pytest
+      run: |
+        pytest
