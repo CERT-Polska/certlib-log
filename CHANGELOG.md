@@ -8,7 +8,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased] (2026-XX-XX)
 
-- TODO...
+- TBD...
 
 
-[Unreleased]: https://github.com/CERT-Polska/certlib-log/TODO...
+[Unreleased]: https://github.com/CERT-Polska/certlib-log/tree/v1.0.0-alpha2
