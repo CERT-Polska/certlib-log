@@ -249,8 +249,8 @@ you need to consider that:
     If the presence of some *output data* key makes sense only in
     a certain context (e.g., when handling a HTTP request...), just
     make the respective *auto-maker* return **[`None`][]** in any
-    other contexts. Such a *void* item will be automatically omitted
-    from the final *output data*.
+    other contexts. Such *void* items will be automatically omitted
+    from *output data* dicts.
 
 Now we will prepare the *root logger*, attaching to it some handler
 *with our formatter* set on it:
@@ -1088,9 +1088,9 @@ class StructuredLogsFormatter(logging.Formatter):
 
     def unregister_auto_makers(self) -> None:
         """
-        A rarely useful instance method: it should be invoked on a
+        A rarely useful instance method: you should invoke it on a
         `StructuredLogsFormatter` instance *only when* you need to
-        stop using that instance but continue using the `logging`
+        stop using that instance but continue using any `logging`
         stuff during further program execution (this does not seem
         to be a common case).
         """
@@ -1114,21 +1114,24 @@ class StructuredLogsFormatter(logging.Formatter):
         attributes: [`message`, `asctime` and `exc_text`](https://docs.python.org/3/library/logging.html#logrecord-attributes)
         (making doing so subject to the same conditions).
 
-        However, it differs from the original in the following ways:
+        However, it differs from that original in the following ways:
 
         * it *never* appends any *formatted traceback* or *formatted
           stack information* to the string returned by [`formatMessage`][]
           (so, in particular, it *never* invokes [`formatStack`][logging.Formatter.formatStack])
           -- because, in the case of this formatter class, that string
           is expected to represent the resultant *output data* dict,
-          already serialized in JSON format;
+          already serialized in JSON format (any exception or stack
+          information is supposed to be already included in it);
 
         * regarding how the target value of the log record's `message`
-          attribute is obtained: if the `msg` attribute of the given log
-          record is an instance of [`ExtendedMessage`][] ([`xm`][]), then
-          its [`format_message`][ExtendedMessage.format_message] method
-          is invoked, instead of the log record's [`getMessage`][logging.LogRecord.getMessage]
-          method.
+          attribute is obtained: if the `msg` attribute of the given
+          log record is an instance of [`ExtendedMessage`][] ([`xm`][]),
+          then its [`format_message`][ExtendedMessage.format_message]
+          method is invoked directly, instead of the log record's method
+          [`getMessage`][logging.LogRecord.getMessage] (which would cause
+          the `ExtendedMessage`'s [`__str__`][ExtendedMessage.__str__]
+          method to be invoked...).
         """
         # (Compare to the source code of `logging.Formatter.format()`...)
         msg = getattr(record, 'msg', None)
