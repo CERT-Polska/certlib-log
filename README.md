@@ -7,7 +7,7 @@ modern `{}`-based style of log message formatting (gradually if
 required).
 
 
-## Basics
+## Basic Info
 
 - **Documentation:** [certlib-log.readthedocs.io](https://certlib-log.readthedocs.io)
 - **Home page:** [github.com/CERT-Polska/certlib-log](https://github.com/CERT-Polska/certlib-log)
@@ -78,19 +78,19 @@ logger = logging.getLogger(__name__)
 ...
 
 def example_with_text_message_formatting(city, humidity, error_summary=None):
-    logger.info(xm('Humidity in {} is {:.2%}', city, humidity))
-
     if error_summary:
         logger.error(xm(
             'An error occurred: {!r}', error_summary,
             exc_info=True, stack_info=True, stacklevel=2,
         ))
 
+    logger.warning(xm('Humidity in {} is {:.2%}', city, humidity))
+
     logger.info(xm(
-        'This is day #{today:%j} in year {today:%Y}',
+        'Today is day #{today:%j} of the year {today:%Y}',
         today=dt.date.today(),
 
-        # (arbitrary data items can also be given; this is especially
+        # (arbitrary data items can be given, which this is especially
         # useful when `certlib.log.StructuredLogsFormatter` is in use)
         some_extra_item=42,
         other_arbitrary_stuff={'foo': [
@@ -99,22 +99,35 @@ def example_with_text_message_formatting(city, humidity, error_summary=None):
         ]},
     ))
 
-def example_with_pure_data(temperature, pressure, debug_data_dict):
+def example_with_no_text(temperature, pressure, debug_data_dict, ok=True):
     # (especially useful when `certlib.log.StructuredLogsFormatter` is in
     # use => then any *text-message*-related output keys are just omitted)
 
-    logger.info(xm(
-        temperature=temperature,
-        pressure=pressure,
-    ))
+    if ok:
+        logger.info(xm(
+            temperature=temperature,
+            pressure=pressure,
+        ))
+    else:
+        logger.error(xm(
+            # just data:
+            temperature=temperature,
+            pressure=pressure,
 
+            # special arguments:
+            exc_info=True,
+            stack_info=True,
+            stacklevel=2,
+        ))
+
+    # single dict argument is also accepted:
     logger.debug(xm(debug_data_dict))
 ```
 
 
 ## Copyright and License
 
-Copyright (c) 2026, CERT Polska. All rights reserved.
+Copyright (c) 2026, [CERT Polska](https://cert.pl/en/). All rights reserved.
 
 The `certlib.log` library is free software; you can redistribute and/or
 modify it under the terms of the *BSD 3-Clause "New" or "Revised" License*

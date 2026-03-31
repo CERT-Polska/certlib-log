@@ -7,6 +7,7 @@ python3 -m pip install --upgrade --require-virtualenv --use-pep517 pip 2>/dev/nu
     [[ "$?" != 3 ]] && exit 1
     echo "No virtual environment is activated." >&2
     CERTLIB_LOG_DEV_VENV_DIR='./dev/venv'
+
     if [[ ! -d "$CERTLIB_LOG_DEV_VENV_DIR" ]]; then
         echo "As ${CERTLIB_LOG_DEV_VENV_DIR} does not exist, a new virtual" \
              "environment in '${CERTLIB_LOG_DEV_VENV_DIR}' will be created..."
@@ -15,6 +16,7 @@ python3 -m pip install --upgrade --require-virtualenv --use-pep517 pip 2>/dev/nu
     else
         echo "OK, ${CERTLIB_LOG_DEV_VENV_DIR} already exists."
     fi
+
     echo "Activating the '${CERTLIB_LOG_DEV_VENV_DIR}' virtual environment..."
     source "${CERTLIB_LOG_DEV_VENV_DIR}/bin/activate" || exit 1
     echo "OK, "${CERTLIB_LOG_DEV_VENV_DIR}" activated."
@@ -24,20 +26,29 @@ python3 -m pip install --upgrade --require-virtualenv --use-pep517 pip 2>/dev/nu
 
 echo "OK, ready to install the actual stuff..."
 
-python3 -m pip install --require-virtualenv --use-pep517 --no-deps -r dev/dev-requirements.txt && \
+python3 -m pip install --require-virtualenv --use-pep517 -r dev/dev-requirements.txt && \
     python3 -m pip install --require-virtualenv --use-pep517 -c dev/dev-requirements.txt -e .[dev]
 [[ "$?" != 0 ]] && {
-    echo "Failed to install 'certlib.log' and/or its *dev*-only dependencies!" >&2
+    echo "Failed to install 'certlib.log' and/or its *development*-only dependencies!" >&2
     exit 1
 }
+
 if [[ -v CERTLIB_LOG_DEV_VENV_DIR ]]; then
-    echo "OK, 'certlib.log' and its *dev*-only dependencies have been" \
-         "installed in the '${CERTLIB_LOG_DEV_VENV_DIR}' virtual" \
-         "environment. ***PLEASE NOTE*** that to run/import the installed" \
-         "stuff you need to use this environment. In particular, you" \
-         "can activate the environment by executing the following bash" \
-         "command: 'source ${CERTLIB_LOG_DEV_VENV_DIR}/bin/activate'"
+    echo "OK, 'certlib.log' and its *development*-only dependencies" \
+         "have been installed in the '${CERTLIB_LOG_DEV_VENV_DIR}'" \
+         "virtual environment."
 else
-    echo "OK, 'certlib.log' and its *dev*-only dependencies have" \
-         "been installed in the current virtual environment."
+    echo "OK, 'certlib.log' and its *development*-only dependencies" \
+         "have been installed in the current virtual environment."
+fi
+
+echo "** BUT PLEASE NOTE that it is a *development*-only installation" \
+     "(e.g., for running tests with 'pytest', or building docs with" \
+     "'mkdocs build -f docs/mkdocs.yml')."
+
+if [[ -v CERTLIB_LOG_DEV_VENV_DIR ]]; then
+    echo "**** ALSO, PLEASE NOTE that to run/import the installed stuff" \
+         "you need to ensure you *use* that environment. In particular," \
+         "you can activate it by executing the following bash command:" \
+         "'source ${CERTLIB_LOG_DEV_VENV_DIR}/bin/activate'"
 fi

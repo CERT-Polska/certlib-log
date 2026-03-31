@@ -60,14 +60,14 @@ Python.
   logging configuration, providing -- in the contents of the `defaults`
   and/or `auto_makers` mapping(s) -- at least these three output keys:
 
-    * `"system"` (the output value assigned to it should be *the name of
-      the entire system or project* your script/application is part of),
+    * `"system"` (the output value assigned to it should be the name of
+      the *entire system* or *project* your script/application is part of),
 
-    * `"component"` (the output value assigned to it should be *the name
-      of the particular script or application* being executed),
+    * `"component"` (the output value assigned to it should be the name
+      of the particular *script* or *application* being executed),
 
     * `"component_type"` (the output value assigned to it should be a
-      conventional *label of the type of that script or application*,
+      conventional label of the *type* of that script or application,
       agreed upon in your organization; such as: `"web"`, `"parser"`,
       `"collector"`...).
 
@@ -193,13 +193,13 @@ structured_logs_formatter = StructuredLogsFormatter(
 
 !!! info "See also"
 
-    You may also want to look at the *reference documentation* for the
-    **[`StructuredLogsFormatter`][]** class.
+    You may also want to look at the *reference documentation* for
+    the **[`StructuredLogsFormatter`][]** class.
 
-Technically, each of the three *keyword-only* arguments accepted by the
-[`StructuredLogsFormatter`][] constructor is *optional*. However, when
-it comes to the `defaults` and `auto_makers` ones, you need to consider
-that:
+Technically, each of the three keyword arguments accepted by the
+[`StructuredLogsFormatter`][] constructor is *optional*. However,
+when it comes to the **`defaults`** and **`auto_makers`** ones,
+you need to consider that:
 
 * It is *required* that each of the following keys appears in *at least
   one* of those two mappings (in `defaults` and/or `auto_makers`):
@@ -221,13 +221,14 @@ that:
 
         If it is OK for you/your organization that some (or all) of the
         *output data* items listed above will remain unspecified, you
-        can provide such a `defaults` mapping in which some (or all)
+        can provide such a **`defaults`** mapping in which some (or all)
         of the aforementioned keys are mapped to **[`None`][]** values.
         Then, the said requirement will still be met, even though such
         *void* items will be automatically omitted from the ultimate
         **[`defaults`][StructuredLogsFormatter.defaults]** collection.
 
-        See also: **[`StructuredLogsFormatter.get_output_keys_required_in_defaults_or_auto_makers`][]**.
+        See also: **[`StructuredLogsFormatter.get_output_keys_required_in_defaults_or_auto_makers`][]**
+        (the method that defines the requirement discussed above).
 
 * It is *recommented* (though not enforced) that each of the following
   keys, *if it is relevant* to the particular `component_type`, appears in
@@ -245,11 +246,11 @@ that:
 
 !!! tip
 
-    If the presence of some *output data* keys makes sense only in
+    If the presence of some *output data* key makes sense only in
     a certain context (e.g., when handling a HTTP request...), just
-    make the respective *auto-makers* return **[`None`][]** in any
-    other context. Such *void* items will be automatically omitted
-    from the final *output data*.
+    make the respective *auto-maker* return **[`None`][]** in any
+    other contexts. Such *void* items will be automatically omitted
+    from *output data* dicts.
 
 Now we will prepare the *root logger*, attaching to it some handler
 *with our formatter* set on it:
@@ -379,7 +380,7 @@ here as being sorted by key, and with extra newlines/indentation):
 
 !!! info "See also"
 
-    To learn more about using **[`xm`][]**, see this guide's section
+    To learn more about using the **`xm`** tool, see this guide's section
     **[Tool: `xm`](#tool-xm)** (below).
 
 ***
@@ -572,7 +573,7 @@ logger.info(xm(my_data))
 
     In practice, this feature is useful in cases when the creation of
     certain values is costly, so that you would prefer that to be done
-    *only if necessary*.
+    *only* if the log entry is to be actually formatted and emitted.
 
 ***
 
@@ -765,7 +766,7 @@ for the [`StructuredLogsFormatter`][] class, you are strongly encouraged
 to do so. Among other things, you will find there a list of hook methods
 that can be extended/overridden in your subclasses. In that documentation,
 including descriptions of those hook methods, you can also find noteworthy
-information about other elements of the [`StructuredLogsFormatter`][]'s
+information about other elements of the `StructuredLogsFormatter`'s
 interface and behavior.
 
 ***
@@ -921,18 +922,18 @@ class StructuredLogsFormatter(logging.Formatter):
     (all *keyword-only*, all *optional*):
 
     * **`defaults`** (a [`dict`][] or other mapping; default: `{}`):
-        expected to map *output data* keys to respective *defaults* (see
-        also the description of the [`make_base_defaults`][] method...).
+        expected to map *output data* keys to respective *defaults*
+        (see also the method [`make_base_defaults`][]...).
 
     * **`auto_makers`** (a [`dict`][] or other mapping; default: `{}`):
         expected to map *output data* keys to respective *auto-makers*,
         or to *dotted paths* (*importable dotted names*) each of which
-        points to an *auto-maker* (see also the description of the
-        [`make_base_auto_makers`][] method...).
+        points to an *auto-maker* (see also the method
+        [`make_base_auto_makers`][]...).
 
     * **`serializer`** (a function or other callable; default: [`json.dumps`][]):
         expected to take one argument being a (JSON-serializable) [`dict`][]
-        and to return a [`str`][] (presumably, being a JSON-serialized form
+        and return a [`str`][] (presumably, being a JSON-serialized form
         of the given data, even though you may decide to use some other
         serialization format if this is OK for you/your organization).
         A *dotted path* (*importable dotted name*) pointing to such a
@@ -940,18 +941,18 @@ class StructuredLogsFormatter(logging.Formatter):
 
     **Alternatively**, a mapping (especially a [`dict`][]) of keyword
     arguments compatible with the primary signature described above,
-    or an [`ast.literal_eval`][]-evaluable [`str`][] representing such
+    or an [`ast.literal_eval`][]-evaluable string representing such
     a mapping, can be passed to the [`StructuredLogsFormatter`][]
     constructor as the first positional argument. (Then any extra
     arguments specific to the [`logging.Formatter`][] constructor
     are accepted but ignored, provided that the value of each is
     equivalent to its default. Thanks to that, it is possible to
-    specify the [`StructuredLogsFormatter`][]-specific arguments in
+    specify the `StructuredLogsFormatter`-specific arguments in
     a [`logging.config.fileConfig`][]-style configuration file...)
 
     ***
 
-    _**Important**_: the `serializer` callable should *not* mutate
+    _**Important**_: the **`serializer`** callable should *not* mutate
     anything in the data dict passed to it (regardless of the level
     of nesting, if nested data structures are involved). Whenever
     any change to some data is needed, a completely *new* object
@@ -959,8 +960,8 @@ class StructuredLogsFormatter(logging.Formatter):
 
     ***
 
-    [`StructuredLogsFormatter`][] defines the following
-    extendable/overridable hook methods:
+    `StructuredLogsFormatter` defines the following extendable/overridable
+    hook methods:
 
     * [`get_output_keys_required_in_defaults_or_auto_makers`][]
     * [`make_base_defaults`][]
@@ -973,8 +974,8 @@ class StructuredLogsFormatter(logging.Formatter):
     * [`serialize_prepared_output_data`][]
 
     In some of the individual descriptions of these methods, several other
-    elements of the [`StructuredLogsFormatter`][]'s interface and behavior
-    are also discussed -- in particular, the following public attributes:
+    elements of the `StructuredLogsFormatter`'s interface and behavior are
+    also discussed -- in particular, the following public attributes:
 
     * [`defaults`][]
     * [`auto_makers`][]
@@ -982,16 +983,15 @@ class StructuredLogsFormatter(logging.Formatter):
     * [`record_attr_to_output_key`][]
     * [`serializer`][]
 
-    *Note*: once an instance of [`StructuredLogsFormatter`][] is
-    initialized, its attributes should be treated as *read-only*
-    and *immutable* ones.
+    *Note*: once an instance of `StructuredLogsFormatter` is initialized,
+    its attributes should be treated as *read-only* and *immutable* ones.
 
     ***
 
     *Note*: the attributes of the [`logging.Formatter`][] base class
     related to customizing the way log entry timestamps are formatted
     (namely: `converter`, `default_time_format` and `default_msec_format`)
-    are _**ignored**_ by the machinery of [`StructuredLogsFormatter`][].
+    are _**ignored**_ by the machinery of `StructuredLogsFormatter`.
 
     To learn how to actually *customize timestamp formatting*, please
     refer to the description of the [`format_timestamp`][] method.
@@ -1088,10 +1088,11 @@ class StructuredLogsFormatter(logging.Formatter):
 
     def unregister_auto_makers(self) -> None:
         """
-        A rarely useful method: it should be invoked on an instance of
-        [`StructuredLogsFormatter`][] *only* when you need to stop using
-        that instance but continue using the [`logging`][] stuff during
-        further program execution (this does not seem to be a common case).
+        A rarely useful instance method: you should invoke it on a
+        `StructuredLogsFormatter` instance *only when* you need to
+        stop using that instance but continue using any `logging`
+        stuff during further program execution (this does not seem
+        to be a common case).
         """
         for rec_attr in self.auto_makers.keys():
             unregister_log_record_attr_auto_maker(rec_attr)
@@ -1103,7 +1104,7 @@ class StructuredLogsFormatter(logging.Formatter):
         """
         Overrides the [`logging.Formatter`'s
         implementation][logging.Formatter.format] with
-        a [`StructuredLogsFormatter`][]-specific one.
+        a `StructuredLogsFormatter`-specific one.
 
         In some respects, this implementation is similar to
         the original one -- in particular, it makes use of the
@@ -1113,20 +1114,24 @@ class StructuredLogsFormatter(logging.Formatter):
         attributes: [`message`, `asctime` and `exc_text`](https://docs.python.org/3/library/logging.html#logrecord-attributes)
         (making doing so subject to the same conditions).
 
-        However, it differs from the original in the following ways:
+        However, it differs from that original in the following ways:
 
-        * it does *not* append any *formatted traceback* or *formatted
+        * it *never* appends any *formatted traceback* or *formatted
           stack information* to the string returned by [`formatMessage`][]
-          (so, in particular, it does *not* invoke [`formatStack`][logging.Formatter.formatStack])
-          -- because that string is expected to represent the resultant
-          *output data* dict, already serialized;
+          (so, in particular, it *never* invokes [`formatStack`][logging.Formatter.formatStack])
+          -- because, in the case of this formatter class, that string
+          is expected to represent the resultant *output data* dict,
+          already serialized in JSON format (any exception or stack
+          information is supposed to be already included in it);
 
         * regarding how the target value of the log record's `message`
-          attribute is obtained: if the `msg` attribute of the given log
-          record is an instance of [`ExtendedMessage`][] ([`xm`][]), then
-          its [`format_message`][ExtendedMessage.format_message] method
-          is invoked, instead of the log record's [`getMessage`][logging.LogRecord.getMessage]
-          method.
+          attribute is obtained: if the `msg` attribute of the given
+          log record is an instance of [`ExtendedMessage`][] ([`xm`][]),
+          then its [`format_message`][ExtendedMessage.format_message]
+          method is invoked directly, instead of the log record's method
+          [`getMessage`][logging.LogRecord.getMessage] (which would cause
+          the `ExtendedMessage`'s [`__str__`][ExtendedMessage.__str__]
+          method to be invoked...).
         """
         # (Compare to the source code of `logging.Formatter.format()`...)
         msg = getattr(record, 'msg', None)
@@ -1152,8 +1157,8 @@ class StructuredLogsFormatter(logging.Formatter):
 
     def usesTime(self) -> bool:
         """
-        Overrides the [`logging.Formatter`][]'s
-        implementation with one that always returns [`True`][].
+        Overrides the [`logging.Formatter`][]'s implementation with one
+        that always returns [`True`][].
         """
         return True
 
@@ -1164,11 +1169,11 @@ class StructuredLogsFormatter(logging.Formatter):
     ) -> str:
         """
         Overrides the [`logging.Formatter`'s
-        implementation][logging.Formatter.formatTime] with such one that
+        implementation][logging.Formatter.formatTime] with one that
         delegates its entire job to the [`format_timestamp`][] method
-        (a [`StructuredLogsFormatter`][]-specific one), but first checks
-        if the `datefmt` argument is [`None`][] (if it is anything else,
-        [`TypeError`][] is raised).
+        (a `StructuredLogsFormatter`-specific one), but first checks
+        if the **`datefmt`** argument is [`None`][] (if it is anything
+        else, [`TypeError`][] is raised).
         """
         if datefmt is not None:
             slf = StructuredLogsFormatter.__qualname__
@@ -1193,7 +1198,7 @@ class StructuredLogsFormatter(logging.Formatter):
     def formatMessage(self, record: logging.LogRecord) -> str:
         """
         Overrides the [`logging.Formatter`][]'s implementation with a
-        [`StructuredLogsFormatter`][]-specific one -- which:
+        `StructuredLogsFormatter`-specific one -- which:
 
         * obtains a ready *output data* dict by applying the
           [`get_prepared_output_data`][] method to the given
@@ -1220,9 +1225,11 @@ class StructuredLogsFormatter(logging.Formatter):
         mappings:
 
         * the one returned by the [`make_base_defaults`][] method,
-        * the one specified as the `defaults` constructor argument (if any),
+        * the one specified as the **`defaults`** constructor argument
+          (if any),
         * the one returned by the [`make_base_auto_makers`][] method,
-        * the one specified as the `auto_makers` constructor argument (if any).
+        * the one specified as the **`auto_makers`** constructor argument
+          (if any).
 
         Whether this requirement is satisfied is checked during the
         formatter initialization. If the check fails, [`KeyError`][]
@@ -1231,13 +1238,13 @@ class StructuredLogsFormatter(logging.Formatter):
         *Note*: the requirement discussed above is considered satisfied
         *also* if some (or all) of the required items are provided *only
         as defaults* (i.e., only by the [`make_base_defaults`][]'s result
-        and/or the `defaults` constructor argument) *and* some (or all)
+        and/or the **`defaults`** constructor argument) *and* some (or all)
         of them define such *default values* that, after being processed
         by the [`prepare_value`][] method, will become *void* values (by
         which, in this context, we mean any *falsy* values *not equal* to
-        a *numeric zero*, for example: [`None`][], `""`, `[]` or `{}`...)
-        -- despite the fact that such *void* values are always *excluded*
-        from the ultimate collection of *default items* (see the remarks on
+        `0`; for example: [`None`][], `""`, `[]` or `{}`...) -- despite
+        the fact that such *void* values are always *excluded* from the
+        ultimate collection of *default items* (see the remarks regarding
         [`defaults`][] in the description of the [`make_base_defaults`][]
         method...).
 
@@ -1271,13 +1278,12 @@ class StructuredLogsFormatter(logging.Formatter):
 
         *Note*: for every instance, the [`defaults`][] mapping is based
         on this method's result, but is then updated with all items from
-        the `defaults` constructor argument (if given), and adjusted by
-        applying the [`prepare_value`][] method to each value, and -- then
-        -- by deleting each key to which a *void* value is assigned (by
-        *void* value we mean any *falsy* value that is *not equal* to a
-        *numeric zero*, for example: [`None`][], `""`, `[]` or `{}` -- but
-        _**not**_: `0`, `0.0`, [`False`][], [`Decimal(0)`][decimal.Decimal],
-        etc.).
+        the **`defaults`** constructor argument (if given), and adjusted
+        by applying the [`prepare_value`][] method to each value, and --
+        then -- by deleting each key to which a *void* value is assigned
+        (by *void* value we mean any *falsy* value that is *not equal* to
+        `0`, for example: [`None`][], `""`, `[]` or `{}` -- but _**not**_:
+        `0`, `0.0`, [`False`][], [`Decimal(0)`][decimal.Decimal], etc.).
         """
         return {}
 
@@ -1300,11 +1306,11 @@ class StructuredLogsFormatter(logging.Formatter):
 
         It is also worth noting that if such a return value from an
         *auto-maker*, after being processed by the [`prepare_value`][]
-        method, becomes a *void* value (by which, in this context, we
-        mean any *falsy* value *not equal* to a *numeric zero*, for
-        example: [`None`][], `""`, `[]` or `{}` -- but _**not**_: `0`,
-        `0.0`, [`False`][], [`Decimal(0)`][decimal.Decimal], etc.), then
-        the respective key will *not* be included in the actual *output
+        method, becomes a *void* value (by which, in this context,
+        we mean any *falsy* value *not equal* to `0`, for example:
+        [`None`][], `""`, `[]` or `{}` -- but _**not**_: `0`, `0.0`,
+        [`False`][], [`Decimal(0)`][decimal.Decimal], etc.), then the
+        respective key will *not* be included in the actual *output
         data* dict (*even* if some *default value* is defined for that
         key; and *even* if that key was included in the set returned by
         the [`get_output_keys_required_in_defaults_or_auto_makers`][]
@@ -1316,11 +1322,11 @@ class StructuredLogsFormatter(logging.Formatter):
 
         *Note*: for every instance, the [`auto_makers`][] mapping is
         based on this method's result, but is then updated with all
-        items from the `auto_makers` constructor argument (if given),
-        and -- then -- adjusted by prefixing each key with the value
-        of the attribute [`auto_made_record_attr_prefix`][] (which
-        is an automatically generated string -- *different* for each
-        formatter instance).
+        items from the **`auto_makers`** constructor argument (if given),
+        and -- then -- adjusted by prefixing each key with the value of
+        the [`auto_made_record_attr_prefix`][] attribute (which is an
+        automatically generated string -- *different* for each formatter
+        instance).
 
         (So that, regarding any log record attributes to be produced by
         this formatter instance's *auto-makers*, the respective *output
@@ -1393,16 +1399,16 @@ class StructuredLogsFormatter(logging.Formatter):
         how, for each log entry, the *formatted timestamp* (`asctime`) is
         to be determined.
 
-        This method is invoked by [`StructuredLogsFormatter.formatTime`][]
-        with a log record (typically, a [`logging.LogRecord`][] instance)
-        as the sole argument. The log record is supposed to have its
-        `created` attribute already set to a [`float`][] number
-        representing a Unix timestamp.
+        This method is invoked by the [`formatTime`][] method, with a log
+        record (typically, an instance of [`logging.LogRecord`][]) as the
+        sole argument. The log record is supposed to have [its `created`
+        attribute](https://docs.python.org/3/library/logging.html#logrecord-attributes)
+        already set to a [`float`][] number representing a Unix timestamp.
 
         What should be returned by this method is a [`str`][] (presumably,
         derived somehow from the aforementioned `created` log record
         attribute) that will later be assigned to the log record's
-        `asctime` attribute (by [`StructuredLogsFormatter.format`][]).
+        `asctime` attribute (by the [`format`][] method).
 
         The default implementation of this method should be sufficient
         in most cases. It converts the value of the given log record's
@@ -1415,10 +1421,10 @@ class StructuredLogsFormatter(logging.Formatter):
 
         ***
 
-        *Note*: when extending this method in a subclass, you may want
-        your custom implementation to invoke the default one, perhaps
+        *Note*: when extending this method in a subclass, you may want to
+        make your custom implementation invoke the default one, perhaps
         passing some keyword arguments. In such a case, you may want
-        to reach for their default values, defined by the signature of
+        to reach for their default values defined by the signature of
         [`StructuredLogsFormatter.format_timestamp`][]; if so, just refer
         to the [`StructuredLogsFormatter.FORMAT_TIMESTAMP_DEFAULT_KWARGS`][]
         mapping. For example:
@@ -1475,9 +1481,9 @@ class StructuredLogsFormatter(logging.Formatter):
         if p.kind is Parameter.KEYWORD_ONLY
     })
     """
-    The [`StructuredLogsFormatter.format_timestamp`][] keyword parameters'
-    default values (this mapping may come in handy when you extend that
-    method in a subclass...).
+    Default values of all [`StructuredLogsFormatter.format_timestamp`][]'s
+    *keyword-only* parameters (this mapping may come in handy when you
+    extend that method in a subclass...).
     """
 
     def get_prepared_output_data(self, record: logging.LogRecord) -> dict[str, Any]:
@@ -1565,15 +1571,15 @@ class StructuredLogsFormatter(logging.Formatter):
         [`enum.Enum`][], [`uuid.UUID`][] as well as the essential types
         from the [`datetime`][] and [`ipaddress`][] modules). When it
         comes to preparing any *keys* contained by a *value* which is
-        a mapping (e.g., a [`dict`][]) -- see the description of the
+        a mapping (e.g., a [`dict`][]) -- see the
         [`prepare_submapping_key`][] method...
 
         ***
 
-        *Note*: when extending this method in a subclass, you may want
-        your custom implementation to invoke the default one, perhaps
+        *Note*: when extending this method in a subclass, you may want to
+        make your custom implementation invoke the default one, perhaps
         passing some keyword arguments. In such a case, you may want
-        to reach for their default values, defined by the signature of
+        to reach for their default values defined by the signature of
         [`StructuredLogsFormatter.prepare_value`][]; if so, just refer
         to the [`StructuredLogsFormatter.PREPARE_VALUE_DEFAULT_KWARGS`][]
         mapping. For example:
@@ -1708,9 +1714,9 @@ class StructuredLogsFormatter(logging.Formatter):
         if p.kind is Parameter.KEYWORD_ONLY
     })
     """
-    The [`StructuredLogsFormatter.prepare_value`][] keyword parameters'
-    default values (this mapping may come in handy when you extend that
-    method in a subclass...).
+    Default values of all [`StructuredLogsFormatter.prepare_value`][]'s
+    *keyword-only* parameters (this mapping may come in handy when you
+    extend that method in a subclass...).
     """
 
     def prepare_submapping_key(self, key: object) -> str:
@@ -1724,16 +1730,16 @@ class StructuredLogsFormatter(logging.Formatter):
         in most cases. It applies [`str`][] to the given key and trims
         the result to a maximum length of 200 characters.
 
-        *Note*: [`prepare_value`][] is what invokes this method -- so,
-        let us stress that, this method is *not* applied to top-level
+        *Note*: [`prepare_value`][] is what invokes this method -- so
+        (let us stress that!) this method is *not* applied to top-level
         keys in the *output data* dict itself, but *is* applied to *each
-        key* in every mapping that [`prepare_value`][] takes as an input
-        *value* (also, in every dict created by [`prepare_value`][] as a
+        key* in every mapping that `prepare_value` takes as an input
+        *value* (also, in every dict created by `prepare_value` as a
         result of converting an *exception*, *named tuple* or *dataclass*
         instance...). All of this is true for the default implementation
-        of [`prepare_value`][]. It is recommended (yet not enforced) that
-        any custom implementations of the [`prepare_value`][] method make
-        use of this method in a similar way.
+        of `prepare_value`. It is recommended (yet not enforced) that
+        any custom implementations of the `prepare_value` method make
+        use of *this* method in a similar way.
         """
         key = str(key)
         if len(key) > self._DESIRED_MAX_KEY_LENGTH:
@@ -1751,10 +1757,11 @@ class StructuredLogsFormatter(logging.Formatter):
         some data is needed, a completely *new* object must be created.
 
         The default implementation of this method should be sufficient
-        in most cases. It just applies the [`serializer`][] callable
-        (that might be specified using the `serializer` argument to the
-        constructor; by default, it is [`json.dumps`][]) to the given
-        *output data* dict, and returns the result.
+        in most cases. It just applies the [`serializer`][] callable to
+        the given *output data* dict, and returns the result. (*Note*: by
+        default, that callable is just the [`json.dumps`][] function, but
+        this can be changed by passing the **`serializer`** argument to
+        the [`StructuredLogsFormatter`][] constructor...)
         """
         return self.serializer(output_data)
 
@@ -2143,112 +2150,119 @@ class ExtendedMessage:
     **Arguments accepted by the constructor** (all *optional*):
 
     * _**first positional argument**_ (default: `""`):
-        the text message pattern. Expected to be a [`str`][], or any
-        *truthy* object convertible to a string (by applying [`str`][] to
-        it). The pattern may contain [`{}`-formatting-style *replacement
-        fields*](https://docs.python.org/3/library/string.html#format-string-syntax).
-        If any *falsy* object is given, it is ignored (i.e., treated
-        as equivalent to `""`), otherwise the argument is assigned to
-        [`pattern`][] intact.
+        the text message pattern. Expected to be a string, or any *truthy*
+        object that could be converted to a string by applying [`str`][]
+        to it. The pattern may contain [`{}`-formatting-style *replacement
+        fields*](https://docs.python.org/3/library/string.html#format-string-syntax)
+        (perhaps with a `'!'`-separated *conversion* marker, and/or a
+        `':'`-separated *format spec*). The given object is assigned
+        to the [`pattern`][] attribute intact, unless it is *falsy* --
+        then it is ignored, and just `""` (empty string) is assigned
+        to that attribute.
 
     * _**extra positional arguments**_ (if any):
         positional *args* to format the text message (they need to match
         positional/numbered *replacement fields* in the text message
         pattern -- see the *first positional argument* described above).
-        A [`tuple`][] of these arguments is assigned to [`args`][].
+        A [`tuple`][] of these arguments is assigned to the [`args`][]
+        attribute.
 
     * **`exc_info`** (*keyword-only*; default: [`None`][]):
         its use and the related behavior are nearly the same as for a
         same-named argument to [`logging.Logger`][]'s methods (see [the
         relevant fragment](https://docs.python.org/3/library/logging.html#logging.Logger.debug)
         of the documentation for the `logging` module). This argument is
-        assigned to [`exc_info`][].
+        assigned to the [`exc_info`][] attribute.
 
     * **`stack_info`** (*keyword-only*; default: [`False`][]):
         its use and the related behavior are nearly the same as for a
         same-named argument to [`logging.Logger`][]'s methods (see [the
         relevant fragment](https://docs.python.org/3/library/logging.html#logging.Logger.debug)
         of the documentation for the `logging` module). This argument is
-        assigned to [`stack_info`][]. *Note:* if you pass a `stack_info`
-        argument to the [`ExtendedMessage`][] ([`xm`][]) constructor, you
-        *should not* pass `stack_info` or `stacklevel` to the related
-        logger method call (this would result in undefined behavior).
+        assigned to the [`stack_info`][] attribute. *Note:* if you pass a
+        **`stack_info`** argument to the [`ExtendedMessage`][] ([`xm`][])
+        constructor, you *should not* pass **`stack_info`** or
+        **`stacklevel`** to the related logger method call (this
+        would result in undefined behavior).
 
     * **`stacklevel`** (*keyword-only*; default: `1`):
         its use and the related behavior are nearly the same as for a
         same-named argument to [`logging.Logger`][]'s methods (see [the
         relevant fragment](https://docs.python.org/3/library/logging.html#logging.Logger.debug)
         of the documentation for the `logging` module). This argument is
-        assigned to [`stacklevel`][]. *Note:* if you pass a `stacklevel`
-        argument to the [`ExtendedMessage`][] ([`xm`][]) constructor, you
-        *should not* pass `stacklevel` or `stack_info` to the related
-        logger method call (this would result in undefined behavior).
+        assigned to the [`stacklevel`][] attribute. *Note:* if you pass a
+        **`stacklevel`** argument to the [`ExtendedMessage`][] ([`xm`][])
+        constructor, you *should not* pass **`stacklevel`** or
+        **`stack_info`** to the related logger method call (this
+        would result in undefined behavior).
 
     * _**extra keyword arguments**_ (if any):
-        all of them will become extra *data* items -- to be included in
-        the *output data* dict if [`StructuredLogsFormatter`][] is used,
-        or appended to the text message (in a form similar to the *keyword
-        arguments* syntax) if any other formatter is in use (as then just
-        [`str`][] will be applied to the [`ExtendedMessage`][] instance,
-        invoking its [`__str__`][] method). A [`dict`][] of those extra
-        *data* items is always assigned to [`data`][]. Moreover, any
-        items whose names match some *named replacement fields* in the
-        text message pattern (given as the *first positional argument*)
-        will take part in formatting the actual message (regardless of
-        what formatter is in use).
+        all of them become *extra data* items -- to be included in the
+        *output data* dict if [`StructuredLogsFormatter`][] is in use,
+        or to be appended to the text message (in a form resembling the
+        keyword arguments syntax) if some other formatter is in use. A
+        [`dict`][] of those *extra data* items is always stored as the
+        [`data`][] attribute. Moreover, any items whose names match some
+        *named replacement fields* in the text message pattern (specified
+        as the *first positional argument*) will take part in formatting
+        the actual text message (regardless of what formatter is in use).
 
-    **Alternatively**, a mapping (e.g., a [`dict`][]) of extra *data*
-    items can be passed to the constructor as the *first positional
-    argument*. Then any *extra positional or keyword arguments* are
-    forbidden -- except `exc_info`, `stack_info` and `stacklevel`. The
-    effect is the same as passing each of that mapping's items as an
-    *extra keyword argument* without passing a message pattern as the
-    *first positional argument*. That mapping, after conversion to a
-    [`dict`][], is assigned to [`data`][].
+    **Alternatively**, a mapping (e.g., a [`dict`][]) of *extra data*
+    items can be passed to the [constructor][ExtendedMessage] as the
+    *first positional argument*. Then any *extra positional or keyword
+    arguments* are forbidden -- except **`exc_info`**, **`stack_info`**
+    and **`stacklevel`**. The effect is the same as passing each of
+    that mapping's items as an *extra keyword argument* without passing
+    a message pattern as the *first positional argument*. The mapping,
+    after conversion to a `dict`, is assigned to the [`data`][] attribute.
 
-    When it comes to the arguments `exc_info`, `stack_info` and
-    `stacklevel`, they should *not* be included in that mapping
-    (each of them, if to be specified, should *only* be specified
-    as a real keyword argument).
+    When it comes to the arguments **`exc_info`**, **`stack_info`** and
+    **`stacklevel`**, they should *not* be included in that mapping (each
+    of them, if to be specified, should *only* be specified as a real
+    keyword argument).
 
     ***
 
-    If any of the said *extra positional arguments* or *extra keyword
-    arguments* (or any value in the extra *data* mapping, also discussed
-    above) is a *function* or *method* (precisely: an instance of any
-    type included in [`ExtendedMessage.recognized_callable_arg_or_data_item_types`][])
-    -- it will be called to get the actual value (which will replace
-    that function/method) at the moment the message is being formatted
-    (precisely: the first time any of the following methods is invoked
-    on this [`ExtendedMessage`][] instance: [`format_message`][],
+    Whenever a formatter (of any type) processes a log record whose `msg`
+    attribute (which typically is just what has been passed to the logger
+    method call as the first argument) is an `ExtendedMessage` (`xm`)
+    instance, the [`format_message`][] method is invoked on that instance:
+    either *directly* -- by the [`StructuredLogsFormatter`][]'s machinery;
+    or *indirectly*, via [`__str__`][] -- by the standard machinery that
+    other formatters use.
+
+    *Note*: if a text message pattern (*not* a mapping) is passed to the
+    [constructor][ExtendedMessage] as the *first positional argument*
+    _**and**_ no *extra positional or keyword arguments* are provided
+    (except **`exc_info`**, **`stack_info`** and **`stacklevel`**) --
+    that is, if both of the attributes [`args`][] and [`data`][] are
+    *empty* -- then the [`format_message`][] method will *not* attempt
+    to format the text message with [`str.format`][]; instead, it will
+    treat that pattern ([`pattern`][]) as an *already formatted* text
+    message.
+
+    ***
+
+    If any of the *extra positional arguments*/*extra keyword arguments*
+    described earlier (or any value in the *extra data* mapping, also
+    discussed above) is a *function* or *method* (precisely: an instance
+    of any type included in [`ExtendedMessage.recognized_callable_arg_or_data_item_types`][])
+    -- it will be called to get the actual value (which will replace that
+    function/method) when the `ExtendedMessage` instance is processed by
+    a formatter (precisely: the first time any of the following methods
+    is invoked on this `ExtendedMessage` instance: [`format_message`][],
     [`get_non_falsy_msg_related_components`][] or [`__str__`][]).
 
     Thanks to that mechanism, if the creation of some value is costly,
     you can wrap it in a function (in particular, in an argumentless
-    `lambda`) to delay it until the value is actually needed. Such a
-    function/method is expected to take no arguments (so if it is a
-    method, it should already be bound to some instance or class).
-    If it raises any [`Exception`][]-derived error, the error will
-    be suppressed and a (usually short) description of that error
-    will constitute the item's value.
-
-    ***
-
-    Regarding the [`ExtendedMessage`][]'s method [`format_message`][]:
-    when any formatter (regardless of its type) is producing a log
-    entry, that method is always invoked -- *directly* by the machinery
-    of [`SerializingFormatter`][], or *indirectly* (via [`__str__`][])
-    by the standard machinery that other formatters use.
-
-    *Note*: if a text message pattern was passed to the constructor as
-    the *first positional argument* (*not* being a mapping) *and* there
-    were no *extra positional or keyword arguments* (except `exc_info`,
-    `stack_info` and `stacklevel`) -- that is, if both of the attributes
-    [`args`][] and [`data`][] are *empty* -- then *no* message formatting
-    is attempted by the [`format_message`][] method; instead, it returns
-    just the *text message pattern* ([`pattern`][]) -- except that first
-    that pattern is converted to a [`str`][] if a non-`str` object was
-    given (see the above description of the *first positional argument*).
+    `lambda`) to delay that costly operation until the value becomes
+    necessary (which may never happen -- if, for example, the log level
+    of the entry being emitted is lower than the configured threshold).
+    Such a function/method is expected to take no arguments (so if it
+    is a method, it should already be bound to some instance or class).
+    If it raises any [`Exception`][]-derived error, the error will be
+    suppressed and a (usually short) description of that error will
+    constitute the item's value.
 
     ***
 
@@ -2283,8 +2297,8 @@ class ExtendedMessage:
         types.MethodWrapperType,
     )
     """
-    For [`ExtendedMessage`][], this tuple contains just the runtime types
-    of *functions* and *bound methods* -- both built-in and user-defined
+    For `ExtendedMessage`, this tuple contains just the runtime types of
+    *functions* and *bound methods* -- both built-in and user-defined
     ones (i.e.: [`types.BuiltinFunctionType`][], [`types.FunctionType`][],
     [`types.MethodType`][] and [`types.MethodWrapperType`][]). You can
     override this attribute in your subclass to redefine the runtime types
@@ -2343,7 +2357,7 @@ class ExtendedMessage:
         if isinstance(first_arg, Mapping):
             if args or data:
                 raise TypeError(
-                    f"{type(self).__qualname__}'s extra *data* items, "
+                    f"{type(self).__qualname__}'s *extra data* items, "
                     f"if any, must be passed to its constructor either "
                     f"by keyword arguments or as a mapping being the "
                     f"only positional argument (not both)"
@@ -2364,7 +2378,7 @@ class ExtendedMessage:
     def format_message(self) -> str:
         """
         Automatically invoked by the [`StructuredLogsFormatter`][]'s
-        machinery to obtain a `str` which will be assigned to the [log
+        machinery to obtain a string which will be assigned to the [log
         record's `message` attribute](https://docs.python.org/3/library/logging.html#logrecord-attributes).
 
         The default implementation of this method should be sufficient
@@ -2374,6 +2388,8 @@ class ExtendedMessage:
         it all items of [`args`][] as *positional arguments* and all
         items of [`data`][] as *keyword arguments*; the resultant string
         is returned.
+
+        *See also*: [`__str__`][].
         """
         if self._callable_args_and_data_items_unresolved:
             self._resolve_callable_args_and_data_items()
@@ -2407,28 +2423,30 @@ class ExtendedMessage:
 
     def __str__(self) -> str:
         """
-        Invoked when [`str`][] is applied to an [`ExtendedMessage`][]
-        -- which, in particular, is done by the machinery related to a
-        *typical formatter* (_**not**_ a [`StructuredLogsFormatter`][])
-        to obtain a `str` which will be assigned to the [log record's
-        `message` attribute](https://docs.python.org/3/library/logging.html#logrecord-attributes).
+        Invoked when [`str`][] is applied to an `ExtendedMessage`
+        instance. This is done, in particular, by the machinery related
+        to typical log formatters (_**not**_ `StructuredLogsFormatter`
+        ones), to obtain a string which will be assigned to the [log
+        record's `message` attribute](https://docs.python.org/3/library/logging.html#logrecord-attributes).
 
         The default implementation of this method should be sufficient
-        in most cases (it invokes the [`iter_str_parts`][] method and
-        joins any yielded strings using the `" | "` separator).
+        in most cases. It invokes the [`iter_str_parts`][] method (which,
+        in particular, invokes [`format_message`][]...) and concatenates
+        any yielded strings (if more than one) using `" | "` separators.
         """
         return ' | '.join(self.iter_str_parts())
 
     @reprlib.recursive_repr(fillvalue='<...>')
     def __repr__(self) -> str:
         """
-        Invoked when [`repr`][] is applied to an [`ExtendedMessage`][]
-        (typically, for debug purposes).
+        Invoked when [`repr`][] is applied to an `ExtendedMessage`
+        instance (typically, for debug purposes).
 
         The default implementation of this method should be sufficient
-        in most cases (it invokes the [`iter_argument_reprs`][] method,
-        joins any yielded strings using the `", "` separator, adds the
-        parentheses and prefixes the whole thing with the class name).
+        in most cases. It invokes the [`iter_argument_reprs`][] method,
+        concatenates any yielded strings (if more than one) using `", "`
+        separators, adds the parentheses, and prefixes the whole thing
+        with the class name.
         """
         type_name = type(self).__qualname__
         arguments_repr = ', '.join(self.iter_argument_reprs())
@@ -2442,7 +2460,8 @@ class ExtendedMessage:
         or two strings. Specifically -- each of the following if
         not empty:
 
-        * the result of a call to the [`format_message`][] method;
+        * the result of an invocation of the [`format_message`][]
+          method;
 
         * a representation of the [`data`][] mapping's items
           (formatted in a way that resembles the syntax for
@@ -2460,12 +2479,11 @@ class ExtendedMessage:
         Invoked by the [`__repr__`][] method.
 
         The default implementation of this method yields string
-        representations of such arguments to the [`ExtendedMessage`][]
-        ([`xm`][]) constructor that would be needed to recreate an
-        instance equivalent to the one on which this method is being
-        invoked (i.e., to `self`).
+        representations of arguments to the [`ExtendedMessage`][]
+        ([`xm`][]) constructor that would be needed to create an
+        instance being equivalent to this one.
         """
-        if self.args or self.pattern or type(self.pattern) is not str:
+        if self.args or self.pattern:
             yield repr(self.pattern)
         if self.args:
             yield from map(repr, self.args)
@@ -2604,9 +2622,9 @@ xm: Final = ExtendedMessage
 def make_constant_value_provider(value: _T) -> Callable[[], _T]:
     """
     A trivial (yet sometimes useful) helper: given an arbitrary object
-    (`value`), make an argumentless function that always returns that
-    object (note that such an argumentless function can be used as an
-    *auto-maker*).
+    (**`value`**), make an argumentless function that will always return
+    that object (note that such an argumentless function can be used as
+    an *auto-maker*).
     """
     return (lambda: value)
 
@@ -2616,25 +2634,25 @@ def register_log_record_attr_auto_maker(
     auto_maker: Callable[[], object],
 ) -> None:
     """
-    For the specified attribute (`rec_attr`), register the specified
-    *auto-maker* function (`auto_maker`); actually it can be any object
-    that is able to be repeatedly called with *no arguments*.
+    For the given log record attribute name (**`rec_attr`**), register
+    the given *auto-maker* callable (**`auto_maker`**).
 
-    More precisely: by calling [`register_log_record_attr_auto_maker`][]
-    you make sure that the specified attribute (`rec_attr`) will always
-    be automatically set *on each new log record object* (typically, a
-    [`logging.LogRecord`][] instance) *created by a logger* -- to a value
-    obtained as the result of a new argumentless call to the specified
-    callable (`auto_maker`).
+    Precisely: by calling this function you ensure that the specified
+    attribute will always be automatically set *on each new log record
+    object* (which, at least typically, is a [`logging.LogRecord`][]
+    instance) after it is *created by a logger* -- to a result of a call
+    (separate for each log record) to the specified *auto-maker* (which
+    needs to be an argumentless function or any other object that is
+    able to be called many times, with *no arguments*).
 
-    If, for the specified attribute, an *auto-maker* has already been
-    registered (and has *not* been unregistered by calling the function
-    [`unregister_log_record_attr_auto_maker`][]), this function raises
-    [`KeyError`][].
+    If, for the specified attribute name, an *auto-maker* has already
+    been registered (and has *not* been unregistered by calling the
+    function [`unregister_log_record_attr_auto_maker`][]), this function
+    raises [`KeyError`][].
 
-    *Note*: typically you do not need to use this function directly,
-    as [`StructuredLogsFormatter`][]'s machinery does it for you
-    (on the creation of a [`StructuredLogsFormatter`][] instance,
+    *Note*: typically, you do not need to use this function directly,
+    because the [`StructuredLogsFormatter`][]'s machinery does it for
+    you (on the creation of a `StructuredLogsFormatter` instance,
     provided that any *auto-makers* are specified).
     """
     with _auto_makers_registry_and_internal_record_hooks_maintenance_lock:
@@ -2646,13 +2664,14 @@ def unregister_log_record_attr_auto_maker(
     rec_attr: str,
 ) -> None:
     """
-    For the specified attribute (`rec_attr`), unregister the previously
-    registered *auto-maker*.
+    For the given log record attribute name (**`rec_attr`**), unregister
+    the previously registered *auto-maker*.
 
-    If, for the specified attribute, **no** *auto-maker* has been registered
-    yet by calling the [`register_log_record_attr_auto_maker`][] function
-    (or an *auto-maker* had been registered, but then it was unregistered
-    by calling this function), this function raises [`KeyError`][].
+    If, for the specified attribute name, **no** *auto-maker* has been
+    registered yet by calling the [`register_log_record_attr_auto_maker`][]
+    function (or an *auto-maker* had been registered, but then it was
+    unregistered by calling this function), this function raises
+    [`KeyError`][].
     """
     with _auto_makers_registry_and_internal_record_hooks_maintenance_lock:
         _remove_from_auto_makers_registry(rec_attr)
