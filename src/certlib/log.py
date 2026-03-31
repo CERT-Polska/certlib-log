@@ -2354,7 +2354,7 @@ class ExtendedMessage:
         if isinstance(first_arg, Mapping):
             if args or data:
                 raise TypeError(
-                    f"{type(self).__qualname__}'s extra *data* items, "
+                    f"{type(self).__qualname__}'s *extra data* items, "
                     f"if any, must be passed to its constructor either "
                     f"by keyword arguments or as a mapping being the "
                     f"only positional argument (not both)"
