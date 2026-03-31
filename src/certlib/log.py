@@ -2480,7 +2480,7 @@ class ExtendedMessage:
         ([`xm`][]) constructor that would be needed to create an
         instance being equivalent to this one.
         """
-        if self.args or self.pattern or type(self.pattern) is not str:
+        if self.args or self.pattern:
             yield repr(self.pattern)
         if self.args:
             yield from map(repr, self.args)
