@@ -1226,9 +1226,9 @@ class StructuredLogsFormatter(logging.Formatter):
           method to the obtained *output data* dict, and
           returns the result.
 
-        *Note*: the `formatMessage` name may be slightly misleading --
-        so let us emphasize that the job of this method is *always*,
-        also in the case of the original `logging.Formatter` class, to
+        *Note*: the `formatMessage` name may be slightly misleading.
+        Let us emphasize that the job of this method is *always* -- also
+        in the case of the original `logging.Formatter` class -- to
         format *the crux of the entire log entry*, _**not**_ just the
         value of the log record's `message` attribute. Formatting the
         latter is the job of the log record's [`getMessage`][logging.LogRecord.getMessage]
@@ -2292,7 +2292,7 @@ class ExtendedMessage:
     instance, the [`get_message_value`][] method is invoked on that
     instance: either *directly* -- by the [`StructuredLogsFormatter`][]'s
     machinery; or *indirectly*, via [`__str__`][] -- by the standard
-    machinery that other formatters use.
+    machinery that other formatter types use.
 
     *Note*: if a text message pattern (*not* a mapping) is passed to the
     [constructor][ExtendedMessage] as the *first positional argument*
@@ -2529,10 +2529,9 @@ class ExtendedMessage:
         * the result of an invocation of the [`get_message_value`][]
           method;
 
-        * a representation of the [`data`][] mapping's items
-          (formatted in a way that resembles the syntax for
-          specifying keyword arguments, but without the
-          parentheses).
+        * a representation of the [`data`][] mapping's items (formatted
+          in a way that resembles the syntax for specifying keyword
+          arguments, but without the parentheses).
         """
         if formatted_message := self.get_message_value():
             yield formatted_message
