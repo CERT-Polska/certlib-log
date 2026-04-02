@@ -1991,7 +1991,7 @@ class StructuredLogsFormatter(logging.Formatter):
             **{
                 rec_attr: rec_attr.removeprefix(self.auto_made_record_attr_prefix)
                 for rec_attr in self.auto_makers.keys()
-            }
+            },
         )
 
     def _validate_output_key(self, key: str) -> str:
