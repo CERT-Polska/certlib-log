@@ -1145,7 +1145,7 @@ class StructuredLogsFormatter(logging.Formatter):
         * regarding how the target value of the log record's `message`
           attribute is determined: if the `msg` attribute of the given
           log record is an instance of [`ExtendedMessage`][] ([`xm`][]),
-          then that instance's [`format_message`][ExtendedMessage.format_message]
+          then that instance's [`get_message_value`][ExtendedMessage.get_message_value]
           method is invoked (directly), *instead* of the log record's
           method [`getMessage`][logging.LogRecord.getMessage] (which would
           cause the [`ExtendedMessage`'s `__str__`][ExtendedMessage.__str__]
@@ -1164,7 +1164,7 @@ class StructuredLogsFormatter(logging.Formatter):
                     f"(or `xm(...)`) call, not to the logger method "
                     f"call itself (*args passed to it: {args!a})"
                 )
-            record.message = msg.format_message()
+            record.message = msg.get_message_value()
         else:
             record.message = record.getMessage()
         if self.usesTime():
@@ -1234,8 +1234,8 @@ class StructuredLogsFormatter(logging.Formatter):
         latter is the job of the log record's [`getMessage`][logging.LogRecord.getMessage]
         method, or -- when the machinery of `StructuredLogsFormatter`
         deals with an [`ExtendedMessage`][] ([`xm`][]) instance -- of
-        the [`format_message`][ExtendedMessage.format_message] method
-        of that instance.
+        the [`get_message_value`][ExtendedMessage.get_message_value]
+        method of that instance.
         """
         output_data = self.get_prepared_output_data(record)
         return self.serialize_prepared_output_data(output_data)
@@ -2289,17 +2289,17 @@ class ExtendedMessage:
     Whenever a formatter (of any type) processes a log record whose `msg`
     attribute (which typically is just what has been passed to the logger
     method call as the first argument) is an `ExtendedMessage` (`xm`)
-    instance, the [`format_message`][] method is invoked on that instance:
-    either *directly* -- by the [`StructuredLogsFormatter`][]'s machinery;
-    or *indirectly*, via [`__str__`][] -- by the standard machinery that
-    other formatters use.
+    instance, the [`get_message_value`][] method is invoked on that
+    instance: either *directly* -- by the [`StructuredLogsFormatter`][]'s
+    machinery; or *indirectly*, via [`__str__`][] -- by the standard
+    machinery that other formatters use.
 
     *Note*: if a text message pattern (*not* a mapping) is passed to the
     [constructor][ExtendedMessage] as the *first positional argument*
     _**and**_ no *extra positional or keyword arguments* are provided
     (except **`exc_info`**, **`stack_info`** and **`stacklevel`**) --
     that is, if both of the attributes [`args`][] and [`data`][] are
-    *empty* -- then the [`format_message`][] method will *not* attempt
+    *empty* -- then the [`get_message_value`][] method will *not* attempt
     to format the text message with [`str.format`][]; instead, it will
     treat that pattern ([`pattern`][]) as an *already formatted* text
     message.
@@ -2313,7 +2313,7 @@ class ExtendedMessage:
     -- it will be called to get the actual value (which will replace that
     function/method) when the `ExtendedMessage` instance is processed by
     any formatter (precisely: the first time any of the following methods
-    is invoked on the `ExtendedMessage` instance: [`format_message`][],
+    is invoked on the `ExtendedMessage` instance: [`get_message_value`][],
     [`get_non_falsy_msg_related_components`][] or [`__str__`][]).
 
     Thanks to that mechanism, if the creation of some value is costly,
@@ -2438,7 +2438,7 @@ class ExtendedMessage:
         self.stacklevel = stacklevel
         self._callable_args_and_data_items_unresolved = True
 
-    def format_message(self) -> str:
+    def get_message_value(self) -> str:
         """
         Automatically invoked by the [`StructuredLogsFormatter`][]'s
         machinery to obtain a string which will be assigned to the [log
@@ -2497,7 +2497,7 @@ class ExtendedMessage:
 
         The default implementation of this method should be sufficient
         in most cases. It invokes the [`iter_str_parts`][] method (which,
-        in particular, invokes [`format_message`][]...) and concatenates
+        in particular, invokes [`get_message_value`][]...) and concatenates
         any yielded strings (if more than one) using `" | "` separators.
         """
         return ' | '.join(self.iter_str_parts())
@@ -2526,7 +2526,7 @@ class ExtendedMessage:
         or two strings. Specifically -- *each* of the following *if
         not empty*:
 
-        * the result of an invocation of the [`format_message`][]
+        * the result of an invocation of the [`get_message_value`][]
           method;
 
         * a representation of the [`data`][] mapping's items
@@ -2534,7 +2534,7 @@ class ExtendedMessage:
           specifying keyword arguments, but without the
           parentheses).
         """
-        if formatted_message := self.format_message():
+        if formatted_message := self.get_message_value():
             yield formatted_message
         if formatted_data_items := ', '.join(
             f'{key}={val!a}' for key, val in self.data.items()
