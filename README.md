@@ -99,11 +99,11 @@ def example_with_text_message_formatting(city, humidity, error_summary=None):
         ]},
     ))
 
-def example_with_no_text(temperature, pressure, debug_data_dict, ok=True):
+def example_with_no_text(temperature, pressure, debug_data_dict, calm=True):
     # (especially useful when `certlib.log.StructuredLogsFormatter` is in
     # use => then any *text-message*-related output keys are just omitted)
 
-    if ok:
+    if calm:
         logger.info(xm(
             temperature=temperature,
             pressure=pressure,
@@ -120,7 +120,7 @@ def example_with_no_text(temperature, pressure, debug_data_dict, ok=True):
             stacklevel=2,
         ))
 
-    # single dict argument is also accepted:
+    # single dict argument is also OK:
     logger.debug(xm(debug_data_dict))
 ```
 
