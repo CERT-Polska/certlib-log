@@ -821,6 +821,9 @@ Future ideas under consideration include:
 """
 
 
+# mypy: disable_error_code = "unused-ignore"
+
+
 from __future__ import annotations
 
 import ast
@@ -856,6 +859,7 @@ from typing import (
     Any,
     ClassVar,
     Final,
+    Literal,
     TypeVar,
     cast,
     overload,
@@ -1517,7 +1521,13 @@ class StructuredLogsFormatter(logging.Formatter):
         dt_without_tzinfo = dt_timestamp.replace(tzinfo=None)
         return f"{dt_without_tzinfo.isoformat(' ', 'microseconds')}{custom_suffix}"
 
-    FORMAT_TIMESTAMP_DEFAULT_KWARGS: ClassVar[Final[Mapping[str, Any]]] = types.MappingProxyType({
+    # Note: the `type: ignore` comment below prevents type checkers from
+    # rejecting `Final` nested in `ClassVar` (which is OK in Python 3.13
+    # and newer; and we use `from __future__ import annotations` anyway,
+    # so at runtime we are safe regardless of Python version).
+    FORMAT_TIMESTAMP_DEFAULT_KWARGS: ClassVar[Final[   # type: ignore
+        Mapping[str, Any]
+    ]] = types.MappingProxyType({
         p.name: p.default
         for p in signature(format_timestamp).parameters.values()
         if p.kind is Parameter.KEYWORD_ONLY
@@ -1572,7 +1582,7 @@ class StructuredLogsFormatter(logging.Formatter):
           key one or more `_` characters (as needed); such cases are
           expected to be rare.
         """
-        output_data = {}
+        output_data: dict[str, Any] = {}
         actual_defaults = dict(self.defaults)
         handle_output_item = functools.partial(
             self._handle_output_item,
@@ -1608,8 +1618,8 @@ class StructuredLogsFormatter(logging.Formatter):
         ),
         pass_thru_types: tuple[type, ...] = (str, int, float, bool, type(None)),
         exclude_from_seq_types: tuple[type, ...] = (str, bytes, bytearray),
-        is_dataclass: Callable[[object], bool] = dataclasses.is_dataclass,
-        dataclass_as_dict: Callable[[Any], dict] = dataclasses.asdict,
+        is_dataclass: Callable[[object], bool] = dataclasses.is_dataclass,  # type: ignore
+        dataclass_as_dict: Callable[[Any], dict] = dataclasses.asdict,      # type: ignore
         last_resort: Callable[[object], str] = repr,
         **kwargs: Any,
     ) -> Any:
@@ -1732,7 +1742,7 @@ class StructuredLogsFormatter(logging.Formatter):
             return self.prepare_value(exc_components, **kwargs)
 
         if isinstance(value, Sequence) and not isinstance(value, exclude_from_seq_types):
-            seq = cast(Sequence, value)  # (Some type checkers are too silly...)
+            seq = cast(Sequence[object], value)
 
             if (len(seq) == 3
                   and seq[0] is type(seq[1])
@@ -1771,7 +1781,13 @@ class StructuredLogsFormatter(logging.Formatter):
         # Any other object...
         return last_resort(value)
 
-    PREPARE_VALUE_DEFAULT_KWARGS: ClassVar[Final[Mapping[str, Any]]] = types.MappingProxyType({
+    # Note: the `type: ignore` comment below prevents type checkers from
+    # rejecting `Final` nested in `ClassVar` (which is OK in Python 3.13
+    # and newer; and we use `from __future__ import annotations` anyway,
+    # so at runtime we are safe regardless of Python version).
+    PREPARE_VALUE_DEFAULT_KWARGS: ClassVar[Final[   # type: ignore
+        Mapping[str, Any]
+    ]] = types.MappingProxyType({
         p.name: p.default
         for p in signature(prepare_value).parameters.values()
         if p.kind is Parameter.KEYWORD_ONLY
@@ -1804,10 +1820,10 @@ class StructuredLogsFormatter(logging.Formatter):
         any custom implementations of the `prepare_value` method make
         use of *this* method in a similar way.
         """
-        key = str(key)
-        if len(key) > self._DESIRED_MAX_KEY_LENGTH:
-            key = key[:self._DESIRED_MAX_KEY_LENGTH]
-        return key
+        key_str = str(key)
+        if len(key_str) > self._DESIRED_MAX_KEY_LENGTH:
+            key_str = key_str[:self._DESIRED_MAX_KEY_LENGTH]
+        return key_str
 
     def serialize_prepared_output_data(self, output_data: dict[str, Any]) -> str:
         """
@@ -1839,9 +1855,9 @@ class StructuredLogsFormatter(logging.Formatter):
         self,
         # (Compare to the signature of `logging.Formatter.__init__()`...)
         fmt: str | Mapping[str, Any] | None = None,
-        datefmt: str | None = None,
-        style: str = '%',
-        validate: bool = True,
+        datefmt: Literal[''] | None = None,
+        style: Literal['%'] = '%',
+        validate: Literal[True] = True,
         **arguments: Any,
     ) -> dict[str, Any]:
         if fmt and isinstance(fmt, str):
@@ -1906,8 +1922,8 @@ class StructuredLogsFormatter(logging.Formatter):
 
     def _get_unprefixed_auto_makers(
         self,
-        given_auto_makers: Mapping[str, str | Callable[[], _T]],
-    ) -> Mapping[str, Callable[[], _T]]:
+        given_auto_makers: Mapping[str, str | Callable[[], object]],
+    ) -> Mapping[str, Callable[[], object]]:
         raw_auto_makers = dict(self.make_base_auto_makers())
         raw_auto_makers.update(given_auto_makers)
         return dict(sorted(
@@ -1922,7 +1938,8 @@ class StructuredLogsFormatter(logging.Formatter):
     ) -> tuple[str, Callable[[], _T]]:
         key = self._validate_output_key(key)
         if isinstance(auto_maker, str):
-            auto_maker = _resolve_dotted_path(auto_maker)
+            resolved: Callable[[], _T] = _resolve_dotted_path(auto_maker)
+            auto_maker = resolved
         if not callable(auto_maker):
             raise TypeError(
                 f'the {key!a} auto-maker does not appear '
@@ -1965,8 +1982,8 @@ class StructuredLogsFormatter(logging.Formatter):
     def _get_actual_auto_makers(
         self,
         auto_made_record_attr_prefix: str,
-        unprefixed_auto_makers: Mapping[str, Callable[[], _T]],
-    ) -> Mapping[str, Callable[[], _T]]:
+        unprefixed_auto_makers: Mapping[str, Callable[[], object]],
+    ) -> Mapping[str, Callable[[], object]]:
         return {
             auto_made_record_attr_prefix + key: auto_maker
             for key, auto_maker in unprefixed_auto_makers.items()
@@ -2008,7 +2025,7 @@ class StructuredLogsFormatter(logging.Formatter):
         self,
         given_serializer: str | Callable[[dict[str, Any]], str],
     ) -> Callable[[dict[str, Any]], str]:
-        serializer = (
+        serializer: Callable[[dict[str, Any]], str] = (
             _resolve_dotted_path(given_serializer) if isinstance(given_serializer, str)
             else given_serializer
         )
@@ -2163,6 +2180,9 @@ class StructuredLogsFormatter(logging.Formatter):
 
         if not isinstance(key, str):
             return
+        # Note: the `type: ignore` comments in this function (below) just
+        # silence certain silly typing tools (*other* than `mypy`!) which
+        # do not comprehend that from this point `key` is always a str. :/
 
         if len(key) > desired_max_key_length:
             # Trim the key (it's a rare case, hopefully).
@@ -2176,11 +2196,11 @@ class StructuredLogsFormatter(logging.Formatter):
             # is, a value assumed to carry *no sufficiently significant*
             # information); then, however, we also prevent the respective
             # *default value* (if any) from being set.
-            actual_defaults.pop(key, None)
+            actual_defaults.pop(key, None)  # type: ignore
             return
 
         # Finally, set the prepared item.
-        actually_set_value = output_data.setdefault(key, value_prepared)
+        actually_set_value = output_data.setdefault(key, value_prepared)  # type: ignore
         if actually_set_value is value_prepared:
             return
 
@@ -2191,7 +2211,7 @@ class StructuredLogsFormatter(logging.Formatter):
             # Note that, in this case, the key length may
             # become longer than `desired_max_key_length`.
             key = f'{key}_'
-            actually_set_value = output_data.setdefault(key, value_prepared)
+            actually_set_value = output_data.setdefault(key, value_prepared)  # type: ignore
 
 
 class ExtendedMessage:
@@ -2353,7 +2373,9 @@ class ExtendedMessage:
     stack_info: bool
     stacklevel: int
 
-    recognized_callable_arg_or_data_item_types: ClassVar[tuple[type, ...]] = (
+    recognized_callable_arg_or_data_item_types: ClassVar[   # type: ignore[type-arg]
+        tuple[type[Callable], ...]
+    ] = (
         types.BuiltinFunctionType,
         types.FunctionType,
         types.MethodType,
@@ -2386,7 +2408,7 @@ class ExtendedMessage:
         ...
 
     @overload
-    def __init__(
+    def __init__(   # type: ignore[overload-cannot-match]
         self,
         data: Mapping[str, object],
         /,
@@ -2399,13 +2421,13 @@ class ExtendedMessage:
 
     def __init__(
         self,
-        first_arg='',
+        first_arg: object | Mapping[str, object] = '',
         /,
-        *args,
+        *args: object,
         exc_info: Any = None,
         stack_info: bool = False,
         stacklevel: int = 1,
-        **data,
+        **data: object,
     ):
         # Note: it is not necessary to protect the following 4
         # lines with a lock, because each call to the function
@@ -2417,6 +2439,7 @@ class ExtendedMessage:
             _ensure_internal_record_hook_is_set_up(self._stack_stuff_record_hook)
             self.__class__._setup_of_record_hooks_still_needs_to_be_done = False
 
+        pattern: object
         if isinstance(first_arg, Mapping):
             if args or data:
                 raise TypeError(
@@ -2436,7 +2459,7 @@ class ExtendedMessage:
         self.exc_info = exc_info
         self.stack_info = stack_info
         self.stacklevel = stacklevel
-        self._callable_args_and_data_items_unresolved = True
+        self._callable_args_and_data_items_unresolved: bool = True
 
     def get_message_value(self) -> str:
         """
@@ -2478,7 +2501,8 @@ class ExtendedMessage:
         if self._callable_args_and_data_items_unresolved:
             self._resolve_callable_args_and_data_items()
 
-        return {
+        # Certain typing tools (*other* than `mypy`!) are too silly...
+        return {   # type: ignore
             key: val
             for key, val in (
                 ('pattern', self.pattern),
@@ -2584,7 +2608,7 @@ class ExtendedMessage:
                 exc_info = (type(exc_info), exc_info, exc_info.__traceback__)
             elif not isinstance(exc_info, tuple):
                 exc_info = sys.exc_info()
-            record.exc_info = exc_info
+            record.exc_info = cast(Any, exc_info)
 
     @staticmethod
     def _stack_stuff_record_hook(record: logging.LogRecord) -> None:
@@ -2625,7 +2649,7 @@ class ExtendedMessage:
             found = logging.Logger.findCaller(
                 # Here we pass None as a substitute for a logger instance
                 # (the `findCaller()` method makes no use of it anyway).
-                None,  # noqa
+                None,  # type: ignore
                 stack_info,
                 stacklevel,
             )
@@ -2824,7 +2848,7 @@ def _ensure_record_factory_with_auto_makers_and_record_hooks_is_set() -> None:
 
 def _is_record_factory_with_auto_makers_and_record_hooks_impl_already_in_use() -> bool:
     current_record_factory = logging.getLogRecordFactory()
-    flag = []
+    flag: list[None] = []
     try:
         # (Compare to the call to `_logRecordFactory()` in
         # the source code of `logging.makeLogRecord()`...)
@@ -2883,7 +2907,7 @@ def _record_factory_with_auto_makers_and_record_hooks_impl(
     return record
 
 
-def _clear_auto_makers_and_internal_record_hooks_related_global_state():
+def _clear_auto_makers_and_internal_record_hooks_related_global_state() -> None:
     # This function is intended to be used *in tests only*.
 
     global _auto_makers_registry
