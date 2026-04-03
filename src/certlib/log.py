@@ -2452,6 +2452,7 @@ class ExtendedMessage:
         'stack_info',
         'stacklevel',
         '_callable_args_and_data_items_are_unresolved',
+        '_cached_message',
     )
 
     #
@@ -2551,7 +2552,9 @@ class ExtendedMessage:
         self.exc_info = exc_info
         self.stack_info = stack_info
         self.stacklevel = stacklevel
+
         self._callable_args_and_data_items_are_unresolved: bool = True
+        self._cached_message: str | None = None
 
     def get_message_value(self) -> str:
         """
@@ -2571,7 +2574,8 @@ class ExtendedMessage:
         invokes that string's [`format`][str.format] method, passing to
         it all items of `args` as *positional arguments* and all items
         of `data` as *keyword arguments*. A string being the result of
-        the above operation(s) is then returned.
+        the above operation(s) is cached (for any further invocations
+        of this method on the same instance) and returned.
 
         *Note*: apart from the aforementioned use by the machinery of
         `StructuredLogsFormatter`, this method is also invoked by the
@@ -2583,9 +2587,12 @@ class ExtendedMessage:
             self._callable_args_and_data_items_are_unresolved = False
 
         # (Compare to the source code of `logging.LogRecord.getMessage()`...)
-        message = str(self.pattern)
-        if self.args or self.data:
-            message = message.format(*self.args, **self.data)
+        message = self._cached_message
+        if message is None:
+            message = str(self.pattern)
+            if self.args or self.data:
+                message = message.format(*self.args, **self.data)
+            self._cached_message = message
         return message
 
     def get_non_falsy_msg_related_components(
