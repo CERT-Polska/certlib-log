@@ -2043,7 +2043,7 @@ class StructuredLogsFormatter(logging.Formatter):
         msg_key = attr_to_key.get('msg', 'msg')
         if msg_key is not None:
             # * ...its components related to the text message (if any):
-            msg_value = xm_instance.get_non_falsy_msg_related_components(
+            msg_value = xm_instance.get_dict_with_non_falsy_pattern_and_args(
                 args_output_key=attr_to_key.get('args', 'args'),
             )
             if msg_value:
@@ -2512,9 +2512,11 @@ class ExtendedMessage:
             self._cached_message = message
         return message
 
-    def get_non_falsy_msg_related_components(
+    def get_dict_with_non_falsy_pattern_and_args(
         self,
-        args_output_key: str | None,
+        *,
+        pattern_output_key: str | None = 'pattern',
+        args_output_key: str | None = 'args',
     ) -> dict[str, object]:
         """
         Automatically invoked by the [`StructuredLogsFormatter`][]'s
@@ -2531,8 +2533,8 @@ class ExtendedMessage:
         *each* of the following if the key is not [`None`][] and the value
         is not *falsy*:
 
-        * string `"pattern"` mapped to the value of the [`pattern`][]
-          attribute,
+        * the **`pattern_output_key`** argument's value mapped to the
+          value of the [`pattern`][] attribute,
 
         * the **`args_output_key`** argument's value mapped to the value
           of the [`args`][] attribute.
@@ -2545,7 +2547,7 @@ class ExtendedMessage:
         return {   # type: ignore
             key: val
             for key, val in (
-                ('pattern', self.pattern),
+                (pattern_output_key, self.pattern),
                 (args_output_key, self.args),
             )
             if (key is not None) and val
