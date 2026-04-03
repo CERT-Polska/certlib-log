@@ -1043,19 +1043,18 @@ class StructuredLogsFormatter(logging.Formatter):
     def __init__(
         self,
 
-        # It should be a mapping (dict) of keyword arguments compatible
-        # with the first `__init__()` signature variant (declared above),
-        # or an `ast.literal_eval()`-evaluable string which represents a
-        # such a dict.
+        # This is required to be a mapping (e.g., a dict) of keyword
+        # arguments compatible with the first `__init__()` signature
+        # variant (declared above), or a string that will result in
+        # such a mapping if evaluated with `ast.literal_eval()`.
         kwargs_dict_as_first_positional_argument: str | Mapping[str, Any],
-
         /,
 
         # Any extra `logging.Formatter`-specific arguments are to be
         # accepted -- and ignored -- as long as the value of each is
         # equivalent to the respective `logging.Formatter`'s default.
-        *args: Any,
-        **kwargs: Any,
+        *logging_Formatter_default_args_to_be_ignored: Any,     # noqa
+        **logging_Formatter_default_kwargs_to_be_ignored: Any,  # noqa
     ):
         ...
 
@@ -2368,7 +2367,7 @@ class ExtendedMessage:
         'exc_info',
         'stack_info',
         'stacklevel',
-        '_callable_args_and_data_items_unresolved',
+        '_callable_args_and_data_items_are_unresolved',
     )
 
     #
@@ -2384,8 +2383,8 @@ class ExtendedMessage:
     recognized_callable_arg_or_data_item_types: ClassVar[   # type: ignore[type-arg]
         tuple[type[Callable], ...]
     ] = (
-        types.BuiltinFunctionType,
         types.FunctionType,
+        types.BuiltinFunctionType,
         types.MethodType,
         types.MethodWrapperType,
     )
@@ -2469,7 +2468,7 @@ class ExtendedMessage:
         self.exc_info = exc_info
         self.stack_info = stack_info
         self.stacklevel = stacklevel
-        self._callable_args_and_data_items_unresolved: bool = True
+        self._callable_args_and_data_items_are_unresolved: bool = True
 
     def get_message_value(self) -> str:
         """
@@ -2496,14 +2495,15 @@ class ExtendedMessage:
         default implementation of [`__str__`][] (which is important for
         formatters that are *not* instances of `StructuredLogsFormatter`).
         """
-        if self._callable_args_and_data_items_unresolved:
+        if self._callable_args_and_data_items_are_unresolved:
             self._resolve_callable_args_and_data_items()
+            self._callable_args_and_data_items_are_unresolved = False
 
         # (Compare to the source code of `logging.LogRecord.getMessage()`...)
-        pattern_str = str(self.pattern)
+        message = str(self.pattern)
         if self.args or self.data:
-            return pattern_str.format(*self.args, **self.data)
-        return pattern_str
+            message = message.format(*self.args, **self.data)
+        return message
 
     def get_non_falsy_msg_related_components(
         self,
@@ -2530,8 +2530,9 @@ class ExtendedMessage:
         * the **`args_output_key`** argument's value mapped to the value
           of the [`args`][] attribute.
         """
-        if self._callable_args_and_data_items_unresolved:
+        if self._callable_args_and_data_items_are_unresolved:
             self._resolve_callable_args_and_data_items()
+            self._callable_args_and_data_items_are_unresolved = False
 
         # Certain typing tools (*other* than `mypy`!) are too silly...
         return {   # type: ignore
@@ -2629,8 +2630,8 @@ class ExtendedMessage:
             yield f'stack_info={self.stack_info!r}'
         if self.stacklevel != 1 or type(self.stacklevel) is not int:
             yield f'stacklevel={self.stacklevel!r}'
-        if self.data:
-            yield from (f'{key}={val!r}' for key, val in self.data.items())
+        for key, val in self.data.items():
+            yield f'{key}={val!r}'
 
     #
     # Internals (should not be used or extended/overridden outside this module!)
@@ -2731,7 +2732,6 @@ class ExtendedMessage:
             if resolved_val is val:
                 continue
             data[key] = resolved_val
-        self._callable_args_and_data_items_unresolved = False
 
     def _resolve_if_callable(self, value: Any) -> Any:
         if isinstance(value, self.recognized_callable_arg_or_data_item_types):
