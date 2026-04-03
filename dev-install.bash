@@ -43,9 +43,9 @@ else
 fi
 
 echo "** BUT PLEASE NOTE that it is a *development*-only installation" \
-     "(e.g., for running tests with 'pytest', or building docs with" \
+     "(just for running tests with 'pytest', or building docs with" \
      "'mkdocs build -f docs/mkdocs.yml', or performing type check " \
-     "with 'mypy -p certlib.log --strict')."
+     "with 'mypy -p certlib.log --strict', etc.)."
 
 if [[ -v CERTLIB_LOG_DEV_VENV_DIR ]]; then
     echo "**** ALSO, PLEASE NOTE that to run/import the installed stuff" \
