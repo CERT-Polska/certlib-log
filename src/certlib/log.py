@@ -2123,38 +2123,38 @@ class StructuredLogsFormatter(logging.Formatter):
 
         attr_to_key = self.record_attr_to_output_key
 
-        # * ...its components related to the text message (if any):
-        msg_value = xm_instance.get_non_falsy_msg_related_components(
-            args_output_key=attr_to_key.get('args', 'args'),
-        )
-        if msg_value:
-            msg_key = attr_to_key.get('msg', 'msg')
-            if msg_key is not None:
+        msg_key = attr_to_key.get('msg', 'msg')
+        if msg_key is not None:
+            # * ...its components related to the text message (if any):
+            msg_value = xm_instance.get_non_falsy_msg_related_components(
+                args_output_key=attr_to_key.get('args', 'args'),
+            )
+            if msg_value:
                 handle_output_item(msg_key, msg_value)
 
-        # * ...its `exc_info` (if worth including):
-        xm_exc_info = xm_instance.exc_info
-        if xm_exc_info and self._is_xm_exc_info_significant(
-            xm_exc_info,
-            record.exc_info,
-        ):
-            exc_info_key = attr_to_key.get('exc_info', 'exc_info')
-            if exc_info_key is not None:
+        exc_info_key = attr_to_key.get('exc_info', 'exc_info')
+        if exc_info_key is not None:
+            # * ...its `exc_info` attribute (if worth including):
+            xm_exc_info = xm_instance.exc_info
+            if xm_exc_info and self._is_xm_exc_info_significant(
+                xm_exc_info,
+                record.exc_info,
+            ):
                 if xm_exc_info == (None, None, None):
                     xm_exc_info = None
                 handle_output_item(exc_info_key, xm_exc_info)
 
-        # * ...its `stack_info` (if worth including):
-        xm_stack_info = xm_instance.stack_info
-        if xm_stack_info and self._is_xm_stack_info_significant(
-            xm_stack_info,
-            record.stack_info,
-        ):
-            stack_info_key = attr_to_key.get('stack_info', 'stack_info')
-            if stack_info_key is not None:
+        stack_info_key = attr_to_key.get('stack_info', 'stack_info')
+        if stack_info_key is not None:
+            # * ...its `stack_info` attribute (if worth including):
+            xm_stack_info = xm_instance.stack_info
+            if xm_stack_info and self._is_xm_stack_info_significant(
+                xm_stack_info,
+                record.stack_info,
+            ):
                 handle_output_item(stack_info_key, xm_stack_info)
 
-        # * ...and any extra data:
+        # * ...and any *extra data* (stored in its `data` attribute):
         for key, value in xm_instance.data.items():
             handle_output_item(key, value)
 
