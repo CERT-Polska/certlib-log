@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# We want to use the oldest supported version of Python:
+# We want to use the oldest version of Python supported by us:
 CERTLIB_LOG_DEV_REQ_REGEN_PYTHON=python3.10
 CERTLIB_LOG_DEV_REQ_REGEN_VENV_DIR='./dev/.venv-temporary-for-req-regen'
-if [[ -n "$@" ]]; then
-    CERTLIB_LOG_DEV_REQ_REGEN_ARGS_ANNOTATION=" (passing to pip-compile the extra argument(s): $@)"
+if [[ -n "$*" ]]; then
+    CERTLIB_LOG_DEV_REQ_REGEN_ARGS_ANNOTATION=" (passing to pip-compile the extra argument(s): $*)"
 else
     CERTLIB_LOG_DEV_REQ_REGEN_ARGS_ANNOTATION=""
 fi
