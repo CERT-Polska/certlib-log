@@ -1088,19 +1088,18 @@ class StructuredLogsFormatter(logging.Formatter):
     def __init__(
         self,
 
-        # It should be a mapping (dict) of keyword arguments compatible
-        # with the first `__init__()` signature variant (declared above),
-        # or an `ast.literal_eval()`-evaluable string which represents a
-        # such a dict.
+        # This is required to be a mapping (e.g., a dict) of keyword
+        # arguments compatible with the first `__init__()` signature
+        # variant (declared above), or a string that will result in
+        # such a mapping if evaluated with `ast.literal_eval()`.
         kwargs_dict_as_first_positional_argument: str | Mapping[str, Any],
-
         /,
 
         # Any extra `logging.Formatter`-specific arguments are to be
         # accepted -- and ignored -- as long as the value of each is
         # equivalent to the respective `logging.Formatter`'s default.
-        *args: Any,
-        **kwargs: Any,
+        *logging_Formatter_default_args_to_be_ignored: Any,     # noqa
+        **logging_Formatter_default_kwargs_to_be_ignored: Any,  # noqa
     ):
         ...
 
@@ -1282,7 +1281,7 @@ class StructuredLogsFormatter(logging.Formatter):
         return self.serialize_prepared_output_data(output_data)
 
     #
-    # This-class-specific overridable/extendable hooks
+    # This-class-specific overridable/extendable hooks (+ related constants)
 
     def get_output_keys_required_in_defaults_or_auto_makers(self) -> Set[str]:
         """
@@ -1668,8 +1667,8 @@ class StructuredLogsFormatter(logging.Formatter):
 
         self._extract_output_from_record(record, xm_instance, handle_output_item)
 
-        for default_key, value_prepared in actual_defaults.items():
-            output_data.setdefault(default_key, value_prepared)
+        for key, value_prepared in actual_defaults.items():
+            output_data.setdefault(key, value_prepared)
 
         return output_data
 
@@ -1832,12 +1831,12 @@ class StructuredLogsFormatter(logging.Formatter):
                 return self.prepare_value(seq[1], **kwargs)
 
             if (isinstance(seq, tuple)
-                  and callable(dict_from_this_seq := getattr(seq, '_asdict', None))):
+                  and callable(dict_from_this := getattr(seq, '_asdict', None))):
                 # A tuple (presumably, a *named tuple*) with an
                 # `_asdict()` method => try to use that method
-                # to convert the tuple (presumably, to a *dict*).
+                # to convert this tuple (presumably, to a *dict*).
                 try:
-                    d = dict_from_this_seq()
+                    d = dict_from_this()
                 except TypeError:
                     pass
                 else:
@@ -2260,10 +2259,10 @@ class StructuredLogsFormatter(logging.Formatter):
             return
         # Note: the `type: ignore` comments in this function (below) just
         # silence certain silly typing tools (*other* than `mypy`!) which
-        # do not comprehend that from this point `key` is always a str. :/
+        # do not comprehend that, from this point, `key` is always a str.
 
         if len(key) > desired_max_key_length:
-            # Trim the key (it's a rare case, hopefully).
+            # Truncate the key (it's a rare case, hopefully).
             key = key[:desired_max_key_length]
 
         value_prepared = prepare_value(value)
@@ -2452,7 +2451,7 @@ class ExtendedMessage:
         'exc_info',
         'stack_info',
         'stacklevel',
-        '_callable_args_and_data_items_unresolved',
+        '_callable_args_and_data_items_are_unresolved',
     )
 
     #
@@ -2468,8 +2467,8 @@ class ExtendedMessage:
     recognized_callable_arg_or_data_item_types: ClassVar[   # type: ignore[type-arg]
         tuple[type[Callable], ...]
     ] = (
-        types.BuiltinFunctionType,
         types.FunctionType,
+        types.BuiltinFunctionType,
         types.MethodType,
         types.MethodWrapperType,
     )
@@ -2552,7 +2551,7 @@ class ExtendedMessage:
         self.exc_info = exc_info
         self.stack_info = stack_info
         self.stacklevel = stacklevel
-        self._callable_args_and_data_items_unresolved: bool = True
+        self._callable_args_and_data_items_are_unresolved: bool = True
 
     def get_message_value(self) -> str:
         """
@@ -2579,14 +2578,15 @@ class ExtendedMessage:
         default implementation of [`__str__`][] (which is important for
         formatters that are *not* instances of `StructuredLogsFormatter`).
         """
-        if self._callable_args_and_data_items_unresolved:
+        if self._callable_args_and_data_items_are_unresolved:
             self._resolve_callable_args_and_data_items()
+            self._callable_args_and_data_items_are_unresolved = False
 
         # (Compare to the source code of `logging.LogRecord.getMessage()`...)
-        pattern_str = str(self.pattern)
+        message = str(self.pattern)
         if self.args or self.data:
-            return pattern_str.format(*self.args, **self.data)
-        return pattern_str
+            message = message.format(*self.args, **self.data)
+        return message
 
     def get_non_falsy_msg_related_components(
         self,
@@ -2613,8 +2613,9 @@ class ExtendedMessage:
         * the given **`args_output_key`** --  mapped to the value of the
           [`args`][] attribute.
         """
-        if self._callable_args_and_data_items_unresolved:
+        if self._callable_args_and_data_items_are_unresolved:
             self._resolve_callable_args_and_data_items()
+            self._callable_args_and_data_items_are_unresolved = False
 
         # Certain typing tools (*other* than `mypy`!) are too silly...
         return {   # type: ignore
@@ -2721,8 +2722,8 @@ class ExtendedMessage:
             yield f'stack_info={self.stack_info!r}'
         if self.stacklevel != 1 or type(self.stacklevel) is not int:
             yield f'stacklevel={self.stacklevel!r}'
-        if self.data:
-            yield from (f'{key}={val!r}' for key, val in self.data.items())
+        for key, val in self.data.items():
+            yield f'{key}={val!r}'
 
     #
     # Internals (should not be used or extended/overridden outside this module!)
@@ -2762,7 +2763,7 @@ class ExtendedMessage:
               and getattr(record, 'funcName', None) == '(unknown function)'):
             # It seems that any calls to `logging.Logger.findCaller()`
             # are either doomed to failure or should not be attempted
-            # because `logging._srcfile` is None...
+            # because `logging._srcfile` has been set to None...
             return
 
         stack_info = instance.stack_info
@@ -2823,7 +2824,6 @@ class ExtendedMessage:
             if resolved_val is val:
                 continue
             data[key] = resolved_val
-        self._callable_args_and_data_items_unresolved = False
 
     def _resolve_if_callable(self, value: Any) -> Any:
         if isinstance(value, self.recognized_callable_arg_or_data_item_types):
