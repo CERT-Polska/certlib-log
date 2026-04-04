@@ -62,6 +62,8 @@ jinja2==3.1.6
     #   mkdocs
     #   mkdocs-material
     #   mkdocstrings
+librt==0.8.1
+    # via mypy
 markdown==3.10.2
     # via
     #   -r ../docs/doc-requirements.txt
@@ -109,10 +111,13 @@ mkdocstrings==1.0.3
     #   mkdocstrings-python
 mkdocstrings-python==2.0.3
     # via -r ../docs/doc-requirements.txt
+mypy==1.20.0
+    # via -r dev-requirements.in
 mypy-extensions==1.1.0
     # via
     #   -r ../docs/doc-requirements.txt
     #   black
+    #   mypy
 packaging==26.0
     # via
     #   -r ../docs/doc-requirements.txt
@@ -133,6 +138,7 @@ pathspec==1.0.4
     #   -r ../docs/doc-requirements.txt
     #   black
     #   mkdocs
+    #   mypy
 pip-tools==7.5.3
     # via -r dev-requirements.in
 platformdirs==4.9.4
@@ -196,6 +202,7 @@ tomli==2.4.1
     #   -r ../tests/test-requirements.txt
     #   black
     #   build
+    #   mypy
     #   pip-tools
     #   pytest
     #   setuptools-scm
@@ -207,6 +214,7 @@ typing-extensions==4.15.0
     #   black
     #   exceptiongroup
     #   mkdocstrings-python
+    #   mypy
     #   setuptools-scm
     #   vcs-versioning
 urllib3==2.6.3

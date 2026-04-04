@@ -1,6 +1,7 @@
 -r ../docs/doc-requirements.txt
 -r ../tests/test-requirements.txt
 build
+mypy
 pip
 pip-tools
 setuptools>=80
