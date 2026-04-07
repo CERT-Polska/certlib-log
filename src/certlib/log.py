@@ -2648,6 +2648,10 @@ class ExtendedMessage:
         and concatenates any yielded strings (if more than one) using
         `" | "` as the separator.
         """
+        if self._callable_args_and_data_items_are_unresolved:
+            self._resolve_callable_args_and_data_items()
+            self._callable_args_and_data_items_are_unresolved = False
+
         return ' | '.join(self.iter_str_parts())
 
     @reprlib.recursive_repr(fillvalue='<...>')
@@ -2687,6 +2691,10 @@ class ExtendedMessage:
           in a way that resembles the syntax for specifying keyword
           arguments, but without the parentheses).
         """
+        if self._callable_args_and_data_items_are_unresolved:
+            self._resolve_callable_args_and_data_items()
+            self._callable_args_and_data_items_are_unresolved = False
+
         if formatted_message := self.get_message_value():
             yield formatted_message
         if formatted_data_items := ', '.join(
