@@ -18,8 +18,8 @@ library by running (typically, in a [*virtual environment*](https://packaging.py
 the command: **`python3 -m pip install certlib.log`**
 
 The library is compatible with Python 3.10 and all newer versions of
-Python. It makes use *only* of the Python's standard library, i.e.,
-it **does *not* depend on any third-party packages**.
+Python. It uses *only* the Python's standard library, i.e., it **does
+*not* depend on any third-party packages**.
 
 
 ## Examples
@@ -90,8 +90,8 @@ def example_with_text_message_formatting(city, humidity, error_summary=None):
         'Today is day #{today:%j} of the year {today:%Y}',
         today=dt.date.today(),
 
-        # (arbitrary data items can be given, which this is especially
-        # useful when `certlib.log.StructuredLogsFormatter` is in use)
+        # (arbitrary data items can be given, which is especially useful
+        # when `certlib.log.StructuredLogsFormatter` is in use)
         some_extra_item=42,
         other_arbitrary_stuff={'foo': [
             {'my-ip': ipaddress.IPv4Address('192.168.0.1')},
