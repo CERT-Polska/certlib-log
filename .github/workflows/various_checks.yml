@@ -1,0 +1,34 @@
+name: "Various Checks [for now: just type check]"
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+        - "3.10"
+        - "3.15-dev"
+
+    steps:
+    - uses: actions/checkout@v6
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+        cache-dependency-path: dev/dev-requirements.txt
+    - name: Install "for development", with "dev" dependencies
+      run: |
+        ./dev-install.bash
+    - name: Type check with mypy
+      run: |
+        ./dev/venv/bin/python3 -m mypy -p certlib.log

@@ -64,3 +64,13 @@ where = ["src"]
 [tool.setuptools.dynamic.optional-dependencies.dev]
 
 file = ["dev/dev-requirements.txt"]
+
+
+#
+# Settings for other tools
+#
+
+
+[tool.mypy]
+
+strict = true
