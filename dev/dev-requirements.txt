@@ -14,7 +14,7 @@ backrefs==6.2
     #   mkdocs-material
 black==26.3.1
     # via -r ../docs/doc-requirements.txt
-build==1.4.2
+build==1.4.3
     # via
     #   -r dev-requirements.in
     #   pip-tools
@@ -22,11 +22,11 @@ certifi==2026.2.25
     # via
     #   -r ../docs/doc-requirements.txt
     #   requests
-charset-normalizer==3.4.6
+charset-normalizer==3.4.7
     # via
     #   -r ../docs/doc-requirements.txt
     #   requests
-click==8.3.1
+click==8.3.2
     # via
     #   -r ../docs/doc-requirements.txt
     #   black
@@ -62,7 +62,7 @@ jinja2==3.1.6
     #   mkdocs
     #   mkdocs-material
     #   mkdocstrings
-librt==0.8.1
+librt==0.9.0
     # via mypy
 markdown==3.10.2
     # via
@@ -111,7 +111,7 @@ mkdocstrings==1.0.3
     #   mkdocstrings-python
 mkdocstrings-python==2.0.3
     # via -r ../docs/doc-requirements.txt
-mypy==1.20.0
+mypy==1.20.1
     # via -r dev-requirements.in
 mypy-extensions==1.1.0
     # via
@@ -141,7 +141,7 @@ pathspec==1.0.4
     #   mypy
 pip-tools==7.5.3
     # via -r dev-requirements.in
-platformdirs==4.9.4
+platformdirs==4.9.6
     # via
     #   -r ../docs/doc-requirements.txt
     #   black
@@ -165,7 +165,7 @@ pyproject-hooks==1.2.0
     # via
     #   build
     #   pip-tools
-pytest==9.0.2
+pytest==9.0.3
     # via -r ../tests/test-requirements.txt
 python-dateutil==2.9.0.post0
     # via
@@ -186,7 +186,7 @@ pyyaml-env-tag==1.1
     # via
     #   -r ../docs/doc-requirements.txt
     #   mkdocs
-requests==2.33.0
+requests==2.33.1
     # via
     #   -r ../docs/doc-requirements.txt
     #   mkdocs-material
