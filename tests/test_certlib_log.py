@@ -107,7 +107,6 @@ class ExampleDataClass:
 EXAMPLE_CUSTOM_ITEMS = {
     'foo': 'bar',
     'π': lambda: math.pi,  # `xm`-specific feature: a function/method to be called to get the value
-    'wrong': lambda: 1/0,  # (or, if such a call raises an error, some information on that error).
     'SomeSpam': ExampleClassWithCustomStrAndRepr(),
     'my enum member...': ExampleEnum.FOO,
     'IPv4 address': ipaddress.IPv4Address('10.20.30.40'),
@@ -166,11 +165,6 @@ EXAMPLE_CUSTOM_ITEMS = {
 EXAMPLE_PREPARED_CUSTOM_OUTPUT_ITEMS = {
     'foo': 'bar',
     'π': math.pi,
-    'wrong': (
-        f"<the following error occurred while trying to "
-        f"get the value by calling `{__name__}.<lambda>`: "
-        f"ZeroDivisionError('division by zero')>"
-    ),
     'SomeSpam': '-> REPR <-',
     'my enum member...': 'ExampleEnum.FOO',
     'IPv4 address': '10.20.30.40',

@@ -2437,9 +2437,7 @@ class ExtendedMessage:
     the specified log level is lower than the configured threshold).
     Such a function/method is expected to take no arguments (therefore,
     if it is a method, it should already be bound to some instance or
-    class). If it raises any [`Exception`][]-derived error, the error
-    will be suppressed and a (usually short) description of that error
-    will constitute the ultimate value.
+    class).
 
     _**Important:**_ *none* of those functions/methods should acquire any
     locks that might also be acquired by code which makes use of any tools
@@ -2834,31 +2832,18 @@ class ExtendedMessage:
             record.module = "Unknown module"
 
     def _resolve_callable_args_and_data_items(self) -> None:
-        resolve_if_callable = self._resolve_if_callable
-        self.args = tuple(map(resolve_if_callable, self.args))
-        data = self.data
+        recognized_callable_types = (
+            self.recognized_callable_arg_or_data_item_types
+        )
+        args: tuple[Any, ...] = self.args
+        self.args = tuple([
+            val() if isinstance(val, recognized_callable_types) else val
+            for val in args
+        ])
+        data: dict[str, Any] = self.data
         for key, val in data.items():
-            resolved_val = resolve_if_callable(val)
-            if resolved_val is val:
-                continue
-            data[key] = resolved_val
-
-    def _resolve_if_callable(self, value: Any) -> Any:
-        if isinstance(value, self.recognized_callable_arg_or_data_item_types):
-            # If a callable object of a recognized type is encountered
-            # (by default only functions and methods are recognized,
-            # *not* just *any* callables), *call it* to obtain the
-            # actual value.
-            try:
-                resolved = value()
-            except Exception as exc:
-                obj_descr = _get_short_descr(value)
-                resolved = (
-                    f'<the following error occurred while trying to '
-                    f'get the value by calling {obj_descr}: {exc!r}>'
-                )
-            value = resolved
-        return value
+            if isinstance(val, recognized_callable_types):
+                data[key] = val()
 
 
 xm: Final = ExtendedMessage
