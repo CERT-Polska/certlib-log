@@ -2424,11 +2424,11 @@ class ExtendedMessage:
     [`get_dict_with_non_falsy_pattern_and_args`][], [`__str__`][] or
     [`iter_str_parts`][] (with the proviso that the last one returns an
     [iterator](https://docs.python.org/3/glossary.html#term-iterator)
-    which, to achieve the said effect, needs to be iterated over, at
-    least partially). Obviously, that behavior can only be guaranteed
-    if the default (`ExtendedMessage`-provided) implementations of these
-    methods are in use. It is recommended that any custom implementations
-    in subclasses behave similarly, but this is up to their authors.
+    which, to achieve the said effect, needs to be iterated over,
+    at least partially). Each of the said calls and replacements will
+    be made at most *once* per instance of `ExtendedMessage` (see the
+    [`_ensure_callable_args_and_data_items_resolved`][] method's
+    description...).
 
     Thanks to that mechanism, if the creation of some value is expected
     to be costly, you can wrap it in a function/method (in particular,
@@ -2458,7 +2458,9 @@ class ExtendedMessage:
         'exc_info',
         'stack_info',
         'stacklevel',
-        '_callable_args_and_data_items_are_unresolved',
+
+        '_callable_args_and_data_items_already_resolved',
+        '_callable_args_and_data_items_resolving_lock',
         '_cached_message',
     )
 
@@ -2560,7 +2562,8 @@ class ExtendedMessage:
         self.stack_info = stack_info
         self.stacklevel = stacklevel
 
-        self._callable_args_and_data_items_are_unresolved: bool = True
+        self._callable_args_and_data_items_already_resolved: bool = False
+        self._callable_args_and_data_items_resolving_lock: threading.Lock | None = None
         self._cached_message: str | None = None
 
     def get_message_value(self) -> str:
@@ -2584,14 +2587,17 @@ class ExtendedMessage:
         the above operation(s) is cached (for any further invocations
         of this method on the same instance) and returned.
 
+        _**Additional requirement:**_ this method, *always*
+        before starting its actual work, should invoke the
+        [`_ensure_callable_args_and_data_items_resolved`][]
+        method (the default implementation already does that).
+
         *Note:* apart from the aforementioned use by the machinery of
         `StructuredLogsFormatter`, this method is also invoked by the
         default implementation of [`__str__`][] (which is important for
         formatters that are *not* instances of `StructuredLogsFormatter`).
         """
-        if self._callable_args_and_data_items_are_unresolved:
-            self._resolve_callable_args_and_data_items()
-            self._callable_args_and_data_items_are_unresolved = False
+        self._ensure_callable_args_and_data_items_resolved()
 
         # (Compare to the source code of `logging.LogRecord.getMessage()`...)
         message = self._cached_message
@@ -2628,10 +2634,13 @@ class ExtendedMessage:
 
         * the given **`args_output_key`** --  mapped to the value of the
           [`args`][] attribute.
+
+        _**Additional requirement:**_ this method, *always*
+        before starting its actual work, should invoke the
+        [`_ensure_callable_args_and_data_items_resolved`][]
+        method (the default implementation already does that).
         """
-        if self._callable_args_and_data_items_are_unresolved:
-            self._resolve_callable_args_and_data_items()
-            self._callable_args_and_data_items_are_unresolved = False
+        self._ensure_callable_args_and_data_items_resolved()
 
         # Certain typing tools (*other* than `mypy`!) are too silly...
         return {   # type: ignore
@@ -2664,10 +2673,13 @@ class ExtendedMessage:
         (which, in particular, invokes [`get_message_value`][]...)
         and concatenates any yielded strings (if more than one) using
         `" | "` as the separator.
+
+        _**Additional requirement:**_ this method, *always*
+        before starting its actual work, should invoke the
+        [`_ensure_callable_args_and_data_items_resolved`][]
+        method (the default implementation already does that).
         """
-        if self._callable_args_and_data_items_are_unresolved:
-            self._resolve_callable_args_and_data_items()
-            self._callable_args_and_data_items_are_unresolved = False
+        self._ensure_callable_args_and_data_items_resolved()
 
         return ' | '.join(self.iter_str_parts())
 
@@ -2707,10 +2719,13 @@ class ExtendedMessage:
         * a representation of the [`data`][] mapping's items (formatted
           in a way that resembles the syntax for specifying keyword
           arguments, but without the parentheses).
+
+        _**Additional requirement:**_ this method, *always*
+        before starting its actual work, should invoke the
+        [`_ensure_callable_args_and_data_items_resolved`][]
+        method (the default implementation already does that).
         """
-        if self._callable_args_and_data_items_are_unresolved:
-            self._resolve_callable_args_and_data_items()
-            self._callable_args_and_data_items_are_unresolved = False
+        self._ensure_callable_args_and_data_items_resolved()
 
         if formatted_message := self.get_message_value():
             yield formatted_message
@@ -2742,9 +2757,61 @@ class ExtendedMessage:
             yield f'{key}={val!r}'
 
     #
+    # Semi-protected method (allowed to be invoked in subclasses)
+
+    def _ensure_callable_args_and_data_items_resolved(self) -> None:
+        """
+        _**Important:**_ this method is *not* part of the public API --
+        _**except that**_ it is allowed to be invoked by any methods
+        implemented by possible subclasses of `ExtendedMessage`.
+
+        This method processes the items of [`args`][] and [`data`][] --
+        by *calling* each value that is an instance of any type included
+        in [`ExtendedMessage.recognized_callable_arg_or_data_item_types`][]
+        and then *replacing* that value with the result of that call. Each
+        call is made without passing any arguments.
+
+        The implementation of this method guarantees that *none* of
+        those calls will be made more than *once* per instance of
+        `ExtendedMessage` (*also* if multiple invocations of this
+        method occur, and even if some of them are *concurrent*...).
+        """
+        if self._callable_args_and_data_items_already_resolved:
+            # OK, already resolved (fast path).
+            return
+
+        with self._callable_args_and_data_items_resolving_meta_lock:
+            # Obtain the instance's lock in a thread-safe manner...
+            lock = self._callable_args_and_data_items_resolving_lock
+            if lock is None:
+                # (We want to defer its creation until this moment, so that
+                # `ExtendedMessage.__init__()` remains as fast as possible.)
+                lock = self._callable_args_and_data_items_resolving_lock = (
+                    threading.Lock()
+                )
+
+        if not lock.acquire(timeout=self._CALLABLE_ARGS_AND_DATA_RESOLVING_LOCK_TIMEOUT):
+            raise RuntimeError(
+                f'could not acquire the lock that protects the procedure '
+                f'of ensuring that relevant callable items of the `args` '
+                f'and `data` collections will be resolved'
+            )
+        try:
+            if self._callable_args_and_data_items_already_resolved:
+                # OK, already resolved.
+                return
+            self._resolve_callable_args_and_data_items()
+            self._callable_args_and_data_items_already_resolved = True
+        finally:
+            lock.release()
+
+    #
     # Internals (should not be used or extended/overridden outside this module!)
 
+    _CALLABLE_ARGS_AND_DATA_RESOLVING_LOCK_TIMEOUT: Final[float] = 9.0
+
     _setup_of_record_hooks_still_needs_to_be_done: ClassVar[bool] = True
+    _callable_args_and_data_items_resolving_meta_lock: ClassVar[threading.Lock] = threading.Lock()
 
     @staticmethod
     def _exc_info_record_hook(record: logging.LogRecord) -> None:
