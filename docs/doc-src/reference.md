@@ -22,8 +22,8 @@
       heading_level: 2
       filters:
         - "!^_"
-        - "^__str__"
-        - "^__repr__"
+        - "^__str__$"
+        - "^__repr__$"
       show_attribute_values: false
 
 ***
