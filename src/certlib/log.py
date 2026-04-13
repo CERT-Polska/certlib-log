@@ -2286,13 +2286,16 @@ class StructuredLogsFormatter(logging.Formatter):
             return
 
         # Wait! Key deduplication may be needed (it's a rare case, hopefully).
-        while (actually_set_value != value_prepared
-               # (Comparing also identities, for cases of NaN-like objects.)
-               and actually_set_value is not value_prepared):
+        while actually_set_value != value_prepared:
             # Note that, in this case, the key length may
             # become longer than `desired_max_key_length`.
             key = f'{key}_'
             actually_set_value = output_data.setdefault(key, value_prepared)  # type: ignore
+
+            # (Comparing also identities -- for cases of such
+            # an object that never compares equal to itself.)
+            if actually_set_value is value_prepared:
+                return
 
 
 class ExtendedMessage:
