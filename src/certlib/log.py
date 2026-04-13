@@ -2534,8 +2534,8 @@ class ExtendedMessage:
         # Note: it is not necessary to protect the following 4
         # lines with a lock, because each call to the function
         # `_ensure_internal_record_hook_is_set_up()` is itself
-        # **idempotent** and **thread-safe**; so any redundant
-        # (even if overlapping) calls to that function are safe.
+        # **thread-safe** and **idempotent**; so any redundant
+        # (even if concurrent) calls to that function are safe.
         if self._setup_of_record_hooks_still_needs_to_be_done:
             _ensure_internal_record_hook_is_set_up(self._exc_info_record_hook)
             _ensure_internal_record_hook_is_set_up(self._stack_stuff_record_hook)
@@ -2959,7 +2959,7 @@ def _add_to_auto_makers_registry(
     rec_attr_to_auto_maker[rec_attr] = auto_maker
     new_registry = tuple(rec_attr_to_auto_maker.items())
 
-    # This is practically an atomic operation (at least in CPython):
+    # We assume it to be an *atomic* operation:
     _auto_makers_registry = new_registry
 
 
@@ -2974,7 +2974,7 @@ def _remove_from_auto_makers_registry(
     del rec_attr_to_auto_maker[rec_attr]
     new_registry = tuple(rec_attr_to_auto_maker.items())
 
-    # This is practically an atomic operation (at least in CPython):
+    # We assume it to be an *atomic* operation:
     _auto_makers_registry = new_registry
 
 
@@ -2990,7 +2990,7 @@ def _ensure_internal_record_hook_is_set_up(
         _ensure_record_factory_with_auto_makers_and_record_hooks_is_set()
         new_sequence = (*_internal_record_hooks, rec_hook)
 
-        # This is practically an atomic operation (at least in CPython):
+        # We assume it to be an *atomic* operation:
         _internal_record_hooks = new_sequence
 
 
@@ -3108,8 +3108,8 @@ def _resolve_dotted_path(dotted_path: str) -> Any:
       ...
     ValueError: cannot resolve dotted_path='logging.no_such_stuff_i_hope' (ModuleNotFoundError...)
     """
-    # (Compare to the -- semantically very similar -- source
-    # code of `logging.config.BaseConfigurator.resolve()`...)
+    # (Compare to the source code of the -- semantically very similar
+    # -- `logging.config.BaseConfigurator.resolve()` function...)
     importable_name, *rest_parts = dotted_path.split('.')
     try:
         obj = import_module(importable_name)
