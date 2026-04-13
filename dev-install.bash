@@ -12,14 +12,10 @@ python3 -m pip install --upgrade --require-virtualenv --use-pep517 pip 2>/dev/nu
         echo "As ${CERTLIB_LOG_DEV_VENV_DIR} does not exist, a new virtual" \
              "environment in '${CERTLIB_LOG_DEV_VENV_DIR}' will be created..."
         python3 -m venv "${CERTLIB_LOG_DEV_VENV_DIR}" || exit 1
-        echo "OK, ${CERTLIB_LOG_DEV_VENV_DIR} created."
-    else
-        echo "OK, ${CERTLIB_LOG_DEV_VENV_DIR} already exists."
     fi
 
     echo "Activating the '${CERTLIB_LOG_DEV_VENV_DIR}' virtual environment..."
     source "${CERTLIB_LOG_DEV_VENV_DIR}/bin/activate" || exit 1
-    echo "OK, ${CERTLIB_LOG_DEV_VENV_DIR} activated."
     python3 -m pip install --upgrade --require-virtualenv --use-pep517 pip || exit 1
 }
 [[ "$?" != 0 ]] && exit 1
