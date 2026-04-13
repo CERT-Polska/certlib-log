@@ -1480,12 +1480,25 @@ class TestStructuredLogsFormatter:  # noqa
                         'component_type': EXAMPLE_COMPONENT_TYPE,
                         'spam': 'ham',
                         'system': 'Śmystem',
-                        'timestamp': 'Śmajstamp',                                     # [sic!]
-                        'timestamp_': 'And now for something completely different!',  # [sic!]
-                        'timestamp__': EXAMPLE_TIMESTAMP_FORMATTED,                   # [sic!]
                         'xyz': 'abc',
                         'zero': 0,
-                    },
+                    } | (
+                        {
+                            # Under PyPy, the order of keys in a log record's
+                            # `__dict__` may be different from insertion order
+                            # (see: https://github.com/pypy/pypy/issues/5436).
+                            # This affects the order in which *output data* keys
+                            # are inserted and deduplicated with `_` suffixes...
+                            'timestamp': 'Śmajstamp',
+                            'timestamp_': AnyOfType(str),
+                            'timestamp__': AnyOfType(str),
+                        } if sys.implementation.name == 'pypy'
+                        else {
+                            'timestamp': 'Śmajstamp',
+                            'timestamp_': 'And now for something completely different!',
+                            'timestamp__': EXAMPLE_TIMESTAMP_FORMATTED,
+                        }
+                    ),
                     {
                         **get_output_base(level='DEBUG'),
                         'func': '<lambda>',

@@ -24,9 +24,8 @@ jobs:
         - "3.13"
         - "3.14"
         - "3.15-dev"
-###### FIXME: some tests fail (a corner case...)
-#        - "pypy3.10"
-#        - "pypy3.11"
+        - "pypy3.10"
+        - "pypy3.11"
 
     steps:
     - uses: actions/checkout@v6
