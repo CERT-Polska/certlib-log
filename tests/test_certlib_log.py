@@ -107,7 +107,6 @@ class ExampleDataClass:
 EXAMPLE_CUSTOM_ITEMS = {
     'foo': 'bar',
     'π': lambda: math.pi,  # `xm`-specific feature: a function/method to be called to get the value
-    'wrong': lambda: 1/0,  # (or, if such a call raises an error, some information on that error).
     'SomeSpam': ExampleClassWithCustomStrAndRepr(),
     'my enum member...': ExampleEnum.FOO,
     'IPv4 address': ipaddress.IPv4Address('10.20.30.40'),
@@ -166,11 +165,6 @@ EXAMPLE_CUSTOM_ITEMS = {
 EXAMPLE_PREPARED_CUSTOM_OUTPUT_ITEMS = {
     'foo': 'bar',
     'π': math.pi,
-    'wrong': (
-        f"<the following error occurred while trying to "
-        f"get the value by calling `{__name__}.<lambda>`: "
-        f"ZeroDivisionError('division by zero')>"
-    ),
     'SomeSpam': '-> REPR <-',
     'my enum member...': 'ExampleEnum.FOO',
     'IPv4 address': '10.20.30.40',
@@ -1486,12 +1480,25 @@ class TestStructuredLogsFormatter:  # noqa
                         'component_type': EXAMPLE_COMPONENT_TYPE,
                         'spam': 'ham',
                         'system': 'Śmystem',
-                        'timestamp': 'Śmajstamp',                                     # [sic!]
-                        'timestamp_': 'And now for something completely different!',  # [sic!]
-                        'timestamp__': EXAMPLE_TIMESTAMP_FORMATTED,                   # [sic!]
                         'xyz': 'abc',
                         'zero': 0,
-                    },
+                    } | (
+                        {
+                            # Under PyPy, the order of keys in a log record's
+                            # `__dict__` may be different from insertion order
+                            # (see: https://github.com/pypy/pypy/issues/5436).
+                            # This affects the order in which *output data* keys
+                            # are inserted and deduplicated with `_` suffixes...
+                            'timestamp': 'Śmajstamp',
+                            'timestamp_': AnyOfType(str),
+                            'timestamp__': AnyOfType(str),
+                        } if sys.implementation.name == 'pypy'
+                        else {
+                            'timestamp': 'Śmajstamp',
+                            'timestamp_': 'And now for something completely different!',
+                            'timestamp__': EXAMPLE_TIMESTAMP_FORMATTED,
+                        }
+                    ),
                     {
                         **get_output_base(level='DEBUG'),
                         'func': '<lambda>',

@@ -22,8 +22,9 @@
       heading_level: 2
       filters:
         - "!^_"
-        - "^__str__"
-        - "^__repr__"
+        - "^__str__$"
+        - "^__repr__$"
+        - "^_ensure_callable_args_and_data_items_resolved$"
       show_attribute_values: false
 
 ***

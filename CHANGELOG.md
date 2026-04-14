@@ -1,13 +1,12 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes to this project will be documented in this file. The
+format is based (to a large extent) on [Keep a Changelog](https://keepachangelog.com/).
 
-This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
-(establishing that the *public API* includes all elements documented in
-the [API Reference](https://certlib-log.readthedocs.io/reference/), and
-only them).
-
-The format of this file is, to a large extent, based on [Keep a Changelog](https://keepachangelog.com/).
+This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The entire *public API* is documented in the [API Reference](https://certlib-log.readthedocs.io/reference/)
+(with the proviso that *neither* any exception messages *nor* any source
+code available there via `<> Source code...` elements are part of the API).
 
 
 ## [Unreleased] (2026-XX-XX)
@@ -15,4 +14,4 @@ The format of this file is, to a large extent, based on [Keep a Changelog](https
 - TBD...
 
 
-[Unreleased]: https://github.com/CERT-Polska/certlib-log/tree/v1.0.0-alpha2
+[Unreleased]: https://github.com/CERT-Polska/certlib-log/tree/main

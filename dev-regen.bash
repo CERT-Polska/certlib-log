@@ -13,16 +13,13 @@ if [[ -d "$CERTLIB_LOG_DEV_REQ_REGEN_VENV_DIR" ]]; then
     echo "Hmm, ${CERTLIB_LOG_DEV_REQ_REGEN_VENV_DIR}" \
           "already exists. It will be removed now!" >&2
     rm -rf "$CERTLIB_LOG_DEV_REQ_REGEN_VENV_DIR" || exit 1
-    echo "OK, ${CERTLIB_LOG_DEV_REQ_REGEN_VENV_DIR} removed."
 fi
 
 echo "Creating temporary virtual environment in '${CERTLIB_LOG_DEV_REQ_REGEN_VENV_DIR}'..."
 "$CERTLIB_LOG_DEV_REQ_REGEN_PYTHON" -m venv "$CERTLIB_LOG_DEV_REQ_REGEN_VENV_DIR" || exit 1
-echo "OK, ${CERTLIB_LOG_DEV_REQ_REGEN_VENV_DIR} created."
 
 echo "Activating the '${CERTLIB_LOG_DEV_REQ_REGEN_VENV_DIR}' virtual environment..."
 source "${CERTLIB_LOG_DEV_REQ_REGEN_VENV_DIR}/bin/activate" || exit 1
-echo "OK, ${CERTLIB_LOG_DEV_REQ_REGEN_VENV_DIR} activated."
 
 echo "Installing/upgrading necessary tools..."
 python3 -m pip install --upgrade --require-virtualenv --use-pep517 \
@@ -52,10 +49,8 @@ echo "OK, *dev* requirements regenerated."
 
 echo "Deactivating the '${CERTLIB_LOG_DEV_REQ_REGEN_VENV_DIR}' virtual environment..."
 deactivate || exit 1
-echo "OK, ${CERTLIB_LOG_DEV_REQ_REGEN_VENV_DIR} deactivated."
 
 echo "Removing the '${CERTLIB_LOG_DEV_REQ_REGEN_VENV_DIR}' virtual environment..."
 rm -rf "$CERTLIB_LOG_DEV_REQ_REGEN_VENV_DIR" || exit 1
-echo "OK, ${CERTLIB_LOG_DEV_REQ_REGEN_VENV_DIR} removed."
 
 echo "OK, finished the entire procedure of regenerating dev/doc/test requirements."

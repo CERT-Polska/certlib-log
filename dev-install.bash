@@ -12,14 +12,10 @@ python3 -m pip install --upgrade --require-virtualenv --use-pep517 pip 2>/dev/nu
         echo "As ${CERTLIB_LOG_DEV_VENV_DIR} does not exist, a new virtual" \
              "environment in '${CERTLIB_LOG_DEV_VENV_DIR}' will be created..."
         python3 -m venv "${CERTLIB_LOG_DEV_VENV_DIR}" || exit 1
-        echo "OK, ${CERTLIB_LOG_DEV_VENV_DIR} created."
-    else
-        echo "OK, ${CERTLIB_LOG_DEV_VENV_DIR} already exists."
     fi
 
     echo "Activating the '${CERTLIB_LOG_DEV_VENV_DIR}' virtual environment..."
     source "${CERTLIB_LOG_DEV_VENV_DIR}/bin/activate" || exit 1
-    echo "OK, ${CERTLIB_LOG_DEV_VENV_DIR} activated."
     python3 -m pip install --upgrade --require-virtualenv --use-pep517 pip || exit 1
 }
 [[ "$?" != 0 ]] && exit 1
@@ -45,7 +41,7 @@ fi
 echo "** BUT PLEASE NOTE that it is a *development*-only installation" \
      "(just for running tests with 'pytest', or building docs with" \
      "'mkdocs build -f docs/mkdocs.yml', or performing type check" \
-     "with 'mypy -p certlib.log --strict', etc.)."
+     "with 'mypy -p certlib.log', etc.)."
 
 if [[ -v CERTLIB_LOG_DEV_VENV_DIR ]]; then
     echo "**** ALSO, PLEASE NOTE that to run/import the installed stuff" \
