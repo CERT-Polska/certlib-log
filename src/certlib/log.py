@@ -854,6 +854,7 @@ import decimal
 import enum
 import fractions
 import functools
+import importlib
 import ipaddress
 import json
 import logging
@@ -871,7 +872,6 @@ from collections.abc import (
     Sequence,
     Set,
 )
-from importlib import import_module
 from inspect import (
     Parameter,
     signature,
@@ -2137,93 +2137,74 @@ class StructuredLogsFormatter(logging.Formatter):
         xm_instance: ExtendedMessage,
         handle_output_item: Callable[[object, object], None],
     ) -> None:
-        # Extract from the given `ExtendedMessage` instance, and handle...
-
         attr_to_key = self.record_attr_to_output_key
 
+        # Extract from the given `ExtendedMessage` instance and handle...
+
+        # * ...its attributes related to the text message (if any):
         msg_key = attr_to_key.get('msg', 'msg')
         if msg_key is not None:
-            # * ...its attributes related to the text message (if any):
             msg_value = xm_instance.get_dict_with_non_falsy_pattern_and_args(
                 args_output_key=attr_to_key.get('args', 'args'),
             )
             if msg_value:
                 handle_output_item(msg_key, msg_value)
 
-        exc_info_key = attr_to_key.get('exc_info', 'exc_info')
-        if exc_info_key is not None:
-            # * ...its `exc_info` attribute (if worth including):
-            xm_exc_info = xm_instance.exc_info
-            if xm_exc_info and self._is_xm_exc_info_significant(
-                xm_exc_info,
-                record.exc_info,
-            ):
-                if xm_exc_info == (None, None, None):
-                    xm_exc_info = None
-                handle_output_item(exc_info_key, xm_exc_info)
+        # * ...its `exc_info` attribute (if worth including):
+        ei_key = attr_to_key.get('exc_info', 'exc_info')
+        if (ei_key is not None
+            and (xm_ei := xm_instance.exc_info)
+            and self._is_xm_exc_info_significant(xm_ei, record.exc_info)
+        ):
+            if xm_ei == (None, None, None):
+                xm_ei = None
+            handle_output_item(ei_key, xm_ei)
 
-        stack_info_key = attr_to_key.get('stack_info', 'stack_info')
-        if stack_info_key is not None:
-            # * ...its `stack_info` attribute (if worth including):
-            xm_stack_info = xm_instance.stack_info
-            if xm_stack_info and self._is_xm_stack_info_significant(
-                xm_stack_info,
-                record.stack_info,
-            ):
-                handle_output_item(stack_info_key, xm_stack_info)
+
+        # * ...its `stack_info` attribute (if worth including):
+        si_key = attr_to_key.get('stack_info', 'stack_info')
+        if (si_key is not None
+            and (xm_si := xm_instance.stack_info)
+            and self._is_xm_stack_info_significant(xm_si, record.stack_info)
+        ):
+            handle_output_item(si_key, xm_si)
 
         # * ...and any *extra data* (stored in its `data` attribute):
         for key, value in xm_instance.data.items():
             handle_output_item(key, value)
 
     @staticmethod
-    def _is_xm_exc_info_significant(
-        xm_exc_info: Any,
-        rec_exc_info: Any,
-    ) -> bool:
-        return (
-            not rec_exc_info
-            or (
-                # If `record.exc_info` is *not* a *falsy* object, then the
-                # `ExtendedMessage` instance's `exc_info` attribute -- to
-                # be considered *significant* -- needs to be **either** an
-                # exception which is *different* from the one conveyed by
-                # `record.exc_info` **or** an *exc info* tuple *different*
-                # from `record.exc_info`. So, in particular, a flag value
-                # (such as True) is considered *insignificant* in such a
-                # case.
-                xm_exc_info is not rec_exc_info  # (<- Fast check first)
-                and (
-                    isinstance(xm_exc_info, BaseException)
-                    and rec_exc_info != (
-                        type(xm_exc_info),
-                        xm_exc_info,
-                        xm_exc_info.__traceback__,
-                    )
-                    or
-                    isinstance(xm_exc_info, tuple)
-                    and xm_exc_info != rec_exc_info
-                )
+    def _is_xm_exc_info_significant(xm_ei: Any, rec_ei: Any) -> bool:
+        return (not rec_ei) or (
+            # If `record.exc_info` is *not* a *falsy* object, then the
+            # `ExtendedMessage` instance's `exc_info` attribute -- to
+            # be considered *significant* -- needs to be **either** an
+            # exception which is *different* from the one conveyed by
+            # `record.exc_info` **or** an *exc info* tuple *different*
+            # from `record.exc_info`. So, in particular, a flag value
+            # (such as True) is considered *insignificant* in such a
+            # case.
+            xm_ei is not rec_ei  # (<- Fast check first)
+            and (
+                isinstance(xm_ei, BaseException)
+                and rec_ei != (type(xm_ei), xm_ei, xm_ei.__traceback__)
+                or
+                isinstance(xm_ei, tuple)
+                and xm_ei != rec_ei
             )
         )
 
     @staticmethod
-    def _is_xm_stack_info_significant(
-        xm_stack_info: bool | str,
-        rec_stack_info: str | None,
-    ) -> bool:
-        return (
-            not rec_stack_info
-            or (
-                # If `record.stack_info` is *not* a *falsy* object, then
-                # the `ExtendedMessage` instance's `stack_info` attribute,
-                # -- to be considered *significant* -- needs to be a `str`
-                # *different* from `record.stack_info`. So a flag value
-                # (True) is considered *insignificant* in such a case.
-                xm_stack_info is not rec_stack_info  # (<- Fast check first)
-                and isinstance(xm_stack_info, str)
-                and xm_stack_info != rec_stack_info
-            )
+    def _is_xm_stack_info_significant(xm_si: bool | str, rec_si: str | None) -> bool:
+        return (not rec_si) or (
+            # If `record.stack_info` is *not* a *falsy* object, then
+            # the `ExtendedMessage` instance's `stack_info` attribute,
+            # -- to be considered *significant* -- needs to be a `str`
+            # *different* from `record.stack_info`. So a flag value
+            # (True) is considered *insignificant* in such a case.
+            xm_si is not rec_si  # (<- Fast check first)
+            and isinstance(xm_si, str)
+            and xm_si != rec_si
         )
 
     def _extract_output_from_record(
@@ -2268,7 +2249,7 @@ class StructuredLogsFormatter(logging.Formatter):
         actual_defaults: dict[str, Any],
         output_data: dict[str, Any],
 
-        # Individual (per-output-item) arguments:
+        # Individual (per-output-data-item) arguments:
         key: object,
         value: object,
     ) -> None:
@@ -2529,6 +2510,7 @@ class ExtendedMessage:
     @overload
     def __init__(
         self,
+        # (`pattern` should be anything convertible to str, but not a mapping)
         pattern: object = '',
         /,
         *args: object,
@@ -2638,7 +2620,10 @@ class ExtendedMessage:
             message = str(self.pattern)
             if self.args or self.data:
                 message = message.format(*self.args, **self.data)
+
+            # (Such assignments are assumed to be *atomic* operations.)
             self._cached_message = message
+
         return message
 
     def get_dict_with_non_falsy_pattern_and_args(
@@ -2848,6 +2833,8 @@ class ExtendedMessage:
                 # OK, already resolved.
                 return
             self._resolve_callable_args_and_data_items()
+
+            # (Such assignments are assumed to be *atomic* operations.)
             self._callable_args_and_data_items_already_resolved = True
         finally:
             lock.release()
@@ -2950,13 +2937,16 @@ class ExtendedMessage:
             self.recognized_callable_arg_or_data_item_types
         )
         args: tuple[Any, ...] = self.args
+        data: dict[str, Any] = self.data
+
+        # (Such assignments are assumed to be *atomic* operations.)
         self.args = tuple([
             val() if isinstance(val, recognized_callable_types) else val
             for val in args
         ])
-        data: dict[str, Any] = self.data
         for key, val in data.items():
             if isinstance(val, recognized_callable_types):
+                # (Such assignments are assumed to be *atomic* operations.)
                 data[key] = val()
 
 
@@ -3058,7 +3048,7 @@ def _add_to_auto_makers_registry(
     rec_attr_to_auto_maker[rec_attr] = auto_maker
     new_registry = tuple(rec_attr_to_auto_maker.items())
 
-    # We assume it to be an *atomic* operation:
+    # (Such assignments are assumed to be *atomic* operations.)
     _auto_makers_registry = new_registry
 
 
@@ -3073,7 +3063,7 @@ def _remove_from_auto_makers_registry(
     del rec_attr_to_auto_maker[rec_attr]
     new_registry = tuple(rec_attr_to_auto_maker.items())
 
-    # We assume it to be an *atomic* operation:
+    # (Such assignments are assumed to be *atomic* operations.)
     _auto_makers_registry = new_registry
 
 
@@ -3089,7 +3079,7 @@ def _ensure_internal_record_hook_is_set_up(
         _ensure_record_factory_with_auto_makers_and_record_hooks_is_set()
         new_sequence = (*_internal_record_hooks, rec_hook)
 
-        # We assume it to be an *atomic* operation:
+        # (Such assignments are assumed to be *atomic* operations.)
         _internal_record_hooks = new_sequence
 
 
@@ -3211,13 +3201,13 @@ def _resolve_dotted_path(dotted_path: str) -> Any:
     # -- `logging.config.BaseConfigurator.resolve()` function...)
     importable_name, *rest_parts = dotted_path.split('.')
     try:
-        obj = import_module(importable_name)
+        obj = importlib.import_module(importable_name)
         for part in rest_parts:
             importable_name += f'.{part}'
             try:
                 obj = getattr(obj, part)
             except AttributeError:
-                import_module(importable_name)
+                importlib.import_module(importable_name)
                 obj = getattr(obj, part)
     except ImportError as exc:
         raise ValueError(
