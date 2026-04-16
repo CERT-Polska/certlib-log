@@ -57,9 +57,11 @@ from certlib.log import (
 
 
 #
-# Test helpers and example data
+# Test helpers/constants (especially example data)
 #
 
+
+PY_3_11_OR_NEWER = sys.version_info[:2] >= (3, 11)
 
 HELPER_IMPORTABLE_MODULE_NAME = (
     f'_helper_importable_module_for_certlib_log_tests_'
@@ -82,8 +84,6 @@ EXAMPLE_SERIALIZER = HELPER_IMPORTABLE_MODULE.EXAMPLE_SERIALIZER = functools.par
     indent=4,
     sort_keys=True,
 )
-
-PY_3_11_OR_NEWER = sys.version_info[:2] >= (3, 11)
 
 
 class ExampleClassWithCustomStrAndRepr:
@@ -233,13 +233,19 @@ class AnyOfType:
         return f'<any of type {self.tp!r}>'
 
 
-class LoggingTimeModuleFakingProxy:
+class TimeModuleFakingProxy:
+
+    def __init__(self, timestamp_ns: int = EXAMPLE_TIMESTAMP_IN_NANOSECONDS):
+        self.__timestamp_ns = timestamp_ns
 
     def __getattribute__(self, name) -> Any:
+        priv_prefix = f'_{TimeModuleFakingProxy.__name__}__'
+        if name.startswith(priv_prefix):
+            return super().__getattribute__(name)
         if name == 'time':
-            return lambda: EXAMPLE_TIMESTAMP_IN_NANOSECONDS / 10**9
+            return lambda: self.__timestamp_ns / 10**9
         if name == 'time_ns':
-            return lambda: EXAMPLE_TIMESTAMP_IN_NANOSECONDS
+            return lambda: self.__timestamp_ns
         return getattr(time_module, name)
 
 
@@ -263,7 +269,7 @@ class ListLogHandler(logging.Handler):
         self.serialized_output_list: list[str] = []
         self.deserializer: Callable[[str], Any] = json.loads
 
-    def emit(self, record) -> None:
+    def emit(self, record):
         serialized_output: str = self.format(record)
         self.serialized_output_list.append(serialized_output)
 
@@ -280,10 +286,15 @@ class ListLogHandler(logging.Handler):
 
 class ExampleSubclassOfStructuredLogsFormatter(StructuredLogsFormatter):
 
+    def get_output_keys_required_in_defaults_or_auto_makers(self) -> Set[str]:
+        return frozenset(
+            super().get_output_keys_required_in_defaults_or_auto_makers()
+        ) | {'zero'}
+
     def make_base_defaults(self) -> Mapping[str, object]:
         return dict(super().make_base_defaults()) | {
-            'component_type': EXAMPLE_COMPONENT_TYPE,
             'system': EXAMPLE_SYSTEM,
+            'component_type': EXAMPLE_COMPONENT_TYPE,
             'xyz': 'abc',
             'zero': ['a default TO BE OVERRIDDEN...'],
         }
@@ -293,11 +304,6 @@ class ExampleSubclassOfStructuredLogsFormatter(StructuredLogsFormatter):
             'component': make_constant_value_provider(EXAMPLE_COMPONENT),
             'zero': make_constant_value_provider(0),
         }
-
-    def get_output_keys_required_to_be_included_in_defaults_or_auto_makers(self) -> Set[str]:
-        return frozenset(
-            super().get_output_keys_required_to_be_included_in_defaults_or_auto_makers()
-        ) | {'zero'}
 
     def make_base_record_attr_to_output_key(self) -> Mapping[str, str | None]:
         return dict(super().make_base_record_attr_to_output_key()) | {
@@ -317,6 +323,12 @@ class ExampleSubclassOfStructuredLogsFormatter(StructuredLogsFormatter):
             dt.timedelta(hours=2): 'Z',
         })
         return super().format_timestamp(record, **kwargs)
+
+    def get_prepared_output_data(self, record: logging.LogRecord) -> dict[str, Any]:
+        output_data = super().get_prepared_output_data(record)
+        if lemon := output_data.pop('lemon ', None):
+            output_data['lime'] = lemon
+        return output_data
 
     def prepare_value(self, value: object, **kwargs) -> Any:
         prepared = super().prepare_value(value, **kwargs)
@@ -344,27 +356,29 @@ class ConstantValueAutoMaker:
     # `__repr__()` returning an `ast.literal_eval()`-evaluable string
     # representing that *importable dotted name*...
 
+    _name: str
+    _value: object
+
     def __new__(cls, value: object) -> ConstantValueAutoMaker:
         name = cls._get_name(value)
         instance = getattr(HELPER_IMPORTABLE_MODULE, name, None)
         if instance is None:
             instance = super().__new__(cls)
+            instance._name = name
             instance._value = value
-            instance.__name__ = instance.__qualname__ = name      # <- Just for completeness :)
-            instance.__module__ = HELPER_IMPORTABLE_MODULE_NAME   # <- Just for completeness :)
             setattr(HELPER_IMPORTABLE_MODULE, name, instance)
         return instance
 
     @classmethod
     def _get_name(cls, value: object) -> str:
         value_repr_hash = hashlib.sha224(ascii(value).encode()).hexdigest()
-        return f'_{cls.__name__}__name___{value_repr_hash}'
+        return f'_{cls.__name__}_name_{value_repr_hash}'
 
     def __call__(self) -> Any:
         return self._value
 
     def get_importable_dotted_name(self) -> str:
-        return f'{HELPER_IMPORTABLE_MODULE_NAME}.{self.__name__}'
+        return f'{HELPER_IMPORTABLE_MODULE_NAME}.{self._name}'
 
     def __repr__(self) -> str:
         return repr(self.get_importable_dotted_name())
@@ -432,27 +446,27 @@ def get_output_base(
 
 
 #
-# Module-global fixtures
+# Module-global *autouse* fixtures
 #
 
 
 @pytest.fixture(autouse=True)
-def _ensure_initial_log_record_factory_is_restored():
+def ensure_initial_log_record_factory_is_restored():
     initial = logging.getLogRecordFactory()
     yield
     logging.setLogRecordFactory(initial)
 
 
 @pytest.fixture(autouse=True)
-def _monkeypatch_to_fake_relevant_time_functions(monkeypatch):
-    monkeypatch.setattr(logging, 'time', LoggingTimeModuleFakingProxy())
-
-
-@pytest.fixture(autouse=True)
-def _ensure_module_global_internal_state_is_cleaned_up():
+def ensure_module_global_internal_state_is_cleaned_up():
     _clear_auto_makers_and_internal_record_hooks_related_global_state()
     yield
     _clear_auto_makers_and_internal_record_hooks_related_global_state()
+
+
+@pytest.fixture(autouse=True)
+def monkeypatch_to_fake_relevant_time_functions(monkeypatch):
+    monkeypatch.setattr(logging, 'time', TimeModuleFakingProxy())
 
 
 #
@@ -460,24 +474,30 @@ def _ensure_module_global_internal_state_is_cleaned_up():
 #
 
 
-class TestStructuredLogsFormatter:  # noqa
+class TestStructuredLogsFormatter:
 
     @pytest.fixture(params=[StructuredLogsFormatter])
-    def formatter_factory(self, request) -> Callable[..., StructuredLogsFormatter]:
+    def formatter_factory(
+        self,
+        request,
+    ) -> Callable[..., StructuredLogsFormatter]:
         return request.param
 
     @pytest.fixture(params=[
         dict(
             defaults={
-                'component_type': EXAMPLE_COMPONENT_TYPE,
                 'system': EXAMPLE_SYSTEM,
+                'component_type': EXAMPLE_COMPONENT_TYPE,
             },
             auto_makers={
                 'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT),
             }
         ),
     ])
-    def formatter_init_kwargs(self, request) -> Generator[dict[str, Any]]:
+    def formatter_init_kwargs(
+        self,
+        request,
+    ) -> Generator[dict[str, Any]]:
         yield deepcopy(request.param)
 
     @pytest.fixture(params=[FormatterInitKwargsPassingVariant.DIRECT])
@@ -493,6 +513,8 @@ class TestStructuredLogsFormatter:  # noqa
         request,
         formatter_init_kwargs_passing_variant,
     ) -> tuple[Sequence[Any], Mapping[str, Any]]:
+        ign_args: Sequence[Any]
+        ign_kwargs: dict[str, Any]
         if request.param is FormatterInitIgnoredRedundantStandardArguments.NONE:
             ign_args = ()
             ign_kwargs = {}
@@ -529,7 +551,6 @@ class TestStructuredLogsFormatter:  # noqa
             ign_args = ign_args[1:]
             ign_kwargs.pop('fmt', None)
         return ign_args, ign_kwargs
-
 
     @pytest.fixture
     def formatter(
@@ -568,7 +589,7 @@ class TestStructuredLogsFormatter:  # noqa
         log.removeHandler(log_handler)
 
     @pytest.fixture
-    def example_custom_items(self):
+    def example_custom_items(self) -> Mapping[str, Any]:
         return deepcopy(EXAMPLE_CUSTOM_ITEMS)
 
 
@@ -584,11 +605,11 @@ class TestStructuredLogsFormatter:  # noqa
 
         assert log_handler.output_list == [{
             **get_output_base(level='INFO'),
-            'message_base': "Let's log this: %s=%r, %s=%.6f",
             'message': "Let's log this: foo='bar', π=3.141593",
+            'message_base': "Let's log this: %s=%r, %s=%.6f",
+            'system': EXAMPLE_SYSTEM,
             'component': EXAMPLE_COMPONENT,
             'component_type': EXAMPLE_COMPONENT_TYPE,
-            'system': EXAMPLE_SYSTEM,
         }]
 
 
@@ -604,13 +625,13 @@ class TestStructuredLogsFormatter:  # noqa
 
         assert log_handler.output_list == [{
             **get_output_base(level='WARNING'),
+            'message': "Let's log this: foo='bar', π=3.141593",
             'message_base': {
                 'pattern': "Let's log this: {}={!r}, {}={:.6f}",
             },
-            'message': "Let's log this: foo='bar', π=3.141593",
+            'system': EXAMPLE_SYSTEM,
             'component': EXAMPLE_COMPONENT,
             'component_type': EXAMPLE_COMPONENT_TYPE,
-            'system': EXAMPLE_SYSTEM,
         }]
 
 
@@ -626,13 +647,13 @@ class TestStructuredLogsFormatter:  # noqa
 
         assert log_handler.output_list == [{
             **get_output_base(level='ERROR'),
+            'message': "Let's log this: foo='bar', π=3.141593",
             'message_base': {
                 'pattern': "Let's log this: {0}={1!r}, {2}={3:.6f}",
             },
-            'message': "Let's log this: foo='bar', π=3.141593",
+            'system': EXAMPLE_SYSTEM,
             'component': EXAMPLE_COMPONENT,
             'component_type': EXAMPLE_COMPONENT_TYPE,
-            'system': EXAMPLE_SYSTEM,
         }]
 
 
@@ -648,15 +669,15 @@ class TestStructuredLogsFormatter:  # noqa
 
         assert log_handler.output_list == [{
             **get_output_base(level='CRITICAL'),
+            'message': "Let's log this: foo='bar', π=3.141593",
             'message_base': {
                 'pattern': "Let's log this: {}={!r}, {const_symbol}={const_value:.6f}",
             },
-            'message': "Let's log this: foo='bar', π=3.141593",
             'const_symbol': 'π',      # <- Note extra item
             'const_value': math.pi,   # <- Note extra item
+            'system': EXAMPLE_SYSTEM,
             'component': EXAMPLE_COMPONENT,
             'component_type': EXAMPLE_COMPONENT_TYPE,
-            'system': EXAMPLE_SYSTEM,
         }]
 
 
@@ -674,17 +695,18 @@ class TestStructuredLogsFormatter:  # noqa
 
         assert log_handler.output_list == [{
             **get_output_base(level='DEBUG'),
+            'message': "Let's log this: foo='bar', π=3.141593",
             'message_base': {
                 'pattern': "Let's log this: {}={!r}, {const_symbol}={const_value:.6f}",
             },
-            'message': "Let's log this: foo='bar', π=3.141593",
             'const_symbol': 'π',                      # <- Note extra item
             'const_value': math.pi,                   # <- Note extra item
             **EXAMPLE_PREPARED_CUSTOM_OUTPUT_ITEMS,   # <- Note extra items not used in message
+            'system': EXAMPLE_SYSTEM,
             'component': EXAMPLE_COMPONENT,
             'component_type': EXAMPLE_COMPONENT_TYPE,
-            'system': EXAMPLE_SYSTEM,
         }]
+
 
     def test_log_just_data_using_xm_with_kwargs(
         self,
@@ -697,9 +719,9 @@ class TestStructuredLogsFormatter:  # noqa
         assert log_handler.output_list == [{
             **get_output_base(level='INFO'),
             **EXAMPLE_PREPARED_CUSTOM_OUTPUT_ITEMS,
+            'system': EXAMPLE_SYSTEM,
             'component': EXAMPLE_COMPONENT,
             'component_type': EXAMPLE_COMPONENT_TYPE,
-            'system': EXAMPLE_SYSTEM,
         }]
         # (See `EXAMPLE_PREPARED_CUSTOM_OUTPUT_ITEMS`...)
         n, t, f = log_handler.last_output['my_subdict']['Singletons']
@@ -719,9 +741,9 @@ class TestStructuredLogsFormatter:  # noqa
         assert log_handler.output_list == [{
             **get_output_base(level='WARNING'),
             **EXAMPLE_PREPARED_CUSTOM_OUTPUT_ITEMS,
+            'system': EXAMPLE_SYSTEM,
             'component': EXAMPLE_COMPONENT,
             'component_type': EXAMPLE_COMPONENT_TYPE,
-            'system': EXAMPLE_SYSTEM,
         }]
         # (See `EXAMPLE_PREPARED_CUSTOM_OUTPUT_ITEMS`...)
         n, t, f = log_handler.last_output['my_subdict']['Singletons']
@@ -740,8 +762,8 @@ class TestStructuredLogsFormatter:  # noqa
                 ),
                 {
                     **get_output_base(level='ERROR'),
-                    'message_base': 'Error occurred!',
                     'message': 'Error occurred!',
+                    'message_base': 'Error occurred!',
                 },
             ),
             (
@@ -752,8 +774,8 @@ class TestStructuredLogsFormatter:  # noqa
                 ),
                 {
                     **get_output_base(level='CRITICAL'),
-                    'message_base': 'Error occurred! %d',
                     'message': 'Error occurred! 123',
+                    'message_base': 'Error occurred! %d',
                 },
             ),
             (
@@ -763,8 +785,8 @@ class TestStructuredLogsFormatter:  # noqa
                 ),
                 {
                     **get_output_base(level='DEBUG'),
-                    'message_base': {'pattern': 'Error occurred!'},
                     'message': 'Error occurred!',
+                    'message_base': {'pattern': 'Error occurred!'},
                 },
             ),
             (
@@ -773,8 +795,8 @@ class TestStructuredLogsFormatter:  # noqa
                 ),
                 {
                     **get_output_base(level='INFO'),
-                    'message_base': {'pattern': 'Error occurred!'},
                     'message': 'Error occurred!',
+                    'message_base': {'pattern': 'Error occurred!'},
                 },
             ),
             (
@@ -784,8 +806,8 @@ class TestStructuredLogsFormatter:  # noqa
                 ),
                 {
                     **get_output_base(level='WARNING'),
-                    'message_base': {'pattern': 'Error occurred! {n}'},
                     'message': 'Error occurred! 123',
+                    'message_base': {'pattern': 'Error occurred! {n}'},
                     'n': 123,
                 },
             ),
@@ -795,8 +817,8 @@ class TestStructuredLogsFormatter:  # noqa
                 ),
                 {
                     **get_output_base(level='ERROR'),
-                    'message_base': {'pattern': 'Error occurred! {n}'},
                     'message': 'Error occurred! 123',
+                    'message_base': {'pattern': 'Error occurred! {n}'},
                     'n': 123,
                 },
             ),
@@ -957,16 +979,16 @@ class TestStructuredLogsFormatter:  # noqa
     ):
         try:
             raise make_exc()
-        except BaseException:  # noqa
-            logger_method_call(logger)
+        except BaseException:            # noqa
+            logger_method_call(logger)   # noqa
 
         assert log_handler.output_list == [{
             **expected_output_base,
             'exc_info': expected_exc_info,
             'exc_text': AnyOfType(str),
+            'system': EXAMPLE_SYSTEM,
             'component': EXAMPLE_COMPONENT,
             'component_type': EXAMPLE_COMPONENT_TYPE,
-            'system': EXAMPLE_SYSTEM,
         }]
         exc_text = log_handler.last_output['exc_text']
         assert exc_text.startswith('Traceback (most recent call last):\n')
@@ -984,8 +1006,8 @@ class TestStructuredLogsFormatter:  # noqa
                 ),
                 {
                     **get_output_base(level='DEBUG'),
-                    'message_base': 'Some happened!',
                     'message': 'Some happened!',
+                    'message_base': 'Some happened!',
                 },
             ),
             (
@@ -996,8 +1018,8 @@ class TestStructuredLogsFormatter:  # noqa
                 ),
                 {
                     **get_output_base(level='INFO'),
-                    'message_base': 'Some happened! %d',
                     'message': 'Some happened! 123',
+                    'message_base': 'Some happened! %d',
                 },
             ),
             (
@@ -1007,8 +1029,8 @@ class TestStructuredLogsFormatter:  # noqa
                 ),
                 {
                     **get_output_base(level='WARNING'),
-                    'message_base': {'pattern': 'Some happened!'},
                     'message': 'Some happened!',
+                    'message_base': {'pattern': 'Some happened!'},
                 },
             ),
             (
@@ -1017,8 +1039,8 @@ class TestStructuredLogsFormatter:  # noqa
                 ),
                 {
                     **get_output_base(level='ERROR'),
-                    'message_base': {'pattern': 'Some happened!'},
                     'message': 'Some happened!',
+                    'message_base': {'pattern': 'Some happened!'},
                 },
             ),
             (
@@ -1028,8 +1050,8 @@ class TestStructuredLogsFormatter:  # noqa
                 ),
                 {
                     **get_output_base(level='CRITICAL'),
-                    'message_base': {'pattern': 'Some happened! {n}'},
                     'message': 'Some happened! 123',
+                    'message_base': {'pattern': 'Some happened! {n}'},
                     'n': 123,
                 },
             ),
@@ -1039,8 +1061,8 @@ class TestStructuredLogsFormatter:  # noqa
                 ),
                 {
                     **get_output_base(level='DEBUG'),
-                    'message_base': {'pattern': 'Some happened! {n}'},
                     'message': 'Some happened! 123',
+                    'message_base': {'pattern': 'Some happened! {n}'},
                     'n': 123,
                 },
             ),
@@ -1098,9 +1120,9 @@ class TestStructuredLogsFormatter:  # noqa
             **expected_output_base,
             'func': '<lambda>',
             'stack_info': AnyOfType(str),
+            'system': EXAMPLE_SYSTEM,
             'component': EXAMPLE_COMPONENT,
             'component_type': EXAMPLE_COMPONENT_TYPE,
-            'system': EXAMPLE_SYSTEM,
         }]
         stack_lines = log_handler.last_output['stack_info'].splitlines()
         assert stack_lines[0] == 'Stack (most recent call last):'
@@ -1175,9 +1197,9 @@ class TestStructuredLogsFormatter:  # noqa
         assert log_handler.output_list == [{
             **expected_output_base,
             'stack_info': AnyOfType(str),
+            'system': EXAMPLE_SYSTEM,
             'component': EXAMPLE_COMPONENT,
             'component_type': EXAMPLE_COMPONENT_TYPE,
-            'system': EXAMPLE_SYSTEM,
         }]
         stack_lines = log_handler.last_output['stack_info'].splitlines()
         assert stack_lines[0] == 'Stack (most recent call last):'
@@ -1211,9 +1233,9 @@ class TestStructuredLogsFormatter:  # noqa
                 StructuredLogsFormatter,
                 dict(
                     defaults={
+                        'blah_blah_blah': 2222,
                         'component_type': 'a default TO BE OVERRIDDEN...',
                         'system': EXAMPLE_SYSTEM,
-                        'blah_blah_blah': 2222,
                         'zero': 0,
                     },
                     auto_makers={
@@ -1311,8 +1333,8 @@ class TestStructuredLogsFormatter:  # noqa
                     {
                         **get_output_base(level='INFO'),
                         'func': '<lambda>',
-                        'message_base': 'Example message - %s, %r, %04d, %%',
                         'message': "Example message - Foo, 'spam', 0042, %",
+                        'message_base': 'Example message - %s, %r, %04d, %%',
                         'component': EXAMPLE_COMPONENT,
                         'component_type': EXAMPLE_COMPONENT_TYPE,
                         'system': EXAMPLE_SYSTEM,
@@ -1322,10 +1344,10 @@ class TestStructuredLogsFormatter:  # noqa
                     {
                         **get_output_base(level='WARNING'),
                         'func': '<lambda>',
+                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'message_base': {
                             'pattern': 'Example message - {}, {!r}, {:04}, {{}}',
                         },
-                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'component': EXAMPLE_COMPONENT,
                         'component_type': EXAMPLE_COMPONENT_TYPE,
                         'system': EXAMPLE_SYSTEM,
@@ -1335,10 +1357,10 @@ class TestStructuredLogsFormatter:  # noqa
                     {
                         **get_output_base(level='ERROR'),
                         'func': '<lambda>',
+                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'message_base': {
                             'pattern': 'Example message - {0}, {1!r}, {2:04}, {{}}',
                         },
-                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'component': EXAMPLE_COMPONENT,
                         'component_type': EXAMPLE_COMPONENT_TYPE,
                         'system': EXAMPLE_SYSTEM,
@@ -1348,10 +1370,10 @@ class TestStructuredLogsFormatter:  # noqa
                     {
                         **get_output_base(level='CRITICAL'),
                         'func': '<lambda>',
+                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'message_base': {
                             'pattern': 'Example message - {}, {!r}, {:04}, {{}}',
                         },
-                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'bar': 'B',
                         'component': 'CCC',                # [sic!]
                         'component_': EXAMPLE_COMPONENT,   # [sic!]
@@ -1363,10 +1385,10 @@ class TestStructuredLogsFormatter:  # noqa
                     {
                         **get_output_base(level='DEBUG'),
                         'func': '<lambda>',
+                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'message_base': {
                             'pattern': 'Example message - {}, {!r}, {:04}, {{}}',
                         },
-                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'bar': 'B',        # [sic!]
                         'bar_': 'B-2',     # [sic!]
                         'component': 'CCC',                # [sic!]
@@ -1381,10 +1403,10 @@ class TestStructuredLogsFormatter:  # noqa
                     {
                         **get_output_base(level='INFO'),
                         'func': '<lambda>',
+                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'message_base': {
                             'pattern': 'Example message - {}, {!r}, {:04}, {{}}',
                         },
-                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'bar': 'B',
                         'component': EXAMPLE_COMPONENT,
                         'component_type': EXAMPLE_COMPONENT_TYPE,
@@ -1441,8 +1463,8 @@ class TestStructuredLogsFormatter:  # noqa
                     {
                         **get_output_base(level='WARNING'),
                         'func': '<lambda>',
-                        'message_base': 'Example message - %(foo)s, %(bar)r, %(baz)04d, %%',
                         'message': "Example message - Foo, 'spam', 0042, %",
+                        'message_base': 'Example message - %(foo)s, %(bar)r, %(baz)04d, %%',
                         'component': EXAMPLE_COMPONENT,
                         'component_type': EXAMPLE_COMPONENT_TYPE,
                         'system': EXAMPLE_SYSTEM,
@@ -1452,10 +1474,10 @@ class TestStructuredLogsFormatter:  # noqa
                     {
                         **get_output_base(level='ERROR'),
                         'func': '<lambda>',
+                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'message_base': {
                             'pattern': 'Example message - {foo}, {bar!r}, {baz:04}, {{}}',
                         },
-                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'bar': 'spam',
                         'baz': 42,
                         'foo': 'Foo',
@@ -1468,10 +1490,10 @@ class TestStructuredLogsFormatter:  # noqa
                     {
                         **get_output_base(level='CRITICAL'),
                         'func': '<lambda>',
+                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'message_base': {
                             'pattern': 'Example message - {foo}, {bar!r}, {baz:04}, {{}}',
                         },
-                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'asctime': 'What time is it?',
                         'bar': 'spam',
                         'baz': 42,
@@ -1502,10 +1524,10 @@ class TestStructuredLogsFormatter:  # noqa
                     {
                         **get_output_base(level='DEBUG'),
                         'func': '<lambda>',
+                        'message': 'Example message - {}',   # [sic!]
                         'message_base': {
                             'pattern': 'Example message - {{}}',
                         },
-                        'message': 'Example message - {}',   # [sic!]
                         'bar': 'spam',
                         'baz': 42,
                         'foo': 'Foo',
@@ -1584,9 +1606,9 @@ class TestStructuredLogsFormatter:  # noqa
                     {
                         **get_output_base(level='INFO'),
                         'func': '<lambda>',
-                        'message_base': 'Example message - %s, %r, %04d, %%',
                         # Value of 'message' kept raw (*not* formatted) [!]
                         'message': 'Example message - %s, %r, %04d, %%',
+                        'message_base': 'Example message - %s, %r, %04d, %%',
                         'component': EXAMPLE_COMPONENT,
                         'component_type': EXAMPLE_COMPONENT_TYPE,
                         'system': EXAMPLE_SYSTEM,
@@ -1596,9 +1618,9 @@ class TestStructuredLogsFormatter:  # noqa
                     {
                         **get_output_base(level='WARNING'),
                         'func': '<lambda>',
-                        'message_base': 'Example message - %(foo)s, %(bar)r, %(baz)04d, %%',
                         # Value of 'message' kept raw (*not* formatted) [!]
                         'message': 'Example message - %(foo)s, %(bar)r, %(baz)04d, %%',
+                        'message_base': 'Example message - %(foo)s, %(bar)r, %(baz)04d, %%',
                         'component': EXAMPLE_COMPONENT,
                         'component_type': EXAMPLE_COMPONENT_TYPE,
                         'system': EXAMPLE_SYSTEM,
@@ -1608,9 +1630,9 @@ class TestStructuredLogsFormatter:  # noqa
                     {
                         **get_output_base(level='ERROR'),
                         'func': '<lambda>',
-                        'message_base': 'Example message - %(foo)s, %(bar)r, %(baz)04d, %%',
                         # Value of 'message' kept raw (*not* formatted) [!]
                         'message': 'Example message - %(foo)s, %(bar)r, %(baz)04d, %%',
+                        'message_base': 'Example message - %(foo)s, %(bar)r, %(baz)04d, %%',
                         'bar': 'spam',
                         'baz': 42,
                         'foo': 'Foo',
@@ -1646,11 +1668,11 @@ class TestStructuredLogsFormatter:  # noqa
                     {
                         **get_output_base(level='INFO'),
                         'func': '<lambda>',
+                        # Value of 'message' kept raw (*not* formatted) [!]
+                        'message': 'Example message - {}, {!r}, {:04}, {{}}',
                         'message_base': {
                             'pattern': 'Example message - {}, {!r}, {:04}, {{}}',
                         },
-                        # Value of 'message' kept raw (*not* formatted) [!]
-                        'message': 'Example message - {}, {!r}, {:04}, {{}}',
                         'component': EXAMPLE_COMPONENT,
                         'component_type': EXAMPLE_COMPONENT_TYPE,
                         'system': EXAMPLE_SYSTEM,
@@ -1660,11 +1682,11 @@ class TestStructuredLogsFormatter:  # noqa
                     {
                         **get_output_base(level='WARNING'),
                         'func': '<lambda>',
+                        # Value of 'message' kept raw (*not* formatted) [!]
+                        'message': 'Example message - {}, {!r}, {baz:04}, {{}}',
                         'message_base': {
                             'pattern': 'Example message - {}, {!r}, {baz:04}, {{}}',
                         },
-                        # Value of 'message' kept raw (*not* formatted) [!]
-                        'message': 'Example message - {}, {!r}, {baz:04}, {{}}',
                         'component': EXAMPLE_COMPONENT,
                         'component_type': EXAMPLE_COMPONENT_TYPE,
                         'system': EXAMPLE_SYSTEM,
@@ -1674,11 +1696,11 @@ class TestStructuredLogsFormatter:  # noqa
                     {
                         **get_output_base(level='ERROR'),
                         'func': '<lambda>',
+                        # Value of 'message' kept raw (*not* formatted) [!]
+                        'message': 'Example message - {foo}, {bar!r}, {baz:04}, {{}}',
                         'message_base': {
                             'pattern': 'Example message - {foo}, {bar!r}, {baz:04}, {{}}',
                         },
-                        # Value of 'message' kept raw (*not* formatted) [!]
-                        'message': 'Example message - {foo}, {bar!r}, {baz:04}, {{}}',
                         'bar': 'spam',
                         'baz': 42,
                         'foo': 'Foo',
@@ -1861,13 +1883,13 @@ class TestStructuredLogsFormatter:  # noqa
                     {
                         **get_output_base(level='ERROR'),
                         'func': '<lambda>',
-                        'baz': 42,
-                        'component': EXAMPLE_COMPONENT,
-                        'component_type': EXAMPLE_COMPONENT_TYPE,
                         'message': "Example message - Foo, 'spam', 0042, {}",
                         'message_base': {
                             'pattern': 'Example message - {}, {!r}, {baz:04}, {{}}',
                         },
+                        'baz': 42,
+                        'component': EXAMPLE_COMPONENT,
+                        'component_type': EXAMPLE_COMPONENT_TYPE,
                         'system': EXAMPLE_SYSTEM,
                         'xyz': 'abc',
                         'zero': 0,
@@ -1875,13 +1897,13 @@ class TestStructuredLogsFormatter:  # noqa
                     {
                         **get_output_base(level='CRITICAL'),
                         'func': '<lambda>',
-                        'baz': 42,
-                        'component': EXAMPLE_COMPONENT,
-                        'component_type': EXAMPLE_COMPONENT_TYPE,
                         'message': "Example message - Foo, 'spam', 0042, {}",
                         'message_base': {
                             'pattern': 'Example message - {}, {!r}, {baz:04}, {{}}',
                         },
+                        'baz': 42,
+                        'component': EXAMPLE_COMPONENT,
+                        'component_type': EXAMPLE_COMPONENT_TYPE,
                         'something_else': [{'42': 42}],
                         # No 'system' [sic!] (the default has been masked by a void value)
                         'xyz': 'abc',
@@ -1890,14 +1912,14 @@ class TestStructuredLogsFormatter:  # noqa
                     {
                         **get_output_base(level='DEBUG'),
                         'func': '<lambda>',
-                        'bar': 2.0,
-                        'baz': 3,    # [sic!]
-                        'component': EXAMPLE_COMPONENT,   # [sic!]
-                        'component_type': EXAMPLE_COMPONENT_TYPE,
                         'message': "Example message - Foo, 'spam', None, {}",   # [sic!]
                         'message_base': {
                             'pattern': 'Example message - {}, {!r}, {baz}, {{}}',
                         },
+                        'bar': 2.0,
+                        'baz': 3,    # [sic!]
+                        'component': EXAMPLE_COMPONENT,   # [sic!]
+                        'component_type': EXAMPLE_COMPONENT_TYPE,
                         'something_else': [{'42': 42}],
                         'system': 'S-2',   # [sic!]
                         'xyz': 'abc',
@@ -1906,15 +1928,15 @@ class TestStructuredLogsFormatter:  # noqa
                     {
                         **get_output_base(level='INFO'),
                         'func': '<lambda>',
+                        'message': "Example message - Foo, 'spam', 0042, {}",
+                        'message_base': {
+                            'pattern': 'Example message - {}, {!r}, {baz:04}, {{}}',
+                        },
                         'bar': 2.0,
                         'baz': 42,    # [sic!]
                         'baz_': 3,    # [sic!]
                         'component': EXAMPLE_COMPONENT,   # [sic!]
                         'component_type': EXAMPLE_COMPONENT_TYPE,
-                        'message': "Example message - Foo, 'spam', 0042, {}",
-                        'message_base': {
-                            'pattern': 'Example message - {}, {!r}, {baz:04}, {{}}',
-                        },
                         'something_else': [{'42': 42}],
                         # No 'system' [sic!] (the default has been masked by a void value)
                         'xyz': 'abc',
@@ -2047,8 +2069,8 @@ class TestStructuredLogsFormatter:  # noqa
                         'func': (
                             'test_a_bunch_of_cases_including_some_more_complex_or_contrived_ones'
                         ),
-                        'message_base': 'Example message - %s, %r, %04d, %%',
                         'message': "Example message - Foo, 'spam', 0042, %",
+                        'message_base': 'Example message - %s, %r, %04d, %%',
                         'component': EXAMPLE_COMPONENT,
                         'component_type': EXAMPLE_COMPONENT_TYPE,
                         'system': EXAMPLE_SYSTEM,
@@ -2060,10 +2082,10 @@ class TestStructuredLogsFormatter:  # noqa
                         'func': (
                             'test_a_bunch_of_cases_including_some_more_complex_or_contrived_ones'
                         ),
+                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'message_base': {
                             'pattern': 'Example message - {foo}, {bar!r}, {baz:04}, {{}}',
                         },
-                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'bar': 'spam',
                         'baz': 42,
                         'foo': 'Foo',
@@ -2078,10 +2100,10 @@ class TestStructuredLogsFormatter:  # noqa
                         'func': (
                             'test_a_bunch_of_cases_including_some_more_complex_or_contrived_ones'
                         ),
+                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'message_base': {
                             'pattern': 'Example message - {foo}, {bar!r}, {baz:04}, {{}}',
                         },
-                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'bar': 'spam',
                         'baz': 42,
                         'foo': 'Foo',
@@ -2094,8 +2116,8 @@ class TestStructuredLogsFormatter:  # noqa
                     {
                         **get_output_base(level='DEBUG'),
                         'func': '<lambda>',
-                        'message_base': 'Example message - %s, %r, %04d, %%',
                         'message': "Example message - Foo, 'spam', 0042, %",
+                        'message_base': 'Example message - %s, %r, %04d, %%',
                         'component': EXAMPLE_COMPONENT,
                         'component_type': EXAMPLE_COMPONENT_TYPE,
                         'system': EXAMPLE_SYSTEM,
@@ -2105,10 +2127,10 @@ class TestStructuredLogsFormatter:  # noqa
                     {
                         **get_output_base(level='INFO'),
                         'func': '<lambda>',
+                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'message_base': {
                             'pattern': 'Example message - {foo}, {bar!r}, {baz:04}, {{}}',
                         },
-                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'bar': 'spam',
                         'baz': 42,
                         'foo': 'Foo',
@@ -2121,10 +2143,10 @@ class TestStructuredLogsFormatter:  # noqa
                     {
                         **get_output_base(level='WARNING'),
                         'func': '<lambda>',
+                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'message_base': {
                             'pattern': 'Example message - {foo}, {bar!r}, {baz:04}, {{}}',
                         },
-                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'bar': 'spam',
                         'baz': 42,
                         'foo': 'Foo',
@@ -2139,8 +2161,8 @@ class TestStructuredLogsFormatter:  # noqa
                         # (Note: for the `stacklevel < 1` corner case,
                         # older Python versions behave differently...)
                         'func': 'findCaller' if PY_3_11_OR_NEWER else '<lambda>',
-                        'message_base': 'Example message - %s, %r, %04d, %%',
                         'message': "Example message - Foo, 'spam', 0042, %",
+                        'message_base': 'Example message - %s, %r, %04d, %%',
                         'component': EXAMPLE_COMPONENT,
                         'component_type': EXAMPLE_COMPONENT_TYPE,
                         'system': EXAMPLE_SYSTEM,
@@ -2152,10 +2174,10 @@ class TestStructuredLogsFormatter:  # noqa
                         # (Note: for the `stacklevel < 1` corner case,
                         # older Python versions behave differently...)
                         'func': 'findCaller' if PY_3_11_OR_NEWER else '<lambda>',
+                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'message_base': {
                             'pattern': 'Example message - {foo}, {bar!r}, {baz:04}, {{}}',
                         },
-                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'bar': 'spam',
                         'baz': 42,
                         'foo': 'Foo',
@@ -2170,10 +2192,10 @@ class TestStructuredLogsFormatter:  # noqa
                         # (Note: for the `stacklevel < 1` corner case,
                         # older Python versions behave differently...)
                         'func': 'findCaller' if PY_3_11_OR_NEWER else '<lambda>',
+                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'message_base': {
                             'pattern': 'Example message - {foo}, {bar!r}, {baz:04}, {{}}',
                         },
-                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'bar': 'spam',
                         'baz': 42,
                         'foo': 'Foo',
@@ -2188,8 +2210,8 @@ class TestStructuredLogsFormatter:  # noqa
                         # (Note: for the `stacklevel < 1` corner case,
                         # older Python versions behave differently...)
                         'func': 'findCaller' if PY_3_11_OR_NEWER else '<lambda>',
-                        'message_base': 'Example message - %s, %r, %04d, %%',
                         'message': "Example message - Foo, 'spam', 0042, %",
+                        'message_base': 'Example message - %s, %r, %04d, %%',
                         'component': EXAMPLE_COMPONENT,
                         'component_type': EXAMPLE_COMPONENT_TYPE,
                         'system': EXAMPLE_SYSTEM,
@@ -2201,10 +2223,10 @@ class TestStructuredLogsFormatter:  # noqa
                         # (Note: for the `stacklevel < 1` corner case,
                         # older Python versions behave differently...)
                         'func': 'findCaller' if PY_3_11_OR_NEWER else '<lambda>',
+                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'message_base': {
                             'pattern': 'Example message - {foo}, {bar!r}, {baz:04}, {{}}',
                         },
-                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'bar': 'spam',
                         'baz': 42,
                         'foo': 'Foo',
@@ -2219,10 +2241,10 @@ class TestStructuredLogsFormatter:  # noqa
                         # (Note: for the `stacklevel < 1` corner case,
                         # older Python versions behave differently...)
                         'func': 'findCaller' if PY_3_11_OR_NEWER else '<lambda>',
+                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'message_base': {
                             'pattern': 'Example message - {foo}, {bar!r}, {baz:04}, {{}}',
                         },
-                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'bar': 'spam',
                         'baz': 42,
                         'foo': 'Foo',
@@ -2237,8 +2259,8 @@ class TestStructuredLogsFormatter:  # noqa
                         # (Note: for the `stacklevel < 1` corner case,
                         # older Python versions behave differently...)
                         'func': 'findCaller' if PY_3_11_OR_NEWER else '<lambda>',
-                        'message_base': 'Example message - %s, %r, %04d, %%',
                         'message': "Example message - Foo, 'spam', 0042, %",
+                        'message_base': 'Example message - %s, %r, %04d, %%',
                         'component': EXAMPLE_COMPONENT,
                         'component_type': EXAMPLE_COMPONENT_TYPE,
                         'system': EXAMPLE_SYSTEM,
@@ -2250,10 +2272,10 @@ class TestStructuredLogsFormatter:  # noqa
                         # (Note: for the `stacklevel < 1` corner case,
                         # older Python versions behave differently...)
                         'func': 'findCaller' if PY_3_11_OR_NEWER else '<lambda>',
+                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'message_base': {
                             'pattern': 'Example message - {foo}, {bar!r}, {baz:04}, {{}}',
                         },
-                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'bar': 'spam',
                         'baz': 42,
                         'foo': 'Foo',
@@ -2268,10 +2290,10 @@ class TestStructuredLogsFormatter:  # noqa
                         # (Note: for the `stacklevel < 1` corner case,
                         # older Python versions behave differently...)
                         'func': 'findCaller' if PY_3_11_OR_NEWER else '<lambda>',
+                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'message_base': {
                             'pattern': 'Example message - {foo}, {bar!r}, {baz:04}, {{}}',
                         },
-                        'message': "Example message - Foo, 'spam', 0042, {}",
                         'bar': 'spam',
                         'baz': 42,
                         'foo': 'Foo',
