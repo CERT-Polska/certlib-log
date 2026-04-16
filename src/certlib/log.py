@@ -2510,8 +2510,7 @@ class ExtendedMessage:
     @overload
     def __init__(
         self,
-        # (`pattern` should be anything convertible to str, but not a mapping)
-        pattern: object = '',
+        pattern: str = '',
         /,
         *args: object,
 
@@ -2524,7 +2523,7 @@ class ExtendedMessage:
         ...
 
     @overload
-    def __init__(   # type: ignore[overload-cannot-match]
+    def __init__(
         self,
         data: Mapping[str, object],
         /,
@@ -2532,6 +2531,21 @@ class ExtendedMessage:
         exc_info: Any = None,
         stack_info: bool = False,
         stacklevel: int = 1,
+    ):
+        ...
+
+    @overload
+    def __init__(
+        self,
+        pattern: object,  # (anything convertible to str, but *not* a mapping)
+        /,
+        *args: object,
+
+        exc_info: Any = None,
+        stack_info: bool = False,
+        stacklevel: int = 1,
+
+        **data: object,
     ):
         ...
 
