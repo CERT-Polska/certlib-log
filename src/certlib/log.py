@@ -253,7 +253,7 @@ Now we will prepare the *root logger*, attaching to it some handler
 *with our formatter* set on it:
 
 ```python
-# (continuing the previous example)
+# (continuing with the previous example)
 
 root_logger = logging.getLogger()
 root_logger.setLevel(logging.INFO)
@@ -305,6 +305,7 @@ logger.error(
 
 ```python
 import datetime as dt
+import ipaddress
 import logging
 import sys
 from certlib.log import xm
@@ -324,7 +325,12 @@ logger.error(xm(
     exc_info=True,
 ))
 
-pure_data_dict = {k: v for k, v in vars(sys).items() if not callable(v)}
+pure_data_dict = {
+    'this': 123,
+    'that': ipaddress.IPv4Address('192.168.0.42'),
+    'there': 'example.com',
+    'then': dt.datetime(2026, 1, 2, 3, 4, 56, tzinfo=dt.timezone.utc),
+}
 logger.info(xm(pure_data_dict))  # <- No text message at all.
 
 logger.warning(xm(
@@ -347,7 +353,7 @@ here as being sorted by key, and with extra newlines/indentation):
     "component": "Portal",
     "component_type": "web",
     "example_custom_default": 42,
-    "example_local_counter": 4,
+    "example_local_counter": 6,
     "example_nano_time": 1771629287019638820,
     "fract": 0.87239,
     "func": "<module>",
@@ -388,7 +394,6 @@ here as being sorted by key, and with extra newlines/indentation):
 import logging.config
 
 logging_configuration_dict = {
-    "disable_existing_loggers": False,
     "formatters": {
         "structured": {
             "()": "certlib.log.StructuredLogsFormatter",
@@ -435,6 +440,7 @@ logging_configuration_dict = {
         "level": "INFO",
         "handlers": ["stderr"]
     },
+    "disable_existing_loggers": False,
     "version": 1
 }
 
@@ -733,7 +739,7 @@ sorted by key, and with extra newlines/indentation):
     "component": "Portal",
     "component_type": "web",
     "example_custom_default": 42,
-    "example_local_counter": 6,
+    "example_local_counter": 4,
     "example_nano_time": 1771631594315719605,
     "func": "<module>",
     "level": "INFO",
@@ -2307,10 +2313,25 @@ class ExtendedMessage:
     formatting (*if* any text message pattern is given), regardless of
     what formatter is in use.
 
-    There is a convenience alias of this class: **[`xm`][]** (as being
+    There is a convenience alias of this class: **[`xm`][]**. As being
     very short, it is simply much more ergonomic than the actual class
     name -- given that this tool is intended to be used every time you
-    call a logger method to emit a log entry).
+    call a logger method to emit a log entry; for example:
+
+    ```python
+    import datetime, ipaddress, logging, sys
+    from certlib.log import xm
+
+    logging.info(xm("Hello {}!", sys.platform))
+    logging.info(xm("Maxsize is {maxsize:x}", maxsize=sys.maxsize))
+    logging.warning(xm(
+        connection_count=42,
+        client_ip=ipaddress.IPv4Address("192.168.0.121"),
+        local_time=datetime.datetime.now(),
+    ))
+    some_data_dict = globals()
+    logging.debug(xm(some_data_dict))
+    ```
 
     ***
 
