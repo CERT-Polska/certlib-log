@@ -14,4 +14,4 @@ code available there via `<> Source code...` elements are part of the API).
 - TBD...
 
 
-[Unreleased]: https://github.com/CERT-Polska/certlib-log/tree/main
+[Unreleased]: https://github.com/CERT-Polska/certlib-log/compare/initial-commit...main

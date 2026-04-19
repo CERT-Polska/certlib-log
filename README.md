@@ -38,30 +38,30 @@ logging.config.dictConfig({
                 # Each value should specify the respective *default value*.
                 "system": "MyExample",
                 "component": "MyAPI",
-                "component_type": "web",
+                "component_type": "web"
             },
             "auto_makers": {
                 # Each key in this dict should be an *output data* key.
                 # Each value should specify an *argumentless callable*
                 # (for example, the `get()` method of some `ContextVar`).
                 "client_ip": "myexample.myapi.client_ip_context_var.get",
-                "nano_time": "time.time_ns",
-            },
-        },
+                "nano_time": "time.time_ns"
+            }
+        }
     },
     "handlers": {
         "stderr": {
             "class": "logging.StreamHandler",
             "stream": "ext://sys.stderr",
-            "formatter": "structured",
-        },
+            "formatter": "structured"
+        }
     },
     "root": {
         "level": "INFO",
-        "handlers": ["stderr"],
+        "handlers": ["stderr"]
     },
     "disable_existing_loggers": False,
-    "version": 1,
+    "version": 1
 })
 ```
 
@@ -84,14 +84,15 @@ def example_with_text_message_formatting(city, humidity, error_summary=None):
             exc_info=True, stack_info=True, stacklevel=2,
         ))
 
-    logger.warning(xm('Humidity in {} is {:.2%}', city, humidity))
+    logger.warning(xm('Humidity in {} is {:.1%}', city, humidity))
 
     logger.info(xm(
+        # (Here: making use of `datetime`-specific format codes...)
         'Today is day #{today:%j} of the year {today:%Y}',
         today=dt.date.today(),
 
-        # (arbitrary data items can be given, which is especially useful
-        # when `certlib.log.StructuredLogsFormatter` is in use)
+        # Arbitrary data items can also be given (which is especially
+        # useful when `certlib.log.StructuredLogsFormatter` is in use).
         some_extra_item=42,
         other_arbitrary_stuff={'foo': [
             {'my-ip': ipaddress.IPv4Address('192.168.0.1')},
@@ -100,8 +101,9 @@ def example_with_text_message_formatting(city, humidity, error_summary=None):
     ))
 
 def example_with_no_text(temperature, pressure, debug_data_dict, calm=True):
-    # (especially useful when `certlib.log.StructuredLogsFormatter` is in
-    # use => then any *text-message*-related output keys are just omitted)
+    # (The possibility to focus on pure data, *without* the need
+    # to pass any *text-message*-related arguments, is especially
+    # handy when `certlib.log.StructuredLogsFormatter` is in use.)
 
     if calm:
         logger.info(xm(
@@ -110,19 +112,21 @@ def example_with_no_text(temperature, pressure, debug_data_dict, calm=True):
         ))
     else:
         logger.error(xm(
-            # just data:
+            # Just data:
             temperature=temperature,
             pressure=pressure,
 
-            # special arguments:
+            # Special arguments:
             exc_info=True,
             stack_info=True,
             stacklevel=2,
         ))
 
-    # single dict argument is also OK:
+    # Single dict providing all data is also OK:
     logger.debug(xm(debug_data_dict))
 ```
+
+You can find more examples in the [User's Guide](https://certlib-log.readthedocs.io/guide/).
 
 
 ## Copyright and License
