@@ -1105,14 +1105,14 @@ class StructuredLogsFormatter(logging.Formatter):
         # arguments compatible with the first `__init__()` signature
         # variant (declared above), or a string that will result in
         # such a mapping if evaluated with `ast.literal_eval()`.
-        kwargs_dict_as_first_positional_argument: str | Mapping[str, Any],
+        dict_of_kwargs_compatible_with_primary_signature: str | Mapping[str, Any],
         /,
 
         # Any extra `logging.Formatter`-specific arguments are to be
         # accepted -- and ignored -- as long as the value of each is
         # equivalent to the respective `logging.Formatter`'s default.
-        *logging_Formatter_default_args_to_be_ignored: Any,     # noqa
-        **logging_Formatter_default_kwargs_to_be_ignored: Any,  # noqa
+        *args_ignored_if_matching_respective_logging_Formatter_defaults: Any,     # noqa
+        **kwargs_ignored_if_matching_respective_logging_Formatter_defaults: Any,  # noqa
     ):
         ...
 
@@ -3378,7 +3378,7 @@ def _resolve_dotted_path(dotted_path: str) -> Any:
     ValueError: cannot resolve dotted_path='logging.no_such_stuff_i_hope' (ModuleNotFoundError...)
     """
     # (Compare to the source code of the -- semantically very similar
-    # -- `logging.config.BaseConfigurator.resolve()` function...)
+    # -- `logging.config.BaseConfigurator.resolve()` method...)
     importable_name, *rest_parts = dotted_path.split('.')
     try:
         obj = importlib.import_module(importable_name)
@@ -3395,42 +3395,3 @@ def _resolve_dotted_path(dotted_path: str) -> Any:
             f'({type(exc).__qualname__}: {exc})'
         ) from exc
     return obj
-
-
-def _get_short_descr(obj: Any) -> str:
-    """
-    Get a string that describes the given object in a short yet possibly
-    human-readable way (using, if that makes sense, the `__module__` and
-    `__qualname__` attributes -- of that object, or of its type).
-
-    >>> _get_short_descr(logging.info)
-    '`logging.info`'
-
-    >>> _get_short_descr(logging.Logger)
-    '`logging.Logger`'
-
-    >>> _get_short_descr(logging.Logger('foo'))
-    'an instance of `logging.Logger`'
-
-    >>> _get_short_descr(logging.Logger.info)
-    '`logging.Logger.info`'
-
-    >>> _get_short_descr(logging.Logger('foo').info)
-    '`logging.Logger.info`'
-
-    >>> _get_short_descr(dict)
-    '`builtins.dict`'
-
-    >>> _get_short_descr({})
-    'an instance of `builtins.dict`'
-    """
-    if full_name := getattr(obj, '__qualname__', None):
-        if module := getattr(obj, '__module__', None):
-            full_name = f'{module}.{full_name}'
-        return f'`{full_name}`'
-    if type_full_name := getattr(type(obj), '__qualname__', None):
-        if type_module := getattr(type(obj), '__module__', None):
-            type_full_name = f'{type_module}.{type_full_name}'
-        return f'an instance of `{type_full_name}`'
-    # Hardly probable (yet not completely impossible) case:
-    return object.__repr__(obj)  # pragma: no cover
