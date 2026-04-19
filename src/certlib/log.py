@@ -2194,7 +2194,7 @@ class StructuredLogsFormatter(logging.Formatter):
         self,
         record: logging.LogRecord,
         xm_instance: ExtendedMessage,
-        handle_output_item: Callable[[object, object], None],
+        handle_output_item: Callable[[object, object], bool],
     ) -> None:
         attr_to_key = self.record_attr_to_output_key
 
@@ -2209,16 +2209,26 @@ class StructuredLogsFormatter(logging.Formatter):
             if msg_value:
                 handle_output_item(msg_key, msg_value)
 
-        # * ...its `exc_info` attribute (if worth including):
+        # * ...its `exc_info` attribute (if worth including;
+        #   and, optionally, an *exception text* derived from
+        #   that `exc_info` by using `self.formatException()`):
         ei_key = attr_to_key.get('exc_info', 'exc_info')
-        if (ei_key is not None
+        etx_key = attr_to_key.get('exc_text', 'exc_text')
+        if ((ei_key is not None or etx_key is not None)
             and (xm_ei := xm_instance.exc_info)
-            and self._is_xm_exc_info_significant(xm_ei, record.exc_info)
         ):
-            if xm_ei == (None, None, None):
-                xm_ei = None
-            handle_output_item(ei_key, xm_ei)
-
+            if isinstance(xm_ei, BaseException):
+                xm_ei = (type(xm_ei), xm_ei, xm_ei.__traceback__)
+            if self._is_xm_exc_info_significant(xm_ei, record.exc_info):
+                if xm_ei == (None, None, None):
+                    xm_ei = etx_key = None
+                if ei_key is not None:
+                    ei_added = handle_output_item(ei_key, xm_ei)
+                    if not ei_added:
+                        etx_key = None
+                if etx_key is not None and isinstance(xm_ei, tuple):
+                    etx_value = self.formatException(xm_ei)  # noqa
+                    handle_output_item(etx_key, etx_value)
 
         # * ...its `stack_info` attribute (if worth including):
         si_key = attr_to_key.get('stack_info', 'stack_info')
@@ -2236,21 +2246,15 @@ class StructuredLogsFormatter(logging.Formatter):
     def _is_xm_exc_info_significant(xm_ei: Any, rec_ei: Any) -> bool:
         return (not rec_ei) or (
             # If `record.exc_info` is *not* a *falsy* object, then the
-            # `ExtendedMessage` instance's `exc_info` attribute -- to
-            # be considered *significant* -- needs to be **either** an
-            # exception which is *different* from the one conveyed by
-            # `record.exc_info` **or** an *exc info* tuple *different*
-            # from `record.exc_info`. So, in particular, a flag value
-            # (such as True) is considered *insignificant* in such a
-            # case.
+            # `ExtendedMessage` instance's `exc_info` attribute -- to be
+            # considered *significant* -- needs to be an *exc info* tuple
+            # (or an exception which we converted to such a tuple) that
+            # is *different* from `record.exc_info`. So, in particular, a
+            # flag value (such as True) is considered *insignificant* in
+            # such a case.
             xm_ei is not rec_ei  # (<- Fast check first)
-            and (
-                isinstance(xm_ei, BaseException)
-                and rec_ei != (type(xm_ei), xm_ei, xm_ei.__traceback__)
-                or
-                isinstance(xm_ei, tuple)
-                and xm_ei != rec_ei
-            )
+            and isinstance(xm_ei, tuple)
+            and xm_ei != rec_ei
         )
 
     @staticmethod
@@ -2270,7 +2274,7 @@ class StructuredLogsFormatter(logging.Formatter):
         self,
         record: logging.LogRecord,
         xm_instance: ExtendedMessage | None,
-        handle_output_item: Callable[[object, object], None],
+        handle_output_item: Callable[[object, object], bool],
     ) -> None:
         common_auto_prefix = self._COMMON_PART_OF_PER_FORMATTER_AUTO_MADE_RECORD_ATTR_PREFIX
         attr_to_key = self.record_attr_to_output_key
@@ -2311,10 +2315,10 @@ class StructuredLogsFormatter(logging.Formatter):
         # Individual (per-output-data-item) arguments:
         key: object,
         value: object,
-    ) -> None:
+    ) -> bool:
 
         if not isinstance(key, str):
-            return
+            return False
         # Note: the `type: ignore` comments in this function (below) just
         # silence certain silly typing tools (*other* than `mypy`!) which
         # do not comprehend that, from this point, `key` is always a str.
@@ -2332,12 +2336,12 @@ class StructuredLogsFormatter(logging.Formatter):
             # information); then, however, we also prevent the respective
             # *default value* (if any) from being set.
             actual_defaults.pop(key, None)  # type: ignore
-            return
+            return False
 
         # Finally, set the prepared item.
         actually_set_value = output_data.setdefault(key, value_prepared)  # type: ignore
         if actually_set_value is value_prepared:
-            return
+            return True
 
         # Wait! Key deduplication may be needed (it's a rare case, hopefully).
         while actually_set_value != value_prepared:
@@ -2349,7 +2353,9 @@ class StructuredLogsFormatter(logging.Formatter):
             # (Comparing also identities -- for cases of such
             # an object that never compares equal to itself.)
             if actually_set_value is value_prepared:
-                return
+                break
+
+        return True
 
 
 class ExtendedMessage:
