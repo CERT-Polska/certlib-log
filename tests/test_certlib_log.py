@@ -236,16 +236,15 @@ class AnyOfType:
 class TimeModuleFakingProxy:
 
     def __init__(self, timestamp_ns: int = EXAMPLE_TIMESTAMP_IN_NANOSECONDS):
-        self.__timestamp_ns = timestamp_ns
+        timestamp = timestamp_ns / 10**9
+        self.__time = lambda: timestamp
+        self.__time_ns = lambda: timestamp_ns
 
     def __getattribute__(self, name) -> Any:
-        priv_prefix = f'_{TimeModuleFakingProxy.__name__}__'
-        if name.startswith(priv_prefix):
-            return super().__getattribute__(name)
         if name == 'time':
-            return lambda: self.__timestamp_ns / 10**9
+            return super().__getattribute__('_TimeModuleFakingProxy__time')
         if name == 'time_ns':
-            return lambda: self.__timestamp_ns
+            return super().__getattribute__('_TimeModuleFakingProxy__time_ns')
         return getattr(time_module, name)
 
 
@@ -465,7 +464,7 @@ def ensure_module_global_internal_state_is_cleaned_up():
 
 
 @pytest.fixture(autouse=True)
-def monkeypatch_to_fake_relevant_time_functions(monkeypatch):
+def monkeypatch_relevant_time_functions(monkeypatch):
     monkeypatch.setattr(logging, 'time', TimeModuleFakingProxy())
 
 
@@ -582,11 +581,21 @@ class TestStructuredLogsFormatter:
     @pytest.fixture
     def logger(self, log_handler) -> Generator[logging.Logger]:
         log = logging.getLogger(EXAMPLE_LOGGER_NAME)
-        log.propagate = False
-        log.setLevel(logging.DEBUG)
-        log.addHandler(log_handler)
-        yield log
-        log.removeHandler(log_handler)
+        initial_level = log.level
+        initial_propagate = log.propagate
+        try:
+            log.propagate = False
+            try:
+                log.setLevel(logging.DEBUG)
+                try:
+                    log.addHandler(log_handler)
+                    yield log
+                finally:
+                    log.removeHandler(log_handler)
+            finally:
+                log.setLevel(initial_level)
+        finally:
+            log.propagate = initial_propagate
 
     @pytest.fixture
     def example_custom_items(self) -> Mapping[str, Any]:
