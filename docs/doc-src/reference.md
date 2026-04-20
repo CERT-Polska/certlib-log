@@ -1,5 +1,12 @@
 # API Reference
 
+!!! info
+
+    Whenever this document refers to *undefined behavior*, this should
+    be understood to mean: *the API makes no guarantees about what will
+    happen -- an exception or a malfunction is likely.*
+
+
 ::: certlib.log.StructuredLogsFormatter
     handler: python
     options:
