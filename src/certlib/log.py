@@ -2278,6 +2278,7 @@ class StructuredLogsFormatter(logging.Formatter):
     ) -> None:
         common_auto_prefix = self._COMMON_PART_OF_PER_FORMATTER_AUTO_MADE_RECORD_ATTR_PREFIX
         attr_to_key = self.record_attr_to_output_key
+        exc_info_3none = (record.exc_info == (None, None, None))
 
         for rec_attr, value in record.__dict__.items():
             if not isinstance(rec_attr, str):
@@ -2297,7 +2298,9 @@ class StructuredLogsFormatter(logging.Formatter):
                 # Already handled by `_extract_output_from_xm()`.
                 continue
             else:
-                if rec_attr == 'exc_info' and value == (None, None, None):
+                if (exc_info_3none and rec_attr in ('exc_info', 'exc_text')
+                    or (rec_attr == 'exc_text' and not record.exc_info)  # [sic!]
+                ):
                     value = None
                 key = attr_to_key.get(rec_attr, rec_attr)
 
