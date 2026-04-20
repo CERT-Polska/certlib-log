@@ -7,24 +7,32 @@
 
 from __future__ import annotations
 
+import contextlib
+import contextvars
 import dataclasses
 import datetime as dt
 import decimal
 import fractions
 import functools
 import hashlib
+import inspect
 import ipaddress
 import json
 import logging
+import logging.config
 import math
+import operator
 import os
 import pathlib
+import re
 import sys
+import textwrap
 import time as time_module
 import uuid
 from collections.abc import (
     Callable,
     Generator,
+    Iterable,
     Mapping,
     Sequence,
     Set,
@@ -45,9 +53,9 @@ from unittest.mock import sentinel
 
 import pytest
 
-sys.path.insert(0, str(
-    pathlib.Path(__file__).resolve(strict=True).parent.parent / 'src'
-))
+project_root_path = pathlib.Path(__file__).resolve(strict=True).parent.parent
+sys.path.insert(0, str(project_root_path / 'src'))
+import certlib.log
 from certlib.log import (
     StructuredLogsFormatter,
     _clear_auto_makers_and_internal_record_hooks_related_global_state,
@@ -469,7 +477,7 @@ def monkeypatch_relevant_time_functions(monkeypatch):
 
 
 #
-# Actual tests (with their local fixtures)
+# Actual tests (with their local fixtures/helpers)
 #
 
 
@@ -2345,3 +2353,1041 @@ class TestStructuredLogsFormatter:
 def test_make_constant_value_provider():
     auto_maker = make_constant_value_provider(sentinel.VALUE)
     assert auto_maker() is sentinel.VALUE
+
+
+class TestSnippetsInDocumentation:
+
+    class _SnippetFinder:
+
+        _SNIPPET_REGEX = re.compile(
+            # *Note*: here false positives (which are likely to cause
+            # errors) are considered better than any unnoticed stuff!
+            # In particular, we *want* to match also *invalid* syntax
+            # labels (we reject them at a later stage of processing).
+            r'''
+                ^             # <- beginning of line
+                [^\S\n]*      # <- zero or more whitespace characters except '\n'
+                ```           # <- backticks denoting beginning of snippet
+
+                (?P<syntax_label>  # syntax (language) label, e.g., "python" or "json":
+                    [^\n]*?   # <- zero or more characters: *any* except '\n'
+                )             #    (consumed in *non-greedy* manner)
+
+                [^\S\n]*      # <- zero or more whitespace characters except '\n'
+                \n            # <- obligatory newline character
+                \s*           # <- zero or more whitespace characters (may include '\n')
+
+                (?P<content>       # snippet's significant content: 
+                    ^         # <- beginning of line
+                    .*?       # <- zero or more characters: *any*
+                )             #    (consumed in *non-greedy* manner)
+
+                \s*           # <- zero or more whitespace characters (may include '\n')
+                ^             # <- beginning of line
+                [^\S\n]*      # <- zero or more whitespace characters except '\n'
+                ```           # <- backticks denoting end of snippet
+                [^\S\n]*      # <- zero or more whitespace characters except '\n'
+                $             # <- end of line/file
+            ''',
+            re.DOTALL | re.MULTILINE | re.VERBOSE,
+        )
+
+        @dataclasses.dataclass(frozen=True)
+        class _Snippet:
+            syntax_label: str
+            dedented_content: str
+            start_lineno: int = dataclasses.field(compare=False)
+
+            def __post_init__(self):
+                if not (self.syntax_label.isidentifier()
+                        and self.syntax_label.isascii()):
+                    raise AssertionError(
+                        f'{self.syntax_label!r} is not a valid syntax '
+                        f'label, regarding the snippet:\n\n{self}'
+                    )
+
+            def __str__(self):
+                header = f'starting at line #{self.start_lineno}'
+                underline = len(header) * '~'
+                return (
+                    f"{header}\n{underline}\n"
+                    f"```{self.syntax_label}\n"
+                    f"{self.dedented_content}\n"
+                    f"```\n"
+                )
+
+        def __init__(self, source_module_or_path: Module | pathlib.Path | str):
+            self._source_module_or_path = source_module_or_path
+            self._source_descr = (
+                repr(source_module_or_path).removeprefix('<').removesuffix('>')
+                if isinstance(source_module_or_path, Module)
+                else f'file {str(source_module_or_path)!r}'
+            )
+            self._snippets_already_covered = set()
+
+        _source_module_or_path: Module | pathlib.Path | str
+        _source_descr: str
+        _snippets_already_covered: set[_Snippet]
+
+        @functools.cache
+        def lookup(
+            self,
+            substring: str,
+            *,
+            syntax_label: str = 'python',
+            mark_as_covered: bool = True,
+        ) -> str:
+
+            matching_snippets = [
+                snippet
+                for snippet in self._all_snippets_sorted_by_start_lineno
+                if (snippet.syntax_label == syntax_label
+                    and substring in snippet.dedented_content)
+            ]
+            if not matching_snippets:
+                raise AssertionError(
+                    f'no matching snippet found in {self._source_descr} '
+                    f'({syntax_label=}, {substring=})'
+                )
+            try:
+                [the_snippet] = matching_snippets
+            except ValueError as exc:
+                listing = '\n'.join(map(str, matching_snippets))
+                raise AssertionError(
+                    f'{len(matching_snippets)} (more than one) '
+                    f'matching snippets found in {self._source_descr} '
+                    f'({syntax_label=}, {substring=}):\n\n{listing}'
+                ) from exc
+
+            if mark_as_covered:
+                self._snippets_already_covered.add(the_snippet)
+
+            return the_snippet.dedented_content
+
+        def assert_all_snippets_covered(self):
+            if not_covered := self._get_snippets_still_not_covered():
+                raise AssertionError(
+                    f'{len(not_covered)} snippet(s) (from '
+                    f'{self._source_descr}) not covered:\n\n'
+                    f'{self._format_snippets_listing(not_covered)}'
+                )
+
+        def _get_snippets_still_not_covered(self) -> Set[_Snippet]:
+            return self._all_snippets - self._snippets_already_covered
+
+        def _format_snippets_listing(self, snippets: Iterable[_Snippet]) -> str:
+            sort_key = operator.attrgetter('start_lineno')
+            sorted_seq = sorted(snippets, key=sort_key)
+            return '\n'.join(map(str, sorted_seq))
+
+        @functools.cached_property
+        def _all_snippets_sorted_by_start_lineno(self) -> Sequence[_Snippet]:
+            sort_key = operator.attrgetter('start_lineno')
+            return sorted(self._all_snippets, key=sort_key)
+
+        @functools.cached_property
+        def _all_snippets(self) -> Set[_Snippet]:
+            return frozenset(self._generate_all_snippets())
+
+        def _generate_all_snippets(self) -> Generator[_Snippet]:
+            index = 0
+            lineno = 1
+            for match in self._SNIPPET_REGEX.finditer(self._source):
+                prev_index = index
+                index = match.start()
+                lineno += self._source.count('\n', prev_index, index)
+                yield self._Snippet(
+                    syntax_label=match['syntax_label'],
+                    dedented_content=textwrap.dedent(match['content']),
+                    start_lineno=lineno,
+                )
+
+        @functools.cached_property
+        def _source(self) -> str:
+            if isinstance(self._source_module_or_path, Module):
+                return inspect.getsource(self._source_module_or_path)
+            abs_path = project_root_path / self._source_module_or_path
+            return abs_path.read_text()
+
+
+    class _DateClassFakingProxy:
+
+        def __init__(self, timestamp: float):
+            # (Here we just reproduce relations between timestamps and
+            # `dt.date.today()`'s results specific to our snippets...)
+            one_hour_offset_tz = dt.timezone(dt.timedelta(hours=1))
+            date = dt.datetime.fromtimestamp(timestamp, one_hour_offset_tz).date()
+            self.__fake_today = lambda: date
+
+        def __getattribute__(self, name, *, __orig_date_class=dt.date) -> Any:
+            if name == 'today':
+                return super().__getattribute__('_DateClassFakingProxy__fake_today')
+            return getattr(__orig_date_class, name)
+
+        def __call__(self, *args, __orig_date_class=dt.date) -> dt.date:
+            return __orig_date_class(*args)
+
+
+    @staticmethod
+    @contextlib.contextmanager
+    def _finally_undoing_our_tweaks_to_root_logger() -> Generator[None]:
+        root_logger = logging.getLogger()
+        initial_level = root_logger.level
+        yield
+        try:
+            for handler in list(root_logger.handlers):
+                if handler.name == 'stderr':
+                    assert type(handler) is logging.StreamHandler
+                    root_logger.removeHandler(handler)
+                    handler.close()
+        finally:
+            root_logger.setLevel(initial_level)
+
+
+    @pytest.fixture(scope='class')
+    def snippet_finder(self) -> Generator[_SnippetFinder]:
+        snippet_finder = self._SnippetFinder(certlib.log)
+        yield snippet_finder
+        snippet_finder.assert_all_snippets_covered()
+
+    @pytest.fixture(scope='class', autouse=True)
+    def mark_uninteresting_snippets_as_covered(self, snippet_finder):
+        # Testing these code snippets would
+        # not be easy and/or very beneficial:
+        snippet_finder.lookup(substring='install', syntax_label='bash')
+        snippet_finder.lookup(substring='# WRONG (!!!):')
+        snippet_finder.lookup(substring='# All WRONG (!!!):')
+
+    @pytest.fixture(scope='class')
+    def client_ip_context_var(self) -> contextvars.ContextVar[ipaddress.IPv4Address]:
+        default = ipaddress.IPv4Address('192.168.0.123')
+        return contextvars.ContextVar('client_ip_context_var', default=default)
+
+    @pytest.fixture
+    def myown_package(self, monkeypatch, client_ip_context_var) -> Module:
+        myown = Module('myown')
+        myown.portal = Module('myown.portal')
+        myown.portal.example_module = Module('myown.portal.example_module')
+        myown.portal.another_example_module = Module('myown.portal.another_example_module')
+        monkeypatch.setattr(
+            myown.portal,
+            'client_ip_context_var',
+            client_ip_context_var,
+            raising=False,
+        )
+        monkeypatch.setitem(sys.modules, 'myown', myown)
+        monkeypatch.setitem(sys.modules, 'myown.portal', myown.portal)
+        monkeypatch.setitem(
+            sys.modules,
+            'myown.portal.example_module',
+            myown.portal.example_module,
+        )
+        monkeypatch.setitem(
+            sys.modules,
+            'myown.portal.another_example_module',
+            myown.portal.another_example_module,
+        )
+        return myown
+
+    @pytest.fixture
+    def customized_formatter_cls_module_and_name(self) -> tuple[str, str] | None:
+        return None  # Overridden in some tests...
+
+    @pytest.fixture(params=['imperative', 'dictConfig', 'fileConfig'])
+    def config_snippet_label(self, request) -> str:
+        return request.param
+
+    @pytest.fixture
+    def config_snippet(
+        self,
+        snippet_finder,
+        customized_formatter_cls_module_and_name,
+        config_snippet_label,
+    ) -> str:
+        mark_as_covered = not customized_formatter_cls_module_and_name
+
+        match config_snippet_label:
+            case 'imperative':
+                config_snippet = '\n'.join([
+                    snippet_finder.lookup(
+                        substring='structured_logs_formatter = StructuredLogsFormatter(',
+                        mark_as_covered=mark_as_covered,
+                    ),
+                    snippet_finder.lookup(
+                        substring='# (continuing with the previous example)',
+                        mark_as_covered=mark_as_covered,
+                    ),
+                ])
+            case 'dictConfig':
+                config_snippet = snippet_finder.lookup(
+                    substring='logging.config.dictConfig(logging_configuration_dict)',
+                    mark_as_covered=mark_as_covered,
+                )
+            case 'fileConfig':
+                config_snippet = snippet_finder.lookup(
+                    substring='class = certlib.log.StructuredLogsFormatter',
+                    syntax_label='ini',
+                    mark_as_covered=mark_as_covered,
+                )
+            case _:
+                raise AssertionError(f'{config_snippet_label=}')
+
+        if customized_formatter_cls_module_and_name:
+            module_name, cls_name = customized_formatter_cls_module_and_name
+            config_snippet = config_snippet.replace(certlib.log.__name__, module_name)
+            config_snippet = config_snippet.replace(StructuredLogsFormatter.__name__, cls_name)
+
+        return config_snippet
+
+    @pytest.fixture
+    def logging_configured_from_config_snippet(
+        self,
+        monkeypatch,
+        tmp_path,
+        myown_package,
+        config_snippet,
+        config_snippet_label,
+    ) -> Callable[[], contextlib.AbstractContextManager[str]]:
+
+        if config_snippet_label in ('dictConfig', 'fileConfig'):
+            # ^ Both refer to `some_package.faster_replacement_for_json_dumps`.
+            some_package = Module('some_package')
+            some_package.faster_replacement_for_json_dumps = json.dumps
+            monkeypatch.setitem(sys.modules, 'some_package', some_package)
+
+        if config_snippet_label == 'fileConfig':
+            def set_up_logging_using_config_snippet():
+                config_path = tmp_path / 'test-logging.ini'
+                config_path.write_text(config_snippet)
+                logging.config.fileConfig(
+                    str(config_path),
+                    disable_existing_loggers=False,
+                )
+        else:
+            def set_up_logging_using_config_snippet():
+                exec(config_snippet, {})
+
+        @contextlib.contextmanager
+        def logging_configured_from_config_snippet_impl():
+            with self._finally_undoing_our_tweaks_to_root_logger():
+                set_up_logging_using_config_snippet()
+                yield config_snippet_label
+
+        return logging_configured_from_config_snippet_impl
+
+    @pytest.fixture
+    def get_actual_output_list(
+        self,
+        capsys,
+    ) -> Callable[[], list[dict[str, Any]]]:
+
+        def _iter_actual_output_entries():
+            errors = []
+            stderr_raw = capsys.readouterr().err
+            stderr_lines = stderr_raw.splitlines()
+            for lineno, line in enumerate(stderr_lines, start=1):
+                try:
+                    yield json.loads(line)
+                except ValueError as exc:
+                    errors.append(
+                        f'stderr line #{lineno} is not '
+                        f'valid JSON ({line=}, {exc=})'
+                    )
+            if errors:
+                raise AssertionError(
+                    f'error(s) occurred: {"; ".join(errors)}\n'
+                    f'entire stderr output:\n{stderr_raw}'
+                )
+
+        def get_actual_output_list_impl():
+            return list(_iter_actual_output_entries())
+
+        return get_actual_output_list_impl
+
+    @pytest.fixture
+    def expected_utc_formatted_timestamp(self, request) -> str:
+        return '2026-02-20 23:14:47.019574Z'  # Overridden in some tests...
+
+    @pytest.fixture
+    def commonly_expected_output_items(
+        self,
+        config_snippet_label,
+        expected_utc_formatted_timestamp,
+    ) -> dict[str, Any]:
+        # (*Note*: also here we neglect actual values of
+        # a few items by using `AnyOfType` placeholders.)
+        items: dict[str, Any] = {
+            'func': '<module>',
+            'system': 'MyOwn',
+            'component': 'Portal',
+            'component_type': 'web',
+            'timestamp': expected_utc_formatted_timestamp,
+            'client_ip': '192.168.0.123',
+            'example_custom_default': 42,
+            'example_nano_time': AnyOfType(int),
+        }
+        if config_snippet_label == 'imperative':
+            # Not included in `dictConfig`/`fileConfig` config snippets:
+            items['example_local_counter'] = AnyOfType(int)
+        return items
+
+    @pytest.fixture
+    def extract_and_adjust_json_snippet_items(
+        self,
+        snippet_finder,
+        config_snippet_label,
+    ) -> Callable[..., dict[str, Any]]:
+
+        def extract_and_adjust_json_snippet_items_impl(substring):
+            snippet = snippet_finder.lookup(substring, syntax_label='json')
+            items = json.loads(snippet) | {
+                'pid': os.getpid(),
+                'py_ver': '.'.join(map(str, sys.version_info)),
+            }
+            if config_snippet_label in ('dictConfig', 'fileConfig'):
+                # Not included in `dictConfig`/`fileConfig` config snippets:
+                del items['example_local_counter']
+            return items
+
+        return extract_and_adjust_json_snippet_items_impl
+
+    # Overrides the same-named global fixture (defined earlier)
+    @pytest.fixture(autouse=True)
+    def monkeypatch_relevant_time_functions(
+        self,
+        monkeypatch,
+        expected_utc_formatted_timestamp,
+    ):
+        without_tz = expected_utc_formatted_timestamp.removesuffix('Z')
+        timestamp = dt.datetime.fromisoformat(f'{without_tz}+00:00').timestamp()
+        timestamp_ns = 10**3 * int(10**6 * timestamp)
+        monkeypatch.setattr(logging, 'time', TimeModuleFakingProxy(timestamp_ns))
+        monkeypatch.setattr(dt, 'date', self._DateClassFakingProxy(timestamp))
+
+
+    def test_user_guide_formatter_old_fashioned_usage_snippet(
+        self,
+        snippet_finder,
+        myown_package,
+        logging_configured_from_config_snippet,
+        get_actual_output_list,
+        commonly_expected_output_items,
+    ):
+        snippet = snippet_finder.lookup(
+            substring='logger.warning("Hello %s!", sys.platform)'
+        )
+
+        with logging_configured_from_config_snippet():
+            exec(snippet, myown_package.portal.example_module.__dict__)
+
+        assert get_actual_output_list() == [
+            {
+                **get_output_base(level='INFO'),
+                **commonly_expected_output_items,
+                'logger': 'myown.portal.example_module',
+                'message': 'Hello world!',
+                'message_base': 'Hello world!',
+            },
+            {
+                **get_output_base(level='WARNING'),
+                **commonly_expected_output_items,
+                'logger': 'myown.portal.example_module',
+                'message': f'Hello {sys.platform}!',
+                'message_base': 'Hello %s!',
+            },
+            {
+                **get_output_base(level='ERROR'),
+                **commonly_expected_output_items,
+                'logger': 'myown.portal.example_module',
+                'message': f'Here we have {sys.maxsize:x} and {sys.byteorder!r}.',
+                'message_base': 'Here we have %x and %r.',
+                'example_stuff': [1, 'foo', False],
+                'other_example_item': {'42': AnyOfType(str)},
+            },
+        ]
+
+
+    def test_user_guide_formatter_with_xm_usage_snippet(
+        self,
+        snippet_finder,
+        myown_package,
+        logging_configured_from_config_snippet,
+        get_actual_output_list,
+        commonly_expected_output_items,
+        extract_and_adjust_json_snippet_items,
+    ):
+        snippet = snippet_finder.lookup(
+            substring='logger.warning(xm("Hello {}!", sys.platform))'
+        )
+
+        with logging_configured_from_config_snippet():
+            exec(snippet, myown_package.portal.example_module.__dict__)
+
+        assert get_actual_output_list() == [
+            {
+                **get_output_base(level='INFO'),
+                **commonly_expected_output_items,
+                'logger': 'myown.portal.example_module',
+                'message': 'Hello world!',
+                'message_base': {
+                    'pattern': 'Hello world!',
+                },
+            },
+            {
+                **get_output_base(level='WARNING'),
+                **commonly_expected_output_items,
+                'logger': 'myown.portal.example_module',
+                'message': f'Hello {sys.platform}!',
+                'message_base': {
+                    'pattern': 'Hello {}!',
+                },
+            },
+            {
+                **get_output_base(level='ERROR'),
+                **commonly_expected_output_items,
+                'logger': 'myown.portal.example_module',
+                'message': f'Here we have {sys.maxsize:x} and {sys.byteorder!r}.',
+                'message_base': {
+                    'pattern': 'Here we have {:x} and {!r}.',
+                },
+                'example_stuff': [1, 'foo', False],
+                'other_example_item': {'42': AnyOfType(str)},
+            },
+            {
+                **get_output_base(level='INFO'),
+                **commonly_expected_output_items,
+                'logger': 'myown.portal.example_module',
+                'this': 123,
+                'that': '192.168.0.42',
+                'there': 'example.com',
+                'then': '2026-01-02 03:04:56+00:00',
+            },
+            last_expected_output := {
+                **get_output_base(level='WARNING'),
+                **commonly_expected_output_items,
+                'logger': 'myown.portal.example_module',
+                'message': f"John owns 87.24% of all issues of 'Bajtek' magazine.",
+                'message_base': {
+                    'pattern': (
+                        '{who} owns {fract:.2%} of all issues of {title!r} magazine.'
+                    ),
+                },
+                'who': 'John',
+                'fract': 0.87239,
+                'title': 'Bajtek',
+                'first_issue_date': '1985-09-01',
+            },
+        ]
+        assert last_expected_output == extract_and_adjust_json_snippet_items(
+            substring='"logger": "myown.portal.example_module"',
+        )
+
+
+    def test_user_guide_xm_pure_data_snippet(
+        self,
+        snippet_finder,
+        myown_package,
+        logging_configured_from_config_snippet,
+        get_actual_output_list,
+        commonly_expected_output_items,
+    ):
+        snippet = snippet_finder.lookup(
+            substring='some_key=["example", "data"]'
+        )
+
+        with logging_configured_from_config_snippet():
+            exec(snippet, myown_package.portal.another_example_module.__dict__)
+
+        assert get_actual_output_list() == 2 * [
+            {
+                **get_output_base(level='INFO'),
+                **commonly_expected_output_items,
+                'logger': 'myown.portal.another_example_module',
+                "some_key": ["example", "data"],
+                "another": 42,
+                "yet_another": {"abc": 1.0, "qwerty": [True, False]},
+            },
+        ]
+
+
+    @pytest.mark.parametrize(
+        # (Overriding fixture `expected_utc_formatted_timestamp`...)
+        'expected_utc_formatted_timestamp',
+        ['2026-02-20 23:53:14.315296Z'],
+    )
+    def test_user_guide_xm_modern_formatting_snippets(
+        self,
+        snippet_finder,
+        myown_package,
+        logging_configured_from_config_snippet,
+        get_actual_output_list,
+        commonly_expected_output_items,
+        extract_and_adjust_json_snippet_items,
+    ):
+        joint_snippet = '\n'.join(
+            snippet_finder.lookup(substring)
+            for substring in [
+                '"Note: {} is {!r} (in {:%Y-%m})"',
+                '"Note: {0} is {1!r} (in {2:%Y-%m})"',
+                'today=dt.date.today,  # (<- function/method',
+                'today=dt.date.today,          # (<- function/method',
+            ]
+        )
+
+        with logging_configured_from_config_snippet():
+            exec(joint_snippet, myown_package.portal.another_example_module.__dict__)
+
+        assert get_actual_output_list() == [
+            {
+                **get_output_base(level='INFO'),
+                **commonly_expected_output_items,
+                'logger': 'myown.portal.another_example_module',
+                'message': f"Note: foo is 'Bar' (in 2026-02)",
+                'message_base': {
+                    'pattern': 'Note: {} is {!r} (in {:%Y-%m})',
+                },
+            },
+            {
+                **get_output_base(level='INFO'),
+                **commonly_expected_output_items,
+                'logger': 'myown.portal.another_example_module',
+                'message': f"Note: foo is 'Bar' (in 2026-02)",
+                'message_base': {
+                    'pattern': 'Note: {0} is {1!r} (in {2:%Y-%m})',
+                },
+            },
+            {
+                **get_output_base(level='INFO'),
+                **commonly_expected_output_items,
+                'logger': 'myown.portal.another_example_module',
+                'message': f"Note: foo is 'Bar' (in 2026-02)",
+                'message_base': {
+                    'pattern': 'Note: {} is {val!r} (in {today:%Y-%m})',
+                },
+                'val': 'Bar',
+                'today': '2026-02-21',
+            },
+            last_expected_output := {
+                **get_output_base(level='INFO'),
+                **commonly_expected_output_items,
+                'logger': 'myown.portal.another_example_module',
+                'message': f"Note: foo is 'Bar' (in 2026-02)",
+                'message_base': {
+                    'pattern': 'Note: {} is {val!r} (in {today:%Y-%m})',
+                },
+                'val': 'Bar',
+                'today': '2026-02-21',
+                'something': 123456789,
+                'something_more': [1, 2, 3, 4, True, None, {'5': [6789, 10]}],
+            },
+        ]
+        assert last_expected_output == extract_and_adjust_json_snippet_items(
+            substring='"logger": "myown.portal.another_example_module"',
+        )
+
+
+    @pytest.mark.parametrize(
+        # (Overriding fixture `customized_formatter_cls_module_and_name`...)
+        'customized_formatter_cls_module_and_name',
+        [
+            (
+                'myown.portal.example_module',
+                'EstTimezoneOrientedStructuredLogsFormatter',
+            )
+        ],
+    )
+    def test_formatter_format_timestamp_snippet(
+        self,
+        monkeypatch,
+        snippet_finder,
+        myown_package,
+        logging_configured_from_config_snippet,
+        get_actual_output_list,
+        commonly_expected_output_items,
+    ):
+        snippet = snippet_finder.lookup(
+            substring='EstTimezoneOrientedStructuredLogsFormatter'
+        )
+        logger = logging.getLogger(EXAMPLE_LOGGER_NAME)
+
+        exec(snippet, myown_package.portal.example_module.__dict__)
+        with logging_configured_from_config_snippet():
+            logger.critical('')
+
+        assert get_actual_output_list() == [
+            {
+                **get_output_base(level='CRITICAL'),
+                **commonly_expected_output_items,
+                'func': 'test_formatter_format_timestamp_snippet',
+                'timestamp': '2026-02-20 18:14:47.019574 EST',
+            },
+        ]
+
+
+    @pytest.mark.parametrize(
+        # (Overriding fixture `customized_formatter_cls_module_and_name`...)
+        'customized_formatter_cls_module_and_name',
+        [
+            (
+                'myown.portal.another_example_module',
+                'MyEnhancedStructuredLogsFormatter',
+            )
+        ],
+    )
+    def test_formatter_prepare_value_snippet(
+        self,
+        monkeypatch,
+        snippet_finder,
+        myown_package,
+        logging_configured_from_config_snippet,
+        get_actual_output_list,
+        commonly_expected_output_items,
+    ):
+        snippet = snippet_finder.lookup(
+            substring='MyEnhancedStructuredLogsFormatter'
+        )
+        # Prepare module `attrs` with necessary stubs:
+        attrs_module = Module('attrs')
+        attrs_module.has = lambda obj_type: obj_type is type(sentinel.ABC)
+        attrs_module.asdict = lambda obj: ExampleNamedTuple(str(obj), b'foo')
+        monkeypatch.setitem(sys.modules, 'attrs', attrs_module)
+        logger = logging.getLogger(EXAMPLE_LOGGER_NAME)
+
+        exec(snippet, myown_package.portal.another_example_module.__dict__)
+        with logging_configured_from_config_snippet():
+            logger.info(xm(
+                '* {some_value} * {some_collection} *',
+                some_value=sentinel.EXAMPLE,
+                some_collection={
+                    'sub': [{
+                        '1': sentinel.spam,
+                        24: sentinel.Bar,
+                    }],
+                },
+            ))
+
+        assert get_actual_output_list() == [
+            {
+                **get_output_base(level='INFO'),
+                **commonly_expected_output_items,
+                'func': 'test_formatter_prepare_value_snippet',
+                'message': (
+                    "* sentinel.EXAMPLE * "
+                    "{'sub': [{'1': sentinel.spam, 24: sentinel.Bar}]} *"
+                ),
+                'message_base': {
+                    'pattern': '* {some_value} * {some_collection} *',
+                },
+                'some_value': {
+                    'label': 'sentinel.EXAMPLE',
+                    'blob': "b'foo'",
+                },
+                'some_collection': {
+                    'sub': [{
+                        '1': {
+                            'label': 'sentinel.spam',
+                            'blob': "b'foo'",
+                        },
+                        '24': {
+                            'label': 'sentinel.Bar',
+                            'blob': "b'foo'",
+                        },
+                    }],
+                },
+            },
+        ]
+
+
+    def test_xm_constructor_snippets(
+        self,
+        snippet_finder,
+        logging_configured_from_config_snippet,
+        get_actual_output_list,
+        commonly_expected_output_items,
+    ):
+        main_snippet = snippet_finder.lookup(
+            substring='logging.warning(xm('
+        )
+        joint_extra_snippets = '\n'.join(
+            snippet_finder.lookup(substring)
+            for substring in [
+                ".info(xm('Foo', stack_info=True, stacklevel=2))",
+                ".info(xm('{}, {} and {}', 'Athos', 'Porthos', 'Aramis'))",
+                ".info(xm('answer: {}'))",
+            ]
+        )
+
+        with logging_configured_from_config_snippet():
+            exec(main_snippet, {})
+            exec(joint_extra_snippets, {
+                'xm': xm,
+                'logger': logging.getLogger(EXAMPLE_LOGGER_NAME),
+            })
+
+        assert get_actual_output_list() == [
+            {
+                **get_output_base(level='INFO'),
+                **commonly_expected_output_items,
+                'logger': 'root',
+                'message': f'Hello {sys.platform}!',
+                'message_base': {
+                    'pattern': 'Hello {}!',
+                },
+            },
+            {
+                **get_output_base(level='INFO'),
+                **commonly_expected_output_items,
+                'logger': 'root',
+                'message': f'Maxsize is {sys.maxsize:x}',
+                'message_base': {
+                    'pattern': 'Maxsize is {maxsize:x}',
+                },
+                'maxsize': sys.maxsize,
+            },
+            {
+                **get_output_base(level='WARNING'),
+                **commonly_expected_output_items,
+                'logger': 'root',
+                'connection_count': 42,
+                'client_ip': '192.168.0.121',
+                'client_ip_': '192.168.0.123',  # [sic!]
+                'local_time': AnyOfType(str),
+                'payload_hash': (
+                    '1bf982a3e009728aad3077fdd6977a7f'
+                    '53c92c04c3cec6b60906e58e846e42ce'
+                ),
+            },
+            *(2 * [
+                {
+                    **get_output_base(level='INFO'),
+                    **commonly_expected_output_items,
+                    'logger': EXAMPLE_LOGGER_NAME,
+                    'message': 'Foo',
+                    'message_base': {
+                        'pattern': 'Foo',
+                    },
+                    'stack_info': AnyOfType(str),
+                },
+                {
+                    **get_output_base(level='INFO'),
+                    **commonly_expected_output_items,
+                    'func': 'test_xm_constructor_snippets',  # [sic!]
+                    'logger': EXAMPLE_LOGGER_NAME,
+                    'message': 'Foo',
+                    'message_base': {
+                        'pattern': 'Foo',
+                    },
+                },
+                {
+                    **get_output_base(level='INFO'),
+                    **commonly_expected_output_items,
+                    'func': 'test_xm_constructor_snippets',  # [sic!]
+                    'logger': EXAMPLE_LOGGER_NAME,
+                    'message': 'Foo',
+                    'message_base': {
+                        'pattern': 'Foo',
+                    },
+                    'stack_info': AnyOfType(str),
+                },
+            ]),
+            {
+                **get_output_base(level='INFO'),
+                **commonly_expected_output_items,
+                'logger': EXAMPLE_LOGGER_NAME,
+                'message': 'Athos, Porthos and Aramis',
+                'message_base': {
+                    'pattern': '{}, {} and {}',
+                },
+            },
+            {
+                **get_output_base(level='INFO'),
+                **commonly_expected_output_items,
+                'logger': EXAMPLE_LOGGER_NAME,
+                'message': 'answer: 42',
+                'message_base': {
+                    'pattern': 'answer: {}',
+                },
+            },
+            {
+                **get_output_base(level='INFO'),
+                **commonly_expected_output_items,
+                'logger': EXAMPLE_LOGGER_NAME,
+                'message': 'answer: {}',
+                'message_base': {
+                    'pattern': 'answer: {}',
+                },
+            },
+        ]
+
+
+    readme_path = project_root_path / 'README.md'
+
+    @pytest.mark.skipif(
+        not readme_path.exists(),
+        reason=f'file {str(readme_path)!r} not found',
+    )
+    def test_readme_snippets(
+        self,
+        monkeypatch,
+        client_ip_context_var,
+        get_actual_output_list,
+        expected_utc_formatted_timestamp,
+    ):
+        snippet_finder = self._SnippetFinder(self.readme_path)
+        # Prepare the necessary modules:
+        myexample = Module('myexample')
+        myexample.lib = Module('myexample.lib')
+        myexample.myapi = Module('myexample.myapi')
+        monkeypatch.setattr(
+            myexample.myapi,
+            'client_ip_context_var',
+            client_ip_context_var,
+            raising=False,
+        )
+        monkeypatch.setitem(sys.modules, 'myexample', myexample)
+        monkeypatch.setitem(sys.modules, 'myexample.lib', myexample.lib)
+        monkeypatch.setitem(sys.modules, 'myexample.myapi', myexample.myapi)
+
+        with self._finally_undoing_our_tweaks_to_root_logger():
+            exec(
+                snippet_finder.lookup(substring='logging.config.dictConfig'),
+                myexample.__dict__,
+            )
+            exec(
+                snippet_finder.lookup(substring='from certlib.log import xm'),
+                myexample.lib.__dict__,
+            )
+            # Let's test the functions defined in the second snippet...
+            myexample.lib.example_with_text_message_formatting(
+                city='Warsaw',
+                humidity=0.191,
+            )
+            try:
+                1 / 0
+            except ZeroDivisionError:
+                myexample.lib.example_with_text_message_formatting(
+                    city='Paris',
+                    humidity=0.6968,
+                    error_summary="someone divided by zero again",
+                )
+                myexample.lib.example_with_no_text(
+                    temperature=17,
+                    pressure=1018,
+                    debug_data_dict=deepcopy(EXAMPLE_CUSTOM_ITEMS),
+                    calm=False,
+                )
+            logging.getLogger().setLevel(logging.DEBUG)
+            myexample.lib.example_with_no_text(
+                temperature=17,
+                pressure=1018,
+                debug_data_dict=deepcopy(EXAMPLE_CUSTOM_ITEMS),
+            )
+
+        snippet_finder.assert_all_snippets_covered()
+        readme_specific_expected_output_items = {
+            'client_ip': '192.168.0.123',
+            'nano_time': AnyOfType(int),
+            'system': 'MyExample',
+            'component': 'MyAPI',
+            'component_type': 'web',
+            'timestamp': expected_utc_formatted_timestamp,
+        }
+        assert get_actual_output_list() == [
+            {
+                **get_output_base(level='WARNING'),
+                **readme_specific_expected_output_items,
+                'func': 'example_with_text_message_formatting',
+                'logger': 'myexample.lib',
+                'message': 'Humidity in Warsaw is 19.1%',
+                'message_base': {
+                    'pattern': 'Humidity in {} is {:.1%}',
+                },
+            },
+            {
+                **get_output_base(level='INFO'),
+                **readme_specific_expected_output_items,
+                'func': 'example_with_text_message_formatting',
+                'logger': 'myexample.lib',
+                'message': 'Today is day #052 of the year 2026',
+                'message_base': {
+                    'pattern': 'Today is day #{today:%j} of the year {today:%Y}',
+                },
+                'today': '2026-02-21',
+                'some_extra_item': 42,
+                'other_arbitrary_stuff': {'foo': [
+                    {'my-ip': '192.168.0.1'},
+                    '12:59:00',
+                ]},
+            },
+            {
+                **get_output_base(level='ERROR'),
+                **readme_specific_expected_output_items,
+                'func': 'test_readme_snippets',  # [sic!]
+                'logger': 'myexample.lib',
+                'message': "An error occurred: 'someone divided by zero again'",
+                'message_base': {
+                    'pattern': 'An error occurred: {!r}',
+                },
+                'exc_info': {
+                    'exc_type': 'ZeroDivisionError',
+                    'args': [AnyOfType(str)],
+                },
+                'exc_text': AnyOfType(str),
+                'stack_info': AnyOfType(str),
+            },
+            {
+                **get_output_base(level='WARNING'),
+                **readme_specific_expected_output_items,
+                'func': 'example_with_text_message_formatting',
+                'logger': 'myexample.lib',
+                'message': 'Humidity in Paris is 69.7%',
+                'message_base': {
+                    'pattern': 'Humidity in {} is {:.1%}',
+                },
+            },
+            {
+                **get_output_base(level='INFO'),
+                **readme_specific_expected_output_items,
+                'func': 'example_with_text_message_formatting',
+                'logger': 'myexample.lib',
+                'message': 'Today is day #052 of the year 2026',
+                'message_base': {
+                    'pattern': 'Today is day #{today:%j} of the year {today:%Y}',
+                },
+                'today': '2026-02-21',
+                'some_extra_item': 42,
+                'other_arbitrary_stuff': {'foo': [
+                    {'my-ip': '192.168.0.1'},
+                    '12:59:00',
+                ]},
+            },
+            {
+                **get_output_base(level='ERROR'),
+                **readme_specific_expected_output_items,
+                'func': 'test_readme_snippets',  # [sic!]
+                'logger': 'myexample.lib',
+                'temperature': 17,
+                'pressure': 1018,
+                'exc_info': {
+                    'exc_type': 'ZeroDivisionError',
+                    'args': [AnyOfType(str)],
+                },
+                'exc_text': AnyOfType(str),
+                'stack_info': AnyOfType(str),
+            },
+            {
+                **get_output_base(level='INFO'),
+                **readme_specific_expected_output_items,
+                'func': 'example_with_no_text',
+                'logger': 'myexample.lib',
+                'temperature': 17,
+                'pressure': 1018,
+            },
+            {
+                **get_output_base(level='DEBUG'),
+                **readme_specific_expected_output_items,
+                'func': 'example_with_no_text',
+                'logger': 'myexample.lib',
+                **EXAMPLE_PREPARED_CUSTOM_OUTPUT_ITEMS,
+            },
+        ]
