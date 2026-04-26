@@ -2199,14 +2199,15 @@ class StructuredLogsFormatter(logging.Formatter):
 
         # Extract from the given `ExtendedMessage` instance and handle...
 
-        # * ...its attributes related to the text message (if any):
+        # * ...its components conveying the information equivalent
+        #   to the standard `msg` and `args` log record attributes:
         msg_key = attr_to_key.get('msg', 'msg')
         if msg_key is not None:
-            msg_value = xm_instance.get_dict_with_non_falsy_pattern_and_args(
-                args_output_key=attr_to_key.get('args', 'args'),
+            msg_value = xm_instance.get_record_msg_and_args_equivalent_info(
+                pattern_result_key='pattern',
+                args_result_key=attr_to_key.get('args', 'args'),
             )
-            if msg_value:
-                handle_output_item(msg_key, msg_value)
+            handle_output_item(msg_key, msg_value)
 
         # * ...its `exc_info` attribute (if worth including;
         #   and, optionally, an *exception text* derived from
@@ -2561,7 +2562,7 @@ class ExtendedMessage:
     Let us be precise: all those calls and replacements will be
     triggered when *any* of the following methods is invoked on the
     `ExtendedMessage` instance for the first time: [`get_message_value`][],
-    [`get_dict_with_non_falsy_pattern_and_args`][], [`__str__`][] or
+    [`get_record_msg_and_args_equivalent_info`][], [`__str__`][] or
     [`iter_str_parts`][] (with the proviso that the last one returns an
     [iterator](https://docs.python.org/3/glossary.html#term-iterator)
     which, to achieve the said effect, needs to be iterated over,
@@ -2778,17 +2779,17 @@ class ExtendedMessage:
 
         return message
 
-    def get_dict_with_non_falsy_pattern_and_args(
+    def get_record_msg_and_args_equivalent_info(
         self,
         *,
-        pattern_output_key: str | None = 'pattern',
-        args_output_key: str | None = 'args',
-    ) -> dict[str, object]:
+        pattern_result_key: str | None,
+        args_result_key: str | None,
+    ) -> Mapping[str, object]:
         """
         Automatically invoked by the [`StructuredLogsFormatter`][]'s
         machinery to get a value to be included in the *output data*
         dict under the key corresponding to the log record's `msg`
-        attribute. The returned value is supposed to be a dict
+        attribute. The returned value is supposed to be a mapping
         that conveys relevant information from the `ExtendedMessage`
         instance -- to the extent that corresponds to the information
         typically conveyed by the `msg` and `args` attributes of log
@@ -2808,10 +2809,10 @@ class ExtendedMessage:
         *each* of the following *if* the key is not [`None`][] and the
         value is not *falsy*:
 
-        * the given **`pattern_output_key`** -- mapped to the value of the
+        * the given **`pattern_result_key`** -- mapped to the value of the
           [`pattern`][] attribute,
 
-        * the given **`args_output_key`** --  mapped to the value of the
+        * the given **`args_result_key`** --  mapped to the value of the
           [`args`][] attribute.
 
         !!! warning "Subclass behavior requirement"
@@ -2828,8 +2829,8 @@ class ExtendedMessage:
         return {   # type: ignore
             key: val
             for key, val in (
-                (pattern_output_key, self.pattern),
-                (args_output_key, self.args),
+                (pattern_result_key, self.pattern),
+                (args_result_key, self.args),
             )
             if (key is not None) and val
         }
