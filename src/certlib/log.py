@@ -860,6 +860,7 @@ import fractions
 import functools
 import importlib
 import ipaddress
+import itertools
 import json
 import logging
 import os.path
@@ -1434,8 +1435,9 @@ class StructuredLogsFormatter(logging.Formatter):
             [constructor argument][StructuredLogsFormatter] (if given),
             and -- then -- adjusted by prefixing each key with the value
             of the **[`auto_made_record_attr_prefix`][]** attribute
-            (which is an automatically generated string -- *different*
-            for each instance of **`StructuredLogsFormatter`**).
+            (which is an automatically generated opaque string, created
+            separately for each instance of **`StructuredLogsFormatter`**,
+            guaranteed to be unique within a Python interpreter run).
 
             (Therefore -- concerning the stuff produced by a particular
             formatter instance's *auto-makers* -- the respective
@@ -2007,6 +2009,9 @@ class StructuredLogsFormatter(logging.Formatter):
     _DESIRED_MAX_KEY_LENGTH: Final[int] = 200
     _COMMON_PART_OF_PER_FORMATTER_AUTO_MADE_RECORD_ATTR_PREFIX: Final[str] = '_auto-made-for#'
 
+    _auto_made_record_attr_prefix_creation_lock: Final[threading.Lock] = threading.Lock()
+    _auto_made_record_attr_prefix_creation_count: Final[Iterator[int]] = itertools.count(start=1)
+
     def _resolve_init_arguments(
         self,
         # (Compare to the signature of `logging.Formatter.__init__()`...)
@@ -2140,7 +2145,13 @@ class StructuredLogsFormatter(logging.Formatter):
         }
 
     def _get_auto_made_record_attr_prefix(self) -> str:
-        return f'{self._COMMON_PART_OF_PER_FORMATTER_AUTO_MADE_RECORD_ATTR_PREFIX}{id(self):x}:'
+        with self._auto_made_record_attr_prefix_creation_lock:
+            unique_number = next(self._auto_made_record_attr_prefix_creation_count)
+            return (
+                f'{self._COMMON_PART_OF_PER_FORMATTER_AUTO_MADE_RECORD_ATTR_PREFIX}'
+                f'{unique_number:02}'
+                f':'
+            )
 
     def _get_actual_auto_makers(
         self,
