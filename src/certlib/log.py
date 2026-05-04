@@ -885,6 +885,7 @@ from typing import (
     ClassVar,
     Final,
     Literal,
+    Protocol,
     TypeVar,
     cast,
     overload,
@@ -1749,8 +1750,8 @@ class StructuredLogsFormatter(logging.Formatter):
         ),
         pass_thru_types: tuple[type, ...] = (str, int, float, bool, type(None)),
         exclude_from_seq_types: tuple[type, ...] = (str, bytes, bytearray),
-        is_dataclass: Callable[[object], bool] = dataclasses.is_dataclass,  # type: ignore
-        dataclass_as_dict: Callable[[Any], dict] = dataclasses.asdict,      # type: ignore
+        is_dataclass: Callable[[object], bool] = dataclasses.is_dataclass,
+        dataclass_as_dict: Callable[[Any], dict[str, Any]] = dataclasses.asdict,
         last_resort: Callable[[object], str] = repr,
         **kwargs: Any,
     ) -> Any:
@@ -2323,9 +2324,6 @@ class StructuredLogsFormatter(logging.Formatter):
 
         if not isinstance(key, str):
             return False
-        # Note: the `type: ignore` comments in this function (below) just
-        # silence certain silly typing tools (*other* than `mypy`!) which
-        # do not comprehend that, from this point, `key` is always a str.
 
         if len(key) > desired_max_key_length:
             # Truncate the key (it's a rare case, hopefully).
@@ -2339,11 +2337,11 @@ class StructuredLogsFormatter(logging.Formatter):
             # is, a value assumed to carry *no sufficiently significant*
             # information); then, however, we also prevent the respective
             # *default value* (if any) from being set.
-            actual_defaults.pop(key, None)  # type: ignore
+            actual_defaults.pop(key, None)
             return False
 
         # Finally, set the prepared item.
-        actually_set_value = output_data.setdefault(key, value_prepared)  # type: ignore
+        actually_set_value = output_data.setdefault(key, value_prepared)
         if actually_set_value is value_prepared:
             return True
 
@@ -2352,7 +2350,7 @@ class StructuredLogsFormatter(logging.Formatter):
             # Note that, in this case, the key length may
             # become longer than `desired_max_key_length`.
             key = f'{key}_'
-            actually_set_value = output_data.setdefault(key, value_prepared)  # type: ignore
+            actually_set_value = output_data.setdefault(key, value_prepared)
 
             # (Comparing also identities -- for cases of such
             # an object that never compares equal to itself.)
@@ -2619,8 +2617,8 @@ class ExtendedMessage:
     stack_info: bool
     stacklevel: int
 
-    recognized_callable_arg_or_data_item_types: ClassVar[   # type: ignore[type-arg]
-        tuple[type[Callable], ...]
+    recognized_callable_arg_or_data_item_types: ClassVar[
+        tuple[type[_ArgumentlessCallable], ...]
     ] = (
         types.FunctionType,
         types.BuiltinFunctionType,
@@ -2826,8 +2824,7 @@ class ExtendedMessage:
         """
         self._ensure_callable_args_and_data_items_resolved()
 
-        # Certain typing tools (*other* than `mypy`!) are too silly...
-        return {   # type: ignore
+        return {
             key: val
             for key, val in (
                 (pattern_result_key, self.pattern),
@@ -3021,8 +3018,8 @@ class ExtendedMessage:
 
     _CALLABLE_ARGS_AND_DATA_RESOLVING_LOCK_TIMEOUT: Final[float] = 9.0
 
+    _callable_args_and_data_items_resolving_meta_lock: Final[threading.Lock] = threading.Lock()
     _setup_of_record_hooks_still_needs_to_be_done: ClassVar[bool] = True
-    _callable_args_and_data_items_resolving_meta_lock: ClassVar[threading.Lock] = threading.Lock()
 
     @staticmethod
     def _exc_info_record_hook(record: logging.LogRecord) -> None:
@@ -3041,7 +3038,7 @@ class ExtendedMessage:
                 exc_info = (type(exc_info), exc_info, exc_info.__traceback__)
             elif not isinstance(exc_info, tuple):
                 exc_info = sys.exc_info()
-            record.exc_info = cast(Any, exc_info)
+            record.exc_info = exc_info
 
     @staticmethod
     def _stack_stuff_record_hook(record: logging.LogRecord) -> None:
@@ -3219,6 +3216,17 @@ _PY_3_11_OR_NEWER = sys.version_info[:2] >= (3, 11)
 
 
 #
+# Typing helpers
+
+
+class _ArgumentlessCallable(Protocol):
+    def __call__(self) -> object: ...
+
+
+_T = TypeVar('_T')
+
+
+#
 # Machinery of *auto-makers* + internal *log record hooks*
 
 
@@ -3359,9 +3367,6 @@ def _clear_auto_makers_and_internal_record_hooks_related_global_state() -> None:
 
 #
 # Miscellaneous helpers
-
-
-_T = TypeVar('_T')
 
 
 def _resolve_dotted_path(dotted_path: str) -> Any:
