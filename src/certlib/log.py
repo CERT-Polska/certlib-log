@@ -1128,7 +1128,7 @@ class StructuredLogsFormatter(logging.Formatter):
         if arguments:
             raise TypeError(
                 f'{type(self).__init__.__qualname__}() got unexpected '
-                f'keyword arguments: {", ".join(map(ascii, arguments))}'
+                f'keyword argument(s): {", ".join(map(ascii, arguments))}'
             )
 
         super().__init__()
@@ -1246,7 +1246,9 @@ class StructuredLogsFormatter(logging.Formatter):
         delegates its entire job to the [`format_timestamp`][] method
         (a `StructuredLogsFormatter`-specific one), but first checks
         if the **`datefmt`** argument is [`None`][] (if it is anything
-        else, [`TypeError`][] is raised).
+        else, [`TypeError`][] is raised -- which then, typically, is
+        suppressed and, possibly, printed to [`sys.stderr`][] by
+        [`logging.Handler.handleError`][]...).
         """
         if datefmt is not None:
             slf = StructuredLogsFormatter.__qualname__
@@ -2003,7 +2005,6 @@ class StructuredLogsFormatter(logging.Formatter):
     # Internals (should not be used or extended/overridden outside this module!)
 
     _DESIRED_MAX_KEY_LENGTH: Final[int] = 200
-
     _COMMON_PART_OF_PER_FORMATTER_AUTO_MADE_RECORD_ATTR_PREFIX: Final[str] = '_auto-made-for#'
 
     def _resolve_init_arguments(
@@ -2013,8 +2014,15 @@ class StructuredLogsFormatter(logging.Formatter):
         datefmt: Literal[''] | None = None,
         style: Literal['%'] = '%',
         validate: Literal[True] = True,
+        *excessive_positional_args: object,
         **arguments: Any,
     ) -> dict[str, Any]:
+        if excessive_positional_args:
+            raise TypeError(
+                f'{type(self).__init__.__qualname__}() '
+                f'got excessive positional argument(s): '
+                f'{", ".join(map(ascii, excessive_positional_args))})'
+            )
         if fmt and isinstance(fmt, str):
             try:
                 fmt = ast.literal_eval(fmt)
@@ -2804,8 +2812,8 @@ class ExtendedMessage:
             allowed. Doing so will result in undefined behavior.
 
         The default implementation should be sufficient in most cases. It
-        returns a dict containing zero, one or two items. Specifically --
-        *each* of the following *if* the key is not [`None`][] and the
+        returns a mapping containing zero, one or two items. Specifically
+        -- *each* of the following *if* the key is not [`None`][] and the
         value is not *falsy*:
 
         * the given **`pattern_result_key`** -- mapped to the value of the
@@ -2996,7 +3004,7 @@ class ExtendedMessage:
                     threading.Lock()
                 )
 
-        if not lock.acquire(timeout=self._CALLABLE_ARGS_AND_DATA_RESOLVING_LOCK_TIMEOUT):
+        if not lock.acquire(timeout=self._CALLABLE_ARGS_AND_DATA_ITEMS_RESOLVING_LOCK_TIMEOUT):
             raise RuntimeError(
                 f'could not acquire the lock that protects the procedure '
                 f'of ensuring that relevant callable items of the `args` '
@@ -3016,7 +3024,7 @@ class ExtendedMessage:
     #
     # Internals (should not be used or extended/overridden outside this module!)
 
-    _CALLABLE_ARGS_AND_DATA_RESOLVING_LOCK_TIMEOUT: Final[float] = 9.0
+    _CALLABLE_ARGS_AND_DATA_ITEMS_RESOLVING_LOCK_TIMEOUT: Final[float] = 9.0
 
     _callable_args_and_data_items_resolving_meta_lock: Final[threading.Lock] = threading.Lock()
     _setup_of_record_hooks_still_needs_to_be_done: ClassVar[bool] = True
