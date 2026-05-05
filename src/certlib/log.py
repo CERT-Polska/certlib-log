@@ -72,7 +72,7 @@ Python.
       script/application is part of;
 
     * `component` -- the name of a particular *script* or *application*
-      being executed (for a CLI script: its *basename*);
+      being executed (for a CLI script it should be its *basename*);
 
     * `component_type` -- a conventional label of the *type* of that
       script or application, agreed upon in your organization (such
@@ -445,7 +445,9 @@ logging_configuration_dict = {
             # The value of "serializer", if specified, should be either
             # a callable (function) which accepts exactly one argument
             # (being a JSON-serializable dict) and returns a str object,
-            # or a *dotted path* to such a callable.
+            # or a *dotted path* to such a callable. If "serializer" is
+            # not specified, the standard `json.dumps()` function will
+            # be used.
             "serializer": "some_package.faster_replacement_for_json_dumps"
         }
     },
@@ -532,7 +534,8 @@ format = {
     },
     # The value of "serializer", if specified, should be a *dotted path*
     # to a callable (function) which accepts exactly one argument (being
-    # a JSON-serializable dict) and returns a str object.
+    # a JSON-serializable dict) and returns a str object. If "serializer"
+    # is not specified, the standard `json.dumps()` function will be used.
     "serializer": "some_package.faster_replacement_for_json_dumps",
   }
 # ^ *Note:* all non-comment and non-blank continuation lines, *including*
@@ -611,16 +614,16 @@ logger.info(xm(my_data))
 
     Regarding the `"another"` item in the above examples as well as some
     of the items/arguments that appear in the next subsection's examples:
-    if you pass a function/method (in particular, a `lambda` expression)
-    instead of a plain value, then it will be *called* (by a formatter of
-    any type, not necessarily a `StructuredLogsFormatter`) to obtain the
-    actual value. Note that, by default, the mechanism is applied *only*
-    if you pass a *function* or *method* object -- *not* just an arbitrary
-    callable object.
+    if you pass a function/method (in particular, a [**`lambda`**](https://docs.python.org/3/tutorial/controlflow.html#lambda-expressions)
+    expression) instead of a plain value, it will be lazily called (by a
+    formatter of any type, not necessarily a **`StructuredLogsFormatter`**)
+    to obtain the actual value. Note that, by default, the mechanism is
+    applied *only* if you pass a *function* or *method* object -- *not*
+    just an arbitrary callable object.
 
-    In practice, this feature is useful in cases when the creation of
-    certain values is costly, so that you would prefer that to be done
-    *only* if the log entry is to be actually formatted and emitted.
+    In practice, this feature is useful if the creation of a certain
+    value is costly, so that you would prefer that to be done *only* if
+    (and when) the log entry is to be actually formatted and emitted.
 
 ***
 
@@ -791,6 +794,8 @@ here as being sorted by key, and with extra newlines/indentation):
 
 ## **Advanced Topics and Finer Points**
 
+***
+
 ### More About `StructuredLogsFormatter` (Including Subclassing)
 
 If you have not read the *reference documentation* for the
@@ -955,14 +960,19 @@ class StructuredLogsFormatter(logging.Formatter):
     """
     A subclass of [`logging.Formatter`][] to form structured log entries.
 
-    ***
-
     !!! tip
 
         If the **[`StructuredLogsFormatter`][]** constructor signatures
         you see appear to be overwhelming, don't worry. In most cases,
         you'll really only be interested in the first of them (the *main*
         one). The details are provided below.
+
+    !!! info "See also"
+
+        For extra information about **`StructuredLogsFormatter`**,
+        including a bunch of usage examples and configuration tips,
+        see the **[Tool: `StructuredLogsFormatter`](guide.md#certlib.log--tool-structuredlogsformatter)**
+        section of the *User's Guide*.
 
     **Constructor arguments** (all *keyword-only*, all *optional*):
 
@@ -987,18 +997,6 @@ class StructuredLogsFormatter(logging.Formatter):
       A string being a *dotted path* (*importable dotted name*)
       pointing to such a function (callable) can also be passed.
 
-    **Alternatively**, a mapping (especially a [`dict`][]) of keyword
-    arguments compatible with the primary signature described above, or
-    an [`ast.literal_eval`][]-evaluable string representing such a mapping
-    (`dict`), can be passed to the [`StructuredLogsFormatter`][] constructor
-    as the *first positional argument*. In that case, any extra arguments
-    specific to the [`logging.Formatter`][] constructor are *accepted but
-    ignored* -- *provided that* the value of each is equivalent to its
-    default value (if not, [`TypeError`][] is raised). This allows you
-    to configure a `StructuredLogsFormatter` even if you are using the
-    [`logging.config.fileConfig`][]-specific configuration format (which,
-    despite its limitations, is still quite popular).
-
     !!! warning "Interface restriction"
 
         The **`serializer`** callable should *not* mutate the argument it
@@ -1006,6 +1004,33 @@ class StructuredLogsFormatter(logging.Formatter):
         if any nested data is present). If some data needs to be modified,
         a completely *new* object should be created. Doing otherwise will
         result in undefined behavior.
+
+    **Alternatively**, a mapping (especially a [`dict`][]) of keyword
+    arguments compatible with the main signature described above, or an
+    [`ast.literal_eval`][]-evaluable string representing such a mapping
+    (`dict`), can be passed to the [`StructuredLogsFormatter`][] constructor
+    as the *first positional argument*.
+
+    Any *extra* arguments that match, by position or by name, some of the
+    _**non**-keyword-only_ parameters specific to the [`logging.Formatter`][]
+    constructor (1st/`fmt`, 2nd/`datefmt`, 3rd/`style`, 4th/`validate`) are
+    *accepted but ignored* -- *provided that* the value of each (if given)
+    is equivalent to the respective default value (if not, [`TypeError`][]
+    is raised). To be precise: `fmt` needs to be a *falsy* object and *not*
+    a mapping; `datefmt` needs to be a *falsy* object; `style` needs to be
+    the `"%"` string; `validate` needs to be a *truthy* object.
+
+    !!! note
+
+        Thanks to the constructor interface extensions described
+        in the preceding two paragraphs, you can configure a
+        **`StructuredLogsFormatter`** even if you are using the
+        [`logging.config.fileConfig`][]-specific configuration format
+        (which, despite its limitations, is still quite popular).
+
+        See also: the **[`logging.config.fileConfig`-Style Configuration
+        Example](guide.md#certlib.log--loggingconfigfileconfig-style-configuration-example)**
+        subsection in the *User's Guide*.
 
     This class defines the following extendable/overridable hook methods:
 
@@ -1074,13 +1099,6 @@ class StructuredLogsFormatter(logging.Formatter):
           keys -- which, when it comes to this mapping, are its *values*,
           not its *keys*; and note that this mapping's values are also
           allowed to be [`None`][]).
-
-    !!! info "See also"
-
-        For extra information about **`StructuredLogsFormatter`**,
-        including a bunch of usage examples and configuration tips,
-        see the **[Tool: `StructuredLogsFormatter`](guide.md#certlib.log--tool-structuredlogsformatter)**
-        section of the *User's Guide*.
     """
 
     #
@@ -1340,9 +1358,9 @@ class StructuredLogsFormatter(logging.Formatter):
 
         !!! note
 
-            You can also extend/override this method to define *fewer*
-            required keys than by default (perhaps even *no* one) if this
-            is OK for you/your organization.
+            Obviously, you can also extend/override this method to define
+            *fewer* required keys than by default (perhaps even *no* one)
+            if this is OK for you/your organization.
 
         To be more precise: this method's return value defines the set of
         keys *required to be included* in *at least one* of the following
@@ -1362,6 +1380,15 @@ class StructuredLogsFormatter(logging.Formatter):
         formatter initialization. If the check fails, [`KeyError`][]
         is raised.
 
+        The default implementation of this method just uses the set of
+        keys defined as [`COMMONLY_EXPECTED_NON_STANDARD_OUTPUT_KEYS`][]
+        (here it is worth noting that, because the default implementation
+        of [`make_base_auto_makers`][] already provides *auto-makers*
+        for certain keys, the *only* keys for which it is *required*
+        to specify *default values* or *auto-makers* when invoking the
+        [`StructuredLogsFormatter`][] constructor -- are: `"system"`,
+        `"component"` and `"component_type"`).
+
         !!! info
 
             The said requirement is considered satisfied _**also**_ if
@@ -1375,14 +1402,11 @@ class StructuredLogsFormatter(logging.Formatter):
             collection of *default values* -- see the *Related interfaces*
             note in the **[`make_base_defaults`][]** method's description).
 
-        The default implementation of this method just uses the set of
-        keys defined as [`COMMONLY_EXPECTED_NON_STANDARD_OUTPUT_KEYS`][]
-        (here it is worth noting that, because the default implementation
-        of [`make_base_auto_makers`][] already provides *auto-makers*
-        for certain keys, the *only* keys for which it is *required*
-        to specify *default values* or *auto-makers* when invoking the
-        [`StructuredLogsFormatter`][] constructor -- are: `"system"`,
-        `"component"` and `"component_type"`).
+            In other words, the interface does not prevent you from
+            effectively omitting from *output data* the keys specified
+            by this method's result, but you must explicitly state that
+            you really want this (so that it can be safely assumed that
+            this is OK for you/your organization).
         """
         assert isinstance(COMMONLY_EXPECTED_NON_STANDARD_OUTPUT_KEYS, frozenset)
         return COMMONLY_EXPECTED_NON_STANDARD_OUTPUT_KEYS
@@ -2445,7 +2469,12 @@ class ExtendedMessage:
     logging.debug(xm(some_data_dict))
     ```
 
-    ***
+    !!! info "See also"
+
+        For extra information about **`ExtendedMessage`**,
+        including a bunch of usage examples, see the **[Tool:
+        `xm`](guide.md#certlib.log--tool-xm)** section of the
+        *User's Guide*.
 
     **Constructor arguments** (all *optional*):
 
@@ -2632,13 +2661,6 @@ class ExtendedMessage:
         that might also be acquired by any code making use of some
         [`logging`][] stuff (because, in particular, that could result in
         a [*deadlock*](https://docs.python.org/3/glossary.html#term-deadlock)).
-
-    !!! info "See also"
-
-        For extra information about **`ExtendedMessage`** (**`xm`**),
-        including a bunch of usage examples, see the **[Tool:
-        `xm`](guide.md#certlib.log--tool-xm)** section of the
-        *User's Guide*.
     """
 
     __slots__ = (
