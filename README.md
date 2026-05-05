@@ -133,7 +133,7 @@ You can find more examples in the [User's Guide](https://certlib-log.readthedocs
 
 Copyright (c) 2026, [CERT Polska](https://cert.pl/en/). All rights reserved.
 
-The `certlib.log` library is free software; you can redistribute and/or
-modify it under the terms of the *BSD 3-Clause "New" or "Revised" License*
-(see the [`LICENSE.txt`](https://github.com/CERT-Polska/certlib-log/blob/main/LICENSE.txt)
+The [`certlib.log`](https://github.com/CERT-Polska/certlib-log) library
+is free software; you can redistribute and/or modify it under the terms
+of the *BSD 3-Clause "New" or "Revised" License* (see the [`LICENSE.txt`](https://github.com/CERT-Polska/certlib-log/blob/main/LICENSE.txt)
 file in the source code repository).
