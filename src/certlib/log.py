@@ -1402,6 +1402,17 @@ class StructuredLogsFormatter(logging.Formatter):
             collection of *default values* -- see the *Related interfaces*
             note in the **[`make_base_defaults`][]** method's description).
 
+            ```python
+            my_formatter = StructuredLogsFormatter(
+                # This satisfies the said requirement:
+                defaults={
+                    "system": None,
+                    "component": None,
+                    "component_type": None,
+                },
+            )
+            ```
+
             In other words, the interface does not prevent you from
             effectively omitting from *output data* the keys specified
             by this method's result, but you must explicitly state that

@@ -5327,6 +5327,20 @@ class TestSnippetsInDocumentation:
         ]
 
 
+    def test_formatter_get_output_keys_required_in_defaults_or_auto_makers_snippet(
+        self,
+        snippet_finder,
+    ):
+        snippet = snippet_finder.lookup(substring='This satisfies the said requirement')
+        variables = {'StructuredLogsFormatter': StructuredLogsFormatter}
+
+        exec(snippet, variables)
+
+        f = variables.get('my_formatter')
+        assert isinstance(f, StructuredLogsFormatter)
+        assert not f.defaults
+
+
     readme_path = project_root_path / 'README.md'
 
     @pytest.mark.skipif(
