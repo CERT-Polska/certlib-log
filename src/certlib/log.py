@@ -887,6 +887,7 @@ from typing import (
     Final,
     Literal,
     Protocol,
+    TypeAlias,
     TypeVar,
     cast,
     overload,
@@ -955,6 +956,13 @@ class StructuredLogsFormatter(logging.Formatter):
     A subclass of [`logging.Formatter`][] to form structured log entries.
 
     ***
+
+    !!! tip
+
+        If the **[`StructuredLogsFormatter`][]** constructor signatures
+        you see appear to be overwhelming, don't worry. In most cases,
+        you'll really only be interested in the first of them (the *main*
+        one). The details are provided below.
 
     **Constructor arguments** (all *keyword-only*, all *optional*):
 
@@ -1108,14 +1116,34 @@ class StructuredLogsFormatter(logging.Formatter):
         # arguments compatible with the first `__init__()` signature
         # variant (declared above), or a string that will result in
         # such a mapping if evaluated with `ast.literal_eval()`.
-        dict_of_kwargs_compatible_with_primary_signature: str | Mapping[str, Any],
+        dict_of_kwargs_compatible_with_main_signature: str | Mapping[str, Any],
         /,
 
-        # Any extra `logging.Formatter`-specific arguments are to be
-        # accepted -- and ignored -- as long as the value of each is
+        # These three `logging.Formatter`-specific arguments are to
+        # be *accepted and ignored* as long as the value of each is
         # equivalent to the respective `logging.Formatter`'s default.
-        *args_ignored_if_matching_respective_logging_Formatter_defaults: Any,     # noqa
-        **kwargs_ignored_if_matching_respective_logging_Formatter_defaults: Any,  # noqa
+        datefmt: AcceptedAndIgnoredOnlyIfEquivalentToItsDefaultValue = None,
+        style: AcceptedAndIgnoredOnlyIfEquivalentToItsDefaultValue = '%',
+        validate: AcceptedAndIgnoredOnlyIfEquivalentToItsDefaultValue = True,
+    ):
+        ...
+
+    @overload
+    def __init__(
+        self,
+
+        # These four `logging.Formatter`-specific arguments are to
+        # be *accepted and ignored* as long as the value of each is
+        # equivalent to the respective `logging.Formatter`'s default.
+        fmt: AcceptedAndIgnoredOnlyIfEquivalentToItsDefaultValue = None,
+        datefmt: AcceptedAndIgnoredOnlyIfEquivalentToItsDefaultValue = None,
+        style: AcceptedAndIgnoredOnlyIfEquivalentToItsDefaultValue = '%',
+        validate: AcceptedAndIgnoredOnlyIfEquivalentToItsDefaultValue = True,
+
+        *,
+        defaults: Mapping[str, object] | None = None,
+        auto_makers: Mapping[str, str | Callable[[], object]] | None = None,
+        serializer: str | Callable[[dict[str, Any]], str] = json.dumps,
     ):
         ...
 
@@ -2637,7 +2665,7 @@ class ExtendedMessage:
     stacklevel: int
 
     recognized_callable_arg_or_data_item_types: ClassVar[
-        tuple[type[_ArgumentlessCallable], ...]
+        tuple[type[ArgumentlessCallable], ...]
     ] = (
         types.FunctionType,
         types.BuiltinFunctionType,
@@ -3238,8 +3266,11 @@ _PY_3_11_OR_NEWER = sys.version_info[:2] >= (3, 11)
 # Typing helpers
 
 
-class _ArgumentlessCallable(Protocol):
+class ArgumentlessCallable(Protocol):
     def __call__(self) -> object: ...
+
+
+AcceptedAndIgnoredOnlyIfEquivalentToItsDefaultValue: TypeAlias = Any
 
 
 _T = TypeVar('_T')
