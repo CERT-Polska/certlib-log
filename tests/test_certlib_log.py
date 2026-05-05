@@ -4481,7 +4481,7 @@ class TestSnippetsInDocumentation:
                 \n            # <- obligatory newline character
                 \s*           # <- zero or more whitespace characters (may include '\n')
 
-                (?P<content>       # snippet's significant content: 
+                (?P<content>       # snippet's significant content:
                     ^         # <- beginning of line
                     .*?       # <- zero or more characters: *any*
                 )             #    (consumed in *non-greedy* manner)
