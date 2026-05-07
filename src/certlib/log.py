@@ -833,7 +833,10 @@ the `certlib.log` module provides the following public stuff:
   to actual *output data* keys; that mapping is used by the
   `StructuredLogsFormatter`'s default implementation of the
   [`make_base_record_attr_to_output_key`][.StructuredLogsFormatter.make_base_record_attr_to_output_key]
-  method).
+  method);
+
+* a few [static typing helpers](reference.md#static-typing-helpers)
+  (ancillary stuff you do not usually need to pay much attention to).
 
 ***
 
@@ -902,12 +905,19 @@ from typing import (
 __all__ = (
     'COMMONLY_EXPECTED_NON_STANDARD_OUTPUT_KEYS',
     'STANDARD_RECORD_ATTR_TO_OUTPUT_KEY',
+
     'StructuredLogsFormatter',
     'ExtendedMessage',
     'xm',
+
     'make_constant_value_provider',
     'register_log_record_attr_auto_maker',
     'unregister_log_record_attr_auto_maker',
+
+    'ValueProvider',
+    'Serializer',
+    'DottedPath',
+    'KwargsMappingAsLiteralEvaluableString',
 )
 
 
@@ -962,10 +972,11 @@ class StructuredLogsFormatter(logging.Formatter):
 
     !!! tip
 
-        If the **[`StructuredLogsFormatter`][]** constructor signatures
-        you see appear to be overwhelming, don't worry. In most cases,
-        you'll really only be interested in the first of them (the *main*
-        one). The details are provided below.
+        If the three call signatures defined by the
+        **[`StructuredLogsFormatter`][]** constructor seem
+        overwhelming, don't worry. In most cases, you will
+        only really be interested in the first one (the
+        *main* signature). The details are provided below.
 
     !!! info "See also"
 
@@ -1011,26 +1022,34 @@ class StructuredLogsFormatter(logging.Formatter):
     (`dict`), can be passed to the [`StructuredLogsFormatter`][] constructor
     as the *first positional argument*.
 
-    Any *extra* arguments that match, by position or by name, some of the
-    _**non**-keyword-only_ parameters specific to the [`logging.Formatter`][]
-    constructor (1st/`fmt`, 2nd/`datefmt`, 3rd/`style`, 4th/`validate`) are
-    *accepted but ignored* -- *provided that* the value of each (if given)
-    is equivalent to the respective default value (if not, [`TypeError`][]
-    is raised). To be precise: `fmt` needs to be a *falsy* object and *not*
-    a mapping; `datefmt` needs to be a *falsy* object; `style` needs to be
-    the `"%"` string; `validate` needs to be a *truthy* object.
+    *Extra* arguments that match -- by *position* or by *name* -- any
+    _**non**-keyword-only_ parameters defined by [`logging.Formatter`][]
+    are *accepted but ignored* by the `StructuredLogsFormatter`
+    constructor, *provided that* the value of each (if given) is
+    the respective parameter's default value; that is:
+
+    * the *first* or **`fmt`** argument -- needs to be [`None`][] (except
+      that it is fine if the *first* argument is a mapping or a string
+      representing a mapping, as described above...);
+
+    * the *second* or **`datefmt`** argument -- needs to be [`None`][];
+
+    * the *third* or **`style`** argument -- needs to be the `"%"` string;
+
+    * the *fourth* or **`validate`** argument -- needs to be [`True`][].
+
+    If any of them does not comply, [`TypeError`][] is raised.
 
     !!! note
 
-        Thanks to the constructor interface extensions described
-        in the preceding two paragraphs, you can configure a
-        **`StructuredLogsFormatter`** even if you are using the
-        [`logging.config.fileConfig`][]-specific configuration format
-        (which, despite its limitations, is still quite popular).
+        Thanks to the interface extensions described above, you can
+        configure a **`StructuredLogsFormatter`** even if you are
+        using the [`logging.config.fileConfig`][]-specific configuration
+        format (which, despite its limitations, is still quite popular).
 
-        See also: the **[`logging.config.fileConfig`-Style Configuration
-        Example](guide.md#certlib.log--loggingconfigfileconfig-style-configuration-example)**
-        subsection in the *User's Guide*.
+        See the **`formatter_structured`** section of the
+        [`fileConfig`-style configuration example](guide.md#certlib.log--loggingconfigfileconfig-style-configuration-example)
+        in the *User's Guide*.
 
     This class defines the following extendable/overridable hook methods:
 
@@ -1062,17 +1081,14 @@ class StructuredLogsFormatter(logging.Formatter):
         contents, regardless of the level of nesting, if any nested data
         is present). Doing otherwise will result in undefined behavior.
 
-    !!! note
+    When it comes to customizing the format of log entry *timestamps*, the
+    related attributes defined by the [`logging.Formatter`][] base class
+    (namely: `converter`, `default_time_format` and `default_msec_format`)
+    are _**ignored**_ by the machinery of `StructuredLogsFormatter`.
 
-        When it comes to customizing the format of log entry *timestamps*,
-        the related attributes defined by the [`logging.Formatter`][] base
-        class (`converter`, `default_time_format`, `default_msec_format`)
-        are _**ignored**_ by the machinery of **`StructuredLogsFormatter`**.
-
-        To learn how to actually *customize timestamp formatting*, please
-        refer to the description of the **`StructuredLogsFormatter`**'s
-        **[`format_timestamp`][]** method.
-
+    To learn how to actually *customize timestamp formatting*, please
+    refer to the description of the `StructuredLogsFormatter`'s
+    [`format_timestamp`][] method.
 
     !!! warning "Additional requirement"
 
@@ -1107,20 +1123,20 @@ class StructuredLogsFormatter(logging.Formatter):
     # * This-class-specific instance attributes:
 
     defaults: Final[Mapping[str, Any]]
-    auto_makers: Final[Mapping[str, Callable[[], object]]]
+    auto_makers: Final[Mapping[str, ValueProvider[object]]]
     auto_made_record_attr_prefix: Final[str]
     record_attr_to_output_key: Final[Mapping[str, str | None]]
-    serializer: Final[Callable[[dict[str, Any]], str]]
+    serializer: Final[Serializer]
 
     # * Instance-lifecycle-related stuff:
 
     @overload
     def __init__(
-        self,
+        self, /,
         *,
         defaults: Mapping[str, object] | None = None,
-        auto_makers: Mapping[str, str | Callable[[], object]] | None = None,
-        serializer: str | Callable[[dict[str, Any]], str] = json.dumps,
+        auto_makers: Mapping[str, ValueProvider[object] | DottedPath] | None = None,
+        serializer: Serializer | DottedPath = json.dumps,
     ):
         ...
 
@@ -1134,39 +1150,43 @@ class StructuredLogsFormatter(logging.Formatter):
         # arguments compatible with the first `__init__()` signature
         # variant (declared above), or a string that will result in
         # such a mapping if evaluated with `ast.literal_eval()`.
-        dict_of_kwargs_compatible_with_main_signature: str | Mapping[str, Any],
+        mapping_of_kwargs_compatible_with_main_signature: (
+            Mapping[Literal['defaults', 'auto_makers', 'serializer'], Any]
+            | KwargsMappingAsLiteralEvaluableString
+        ),
         /,
 
         # These three `logging.Formatter`-specific arguments are to
         # be *accepted and ignored* as long as the value of each is
-        # equivalent to the respective `logging.Formatter`'s default.
-        datefmt: AcceptedAndIgnoredOnlyIfEquivalentToItsDefaultValue = None,
-        style: AcceptedAndIgnoredOnlyIfEquivalentToItsDefaultValue = '%',
-        validate: AcceptedAndIgnoredOnlyIfEquivalentToItsDefaultValue = True,
+        # the respective `logging.Formatter`-specific default value.
+        datefmt: None = None,
+        style: Literal['%'] = '%',
+        validate: Literal[True] = True,
     ):
         ...
 
     @overload
+    # A variant added just for clarity/completeness...
     def __init__(
-        self,
+        self, /,
 
         # These four `logging.Formatter`-specific arguments are to
         # be *accepted and ignored* as long as the value of each is
-        # equivalent to the respective `logging.Formatter`'s default.
-        fmt: AcceptedAndIgnoredOnlyIfEquivalentToItsDefaultValue = None,
-        datefmt: AcceptedAndIgnoredOnlyIfEquivalentToItsDefaultValue = None,
-        style: AcceptedAndIgnoredOnlyIfEquivalentToItsDefaultValue = '%',
-        validate: AcceptedAndIgnoredOnlyIfEquivalentToItsDefaultValue = True,
+        # the respective `logging.Formatter`-specific default value.
+        fmt: None = None,
+        datefmt: None = None,
+        style: Literal['%'] = '%',
+        validate: Literal[True] = True,
 
         *,
         defaults: Mapping[str, object] | None = None,
-        auto_makers: Mapping[str, str | Callable[[], object]] | None = None,
-        serializer: str | Callable[[dict[str, Any]], str] = json.dumps,
+        auto_makers: Mapping[str, ValueProvider[object] | DottedPath] | None = None,
+        serializer: Serializer | DottedPath = json.dumps,
     ):
         ...
 
-    def __init__(self, *args: Any, **kwargs: Any):
-        arguments = self._resolve_init_arguments(*args, **kwargs)
+    def __init__(self, /, *args: Any, **kwargs: Any):
+        arguments = self._resolve_init_arguments(args, *args, **kwargs)
 
         given_defaults = arguments.pop('defaults', None) or {}
         given_auto_makers = arguments.pop('auto_makers', None) or {}
@@ -1257,6 +1277,7 @@ class StructuredLogsFormatter(logging.Formatter):
         msg = getattr(record, 'msg', None)
         if isinstance(msg, ExtendedMessage):
             if args := getattr(record, 'args', None):
+                args_repr = self._get_record_args_repr(args)
                 raise TypeError(
                     f"the specified log message base is an instance "
                     f"of {ExtendedMessage.__qualname__} ({msg=!a}); "
@@ -1264,7 +1285,7 @@ class StructuredLogsFormatter(logging.Formatter):
                     f"format the log message should have been passed "
                     f"to the `{ExtendedMessage.__qualname__}(...)` "
                     f"(or `xm(...)`) call, not to the logger method "
-                    f"call itself (*args passed to it: {args!a})"
+                    f"call itself (*args obtained by it: {args_repr})"
                 )
             record.message = msg.get_message_value()
         else:
@@ -1449,7 +1470,7 @@ class StructuredLogsFormatter(logging.Formatter):
         """
         return {}
 
-    def make_base_auto_makers(self) -> Mapping[str, str | Callable[[], object]]:
+    def make_base_auto_makers(self) -> Mapping[str, ValueProvider[object] | DottedPath]:
         """
         A hook method: extend it in a subclass to define (more)
         *auto-makers* for output.
@@ -1668,11 +1689,11 @@ class StructuredLogsFormatter(logging.Formatter):
         dt_without_tzinfo = dt_timestamp.replace(tzinfo=None)
         return f"{dt_without_tzinfo.isoformat(' ', 'microseconds')}{custom_suffix}"
 
-    # Note: the `type: ignore` comment below prevents type checkers from
+    # *Note*: the `type: ignore[...]` comment below prevents *mypy* from
     # rejecting `Final` nested in `ClassVar` (which is OK in Python 3.13
     # and newer; and we use `from __future__ import annotations` anyway,
     # so at runtime we are safe regardless of Python version).
-    FORMAT_TIMESTAMP_DEFAULT_KWARGS: ClassVar[Final[   # type: ignore
+    FORMAT_TIMESTAMP_DEFAULT_KWARGS: ClassVar[Final[   # type: ignore[valid-type]
         Mapping[str, Any]
     ]] = types.MappingProxyType({
         p.name: p.default
@@ -1992,11 +2013,11 @@ class StructuredLogsFormatter(logging.Formatter):
         # Any other object...
         return last_resort(value)
 
-    # Note: the `type: ignore` comment below prevents type checkers from
+    # *Note*: the `type: ignore[...]` comment below prevents *mypy* from
     # rejecting `Final` nested in `ClassVar` (which is OK in Python 3.13
     # and newer; and we use `from __future__ import annotations` anyway,
     # so at runtime we are safe regardless of Python version).
-    PREPARE_VALUE_DEFAULT_KWARGS: ClassVar[Final[   # type: ignore
+    PREPARE_VALUE_DEFAULT_KWARGS: ClassVar[Final[   # type: ignore[valid-type]
         Mapping[str, Any]
     ]] = types.MappingProxyType({
         p.name: p.default
@@ -2077,13 +2098,17 @@ class StructuredLogsFormatter(logging.Formatter):
 
     def _resolve_init_arguments(
         self,
+        raw_positional_args: Sequence[Any],
+        /,
+
         # (Compare to the signature of `logging.Formatter.__init__()`...)
-        fmt: str | Mapping[str, Any] | None = None,
-        datefmt: Literal[''] | None = None,
+        fmt: Mapping[str, Any] | KwargsMappingAsLiteralEvaluableString | None = None,
+        datefmt: None = None,
         style: Literal['%'] = '%',
         validate: Literal[True] = True,
+
         *excessive_positional_args: object,
-        **arguments: Any,
+        **meaningful_arguments: Any,
     ) -> dict[str, Any]:
         if excessive_positional_args:
             raise TypeError(
@@ -2091,39 +2116,48 @@ class StructuredLogsFormatter(logging.Formatter):
                 f'got excessive positional argument(s): '
                 f'{", ".join(map(ascii, excessive_positional_args))})'
             )
-        if fmt and isinstance(fmt, str):
-            try:
-                fmt = ast.literal_eval(fmt)
-            except Exception as exc:
-                raise ValueError(
-                    f'an error occurred when trying to evaluate '
-                    f'(as a Python expression) the string ({fmt!a}) '
-                    f'passed as the first argument (`fmt`) to '
-                    f'{type(self).__init__.__qualname__}() '
-                    f'({type(exc).__qualname__}: {exc})'
-                ) from exc
-        if isinstance(fmt, Mapping):
-            if arguments:
+        if fmt is not None:
+            if not raw_positional_args:
                 raise TypeError(
                     f'for {type(self).__init__.__qualname__}(), '
-                    f'when you pass a mapping as the first argument '
-                    f'(`fmt`), as an alternative means of providing '
-                    f'keyword arguments, you should not pass real '
-                    f'keyword arguments (whereas you did pass some: '
-                    f'{", ".join(map(ascii, arguments))})'
+                    f'argument `fmt` is not customizable'
                 )
-            arguments = dict(fmt)
-        elif fmt:
-            raise TypeError(
-                f'for {type(self).__init__.__qualname__}(), the first '
-                f'argument (`fmt`), if specified, is expected to be a '
-                f'mapping (or an `ast.literal_eval()`-evaluable string '
-                f'representing a mapping), as an alternative means of '
-                f'providing keyword arguments (in contexts when passing '
-                f'real keyword arguments is not possible); got: {fmt!a} '
-                f'(not a mapping)'
-            )
-        if datefmt:
+            assert fmt is raw_positional_args[0]
+            first_arg = raw_positional_args[0]
+            if isinstance(first_arg, str):
+                try:
+                    first_arg = ast.literal_eval(first_arg)
+                except Exception as exc:
+                    raise ValueError(
+                        f'an error occurred when trying to evaluate (as '
+                        f'a Python expression) the string ({first_arg!a}) '
+                        f'passed as the first positional argument to '
+                        f'{type(self).__init__.__qualname__}() '
+                        f'({type(exc).__qualname__}: {exc})'
+                    ) from exc
+            if not isinstance(first_arg, Mapping):
+                raise TypeError(
+                    f'for {type(self).__init__.__qualname__}(), the first '
+                    f'positional argument, if specified and not None, is '
+                    f'expected to be a mapping (or an `ast.literal_eval()`'
+                    f'-evaluable string representing a mapping), as an '
+                    f'alternative means of providing keyword arguments '
+                    f'(in contexts when passing real keyword arguments '
+                    f'is not possible); got: {first_arg!a} (not a mapping)'
+                )
+            if meaningful_arguments:
+                listing = ', '.join(map(ascii, meaningful_arguments))
+                raise TypeError(
+                    f'for {type(self).__init__.__qualname__}(), when '
+                    f'you pass a mapping (or an `ast.literal_eval()`-'
+                    f'evaluable string representing a mapping) as the '
+                    f'first positional argument, as an alternative '
+                    f'means of providing keyword arguments, you should '
+                    f'not pass real keyword arguments (whereas you did '
+                    f'pass some: {listing})'
+                )
+            meaningful_arguments = dict(first_arg)
+        if datefmt is not None:
             raise TypeError(
                 f'for {type(self).__init__.__qualname__}(), '
                 f'argument `datefmt` is not customizable'
@@ -2133,12 +2167,12 @@ class StructuredLogsFormatter(logging.Formatter):
                 f'for {type(self).__init__.__qualname__}(), '
                 f'argument `style` is not customizable'
             )
-        if not validate:
+        if validate is not True:  # noqa
             raise TypeError(
                 f'for {type(self).__init__.__qualname__}(), '
                 f'argument `validate` is not customizable'
             )
-        return arguments
+        return meaningful_arguments
 
     def _get_unfiltered_defaults(
         self,
@@ -2153,8 +2187,8 @@ class StructuredLogsFormatter(logging.Formatter):
 
     def _get_unprefixed_auto_makers(
         self,
-        given_auto_makers: Mapping[str, str | Callable[[], object]],
-    ) -> Mapping[str, Callable[[], object]]:
+        given_auto_makers: Mapping[str, ValueProvider[object] | DottedPath],
+    ) -> Mapping[str, ValueProvider[object]]:
         raw_auto_makers = dict(self.make_base_auto_makers())
         raw_auto_makers.update(given_auto_makers)
         return dict(sorted(
@@ -2165,11 +2199,11 @@ class StructuredLogsFormatter(logging.Formatter):
     def _normalize_and_validate_auto_maker_item(
         self,
         key: str,
-        auto_maker: str | Callable[[], _T],
-    ) -> tuple[str, Callable[[], _T]]:
+        auto_maker: ValueProvider[T] | DottedPath,
+    ) -> tuple[str, ValueProvider[T]]:
         key = self._validate_output_key(key)
         if isinstance(auto_maker, str):
-            resolved: Callable[[], _T] = _resolve_dotted_path(auto_maker)
+            resolved: ValueProvider[T] = _resolve_dotted_path(auto_maker)
             auto_maker = resolved
         if not callable(auto_maker):
             raise TypeError(
@@ -2181,7 +2215,7 @@ class StructuredLogsFormatter(logging.Formatter):
     def _check_output_keys_required_in_defaults_or_auto_makers(
         self,
         unfiltered_defaults: Mapping[str, Any],
-        unprefixed_auto_makers: Mapping[str, Callable[[], object]],
+        unprefixed_auto_makers: Mapping[str, ValueProvider[object]],
     ) -> None:
         provided_keys = unfiltered_defaults.keys() | unprefixed_auto_makers.keys()
         required_keys = self.get_output_keys_required_in_defaults_or_auto_makers()
@@ -2219,8 +2253,8 @@ class StructuredLogsFormatter(logging.Formatter):
     def _get_actual_auto_makers(
         self,
         auto_made_record_attr_prefix: str,
-        unprefixed_auto_makers: Mapping[str, Callable[[], object]],
-    ) -> Mapping[str, Callable[[], object]]:
+        unprefixed_auto_makers: Mapping[str, ValueProvider[object]],
+    ) -> Mapping[str, ValueProvider[object]]:
         return {
             auto_made_record_attr_prefix + key: auto_maker
             for key, auto_maker in unprefixed_auto_makers.items()
@@ -2260,10 +2294,11 @@ class StructuredLogsFormatter(logging.Formatter):
 
     def _get_actual_serializer(
         self,
-        given_serializer: str | Callable[[dict[str, Any]], str],
-    ) -> Callable[[dict[str, Any]], str]:
-        serializer: Callable[[dict[str, Any]], str] = (
-            _resolve_dotted_path(given_serializer) if isinstance(given_serializer, str)
+        given_serializer: Serializer | DottedPath,
+    ) -> Serializer:
+        serializer: Serializer = (
+            _resolve_dotted_path(given_serializer)
+            if isinstance(given_serializer, str)
             else given_serializer
         )
         if not callable(serializer):
@@ -2272,6 +2307,14 @@ class StructuredLogsFormatter(logging.Formatter):
                 f'to be a callable object'
             )
         return serializer
+
+    def _get_record_args_repr(self, args: object) -> str:
+        no_seq = (str, bytes, bytearray)
+        return (
+            ', '.join(map(ascii, args))
+            if isinstance(args, Sequence) and not isinstance(args, no_seq)
+            else ascii(args)  # In particular, it may be a dict.
+        )
 
     def _extract_output_from_xm(
         self,
@@ -2548,10 +2591,13 @@ class ExtendedMessage:
     a message pattern as the *first positional argument*). The mapping,
     after conversion to a `dict`, is assigned to the [`data`][] attribute.
 
-    When it comes to the arguments **`exc_info`**, **`stack_info`** and
-    **`stacklevel`**, they should *not* be included in that mapping (each
-    of them, if to be specified, should *only* be specified as a real
-    keyword argument).
+    !!! warning "Interface restriction"
+
+        When it comes to the arguments **`exc_info`**, **`stack_info`**
+        and **`stacklevel`**, they should *not* be included in that
+        mapping; each of them, if to be specified, should *only* be
+        specified as a real keyword argument (putting any of them in
+        that mapping will result in undefined behavior).
 
     !!! warning "Interface restriction"
 
@@ -2691,14 +2737,14 @@ class ExtendedMessage:
     # Public stuff
 
     pattern: object
-    args: tuple[object, ...]
-    data: dict[str, object]
+    args: tuple[object | ValueProvider[object], ...]
+    data: dict[str, object | ValueProvider[object]]
     exc_info: Any
     stack_info: bool
     stacklevel: int
 
     recognized_callable_arg_or_data_item_types: ClassVar[
-        tuple[type[ArgumentlessCallable], ...]
+        tuple[type[ValueProvider[object]], ...]
     ] = (
         types.FunctionType,
         types.BuiltinFunctionType,
@@ -2722,20 +2768,20 @@ class ExtendedMessage:
         self,
         pattern: str = '',
         /,
-        *args: object,
+        *args: object | ValueProvider[object],
 
         exc_info: Any = None,
         stack_info: bool = False,
         stacklevel: int = 1,
 
-        **data: object,
+        **data: object | ValueProvider[object],
     ):
         ...
 
     @overload
     def __init__(
         self,
-        data: Mapping[str, object],
+        data: Mapping[str, object | ValueProvider[object]],
         /,
         *,
         exc_info: Any = None,
@@ -2749,25 +2795,25 @@ class ExtendedMessage:
         self,
         pattern: object,  # (anything convertible to str, but *not* a mapping)
         /,
-        *args: object,
+        *args: object | ValueProvider[object],
 
         exc_info: Any = None,
         stack_info: bool = False,
         stacklevel: int = 1,
 
-        **data: object,
+        **data: object | ValueProvider[object],
     ):
         ...
 
     def __init__(
         self,
-        first_arg: object | Mapping[str, object] = '',
+        first_arg: object | Mapping[str, object | ValueProvider[object]] = '',
         /,
-        *args: object,
+        *args: object | ValueProvider[object],
         exc_info: Any = None,
         stack_info: bool = False,
         stacklevel: int = 1,
-        **data: object,
+        **data: object | ValueProvider[object],
     ):
         # Note: it is not necessary to protect the following 4
         # lines with a lock, because each call to the function
@@ -3159,7 +3205,7 @@ class ExtendedMessage:
             found = logging.Logger.findCaller(
                 # Here we pass None as a substitute for a logger instance
                 # (the `findCaller()` method makes no use of it anyway).
-                None,  # type: ignore
+                None,   # type: ignore[arg-type]
                 stack_info,
                 stacklevel,
             )
@@ -3208,7 +3254,7 @@ xm: Final = ExtendedMessage
 """[`xm`][] is a convenience alias of [`ExtendedMessage`][]."""
 
 
-def make_constant_value_provider(value: _T) -> Callable[[], _T]:
+def make_constant_value_provider(value: T) -> ValueProvider[T]:
     """
     A trivial (yet sometimes useful) helper: given an arbitrary object
     (**`value`**), create an argumentless function that will always
@@ -3220,7 +3266,7 @@ def make_constant_value_provider(value: _T) -> Callable[[], _T]:
 
 def register_log_record_attr_auto_maker(
     rec_attr: str,
-    auto_maker: Callable[[], object],
+    auto_maker: ValueProvider[object],
 ) -> None:
     """
     For the specified log record attribute name (**`rec_attr`**),
@@ -3240,7 +3286,7 @@ def register_log_record_attr_auto_maker(
     made once for each newly created log record (in the thread in which
     the respective logger method call is being executed). Obviously, the
     returned values are allowed to vary depending on the context (or even
-    per each call).
+    with each call).
 
     If, for the specified attribute name, some *auto-maker* is already
     registered, this method raises [`KeyError`][].
@@ -3288,6 +3334,84 @@ def unregister_log_record_attr_auto_maker(
 
 
 #
+# Static typing helpers
+
+
+# *Not* a part of the public API.
+T = TypeVar('T')
+
+# *Not* a part of the public API.
+Value = TypeVar('Value', covariant=True)
+
+
+# Note: the *mkdocstrings* library formats signatures without trailing
+# `/` markers. That's why we have formatted the `__call__()` signatures
+# of the protocols' defined below *manually* -- within the docstrings.
+
+
+class ValueProvider(Protocol[Value]):
+    """
+    ```python
+    __call__() -> Value
+    ```
+
+    A [*protocol*][typing.Protocol] which describes any callable object
+    (e.g., a function) that takes *no arguments* and returns a value of
+    *any type*; returned values may vary with each call. It is worth
+    noting that, in particular, every *auto-maker* is supposed to be
+    such a callable object.
+
+    !!! info "Typing details"
+
+        * The **`Value`** element of the above signature is a [*type
+          variable*](https://typing.python.org/en/latest/spec/generics.html#generics).
+
+        * It has no [*upper
+          bound*](https://typing.python.org/en/latest/spec/generics.html#type-variables-with-an-upper-bound)
+          (or, in other words, its *upper bound* is [`object`][]).
+
+        * The **`ValueProvider`** *protocol* is
+          [*generic*](https://typing.python.org/en/latest/spec/protocol.html#generic-protocols).
+          It is [*covariant*](https://typing.python.org/en/latest/spec/generics.html#variance)
+          in that variable.
+    """
+    def __call__(self) -> Value: ...
+
+
+class Serializer(Protocol):
+    """
+    ```python
+    __call__(output_data: dict[str, Any], /) -> str
+    ```
+
+    A [*protocol*][typing.Protocol] which describes any callable object
+    (e.g., a function) that takes an *output data* dict (supposedly,
+    returned by [`StructuredLogsFormatter.get_prepared_output_data`][])
+    as the sole positional argument and returns a string representing
+    that dict in *serialized* form (typically, but not necessarily, in
+    JSON format).
+    """
+    def __call__(self, output_data: dict[str, Any], /) -> str: ...
+
+
+DottedPath: TypeAlias = str
+"""
+A [*type alias*](https://typing.python.org/en/latest/spec/aliases.html#type-aliases)
+to be used to annotate any string that is a *dotted path* (*importable
+dotted name*).
+"""
+
+
+KwargsMappingAsLiteralEvaluableString: TypeAlias = str
+"""
+A [*type alias*](https://typing.python.org/en/latest/spec/aliases.html#type-aliases)
+to be used to annotate any string that is an [`ast.literal_eval`][]-evaluable
+representation of a mapping (dict) of keyword arguments compatible with the
+main (first) signature of the [`StructuredLogsFormatter`][] constructor.
+"""
+
+
+#
 # Internal constants and helpers (should be used only within this module!)
 #
 
@@ -3296,31 +3420,17 @@ _PY_3_11_OR_NEWER = sys.version_info[:2] >= (3, 11)
 
 
 #
-# Typing helpers
-
-
-class ArgumentlessCallable(Protocol):
-    def __call__(self) -> object: ...
-
-
-AcceptedAndIgnoredOnlyIfEquivalentToItsDefaultValue: TypeAlias = Any
-
-
-_T = TypeVar('_T')
-
-
-#
 # Machinery of *auto-makers* + internal *log record hooks*
 
 
 _auto_makers_registry_and_internal_record_hooks_maintenance_lock = threading.Lock()
-_auto_makers_registry: Sequence[tuple[str, Callable[[], object]]] = ()
+_auto_makers_registry: Sequence[tuple[str, ValueProvider[object]]] = ()
 _internal_record_hooks: Sequence[Callable[[logging.LogRecord], None]] = ()
 
 
 def _add_to_auto_makers_registry(
     rec_attr: str,
-    auto_maker: Callable[[], object],
+    auto_maker: ValueProvider[object],
 ) -> None:
     global _auto_makers_registry
 
@@ -3405,7 +3515,7 @@ def _record_factory_with_auto_makers_and_record_hooks_impl(
     record_attrs: dict[str, object] = record.__dict__
 
     rec_attr: str
-    auto_maker: Callable[[], object]
+    auto_maker: ValueProvider[object]
     for rec_attr, auto_maker in _auto_makers_registry:
         try:
             value = auto_maker()

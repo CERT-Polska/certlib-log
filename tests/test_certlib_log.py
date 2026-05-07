@@ -5,6 +5,8 @@
 # License* (see the `LICENSE.txt` file in the source code repository:
 # https://github.com/CERT-Polska/certlib-log/blob/main/LICENSE.txt).
 
+# mypy: disable_error_code = "attr-defined, func-returns-value, method-assign, no-any-return, no-untyped-call, no-untyped-def, type-arg, unused-ignore"
+
 from __future__ import annotations
 
 import ast
@@ -286,7 +288,7 @@ class FormatterInitIgnoredRedundantStandardArgumentsVariant(Enum):
     NONE = 'no redundant std Formatter.__init__() arguments'
     POSITIONAL = 'redundant std Formatter.__init__() arguments: defaults as positional ones'
     KEYWORD = 'redundant std Formatter.__init__() arguments: defaults as keyword ones'
-    VARIOUS = "redundant std Formatter.__init__() arguments: defaults' equivalents as mixed ones"
+    MIXED = "redundant std Formatter.__init__() arguments: defaults as positional/keyword ones"
 
 
 class ListLogHandler(logging.Handler):
@@ -413,6 +415,7 @@ def make_StructuredLogsFormatter_subclass(   # noqa
         if extra_accepted_kwarg_names:
             def __init__(self, *args, **kwargs):
                 truthy_arg = args[0] if (args and args[0]) else None
+                adjusted_arg: Any
                 if isinstance(truthy_arg, Mapping):
                     adjusted_arg = _without_extra_accepted_kwargs(truthy_arg)
                     args = (adjusted_arg,) + args[1:]
@@ -464,7 +467,9 @@ def make_StructuredLogsFormatter_subclass(   # noqa
                 )
 
     if prepare_submapping_key is not None:
-        cls.prepare_submapping_key = staticmethod(prepare_submapping_key)
+        cls.prepare_submapping_key = staticmethod(   # noqa
+            prepare_submapping_key                   # type: ignore[assignment]
+        )
 
     return cls
 
@@ -624,7 +629,7 @@ def get_output_base(
 
 @pytest.fixture(scope='session', autouse=True)
 def seen_formatter_auto_made_record_attr_prefixes() -> Generator[list]:
-    seen = []
+    seen: list[str] = []
     yield seen
     # Check whether each per-instance prefix is unique:
     assert sorted(seen) == sorted(set(seen))
@@ -767,14 +772,14 @@ class TestStructuredLogsFormatter:
                     'style': '%',
                     'validate': True,
                 }
-            case FormatterInitIgnoredRedundantStandardArgumentsVariant.VARIOUS:
+            case FormatterInitIgnoredRedundantStandardArgumentsVariant.MIXED:
                 ign_args = (
-                    '',   # `fmt`
-                    '',   # `datefmt`
+                    None,  # `fmt`
+                    None,  # `datefmt`
                 )
                 ign_kwargs = {
                     'style': '%',
-                    'validate': 'some truthy value',
+                    'validate': True,
                 }
             case unrecognized_variant:
                 raise AssertionError(f'{unrecognized_variant=}')
@@ -787,7 +792,7 @@ class TestStructuredLogsFormatter:
         [dict[str, Any]],
         Mapping[str, Any],
     ]:
-        return dict  # type: ignore
+        return dict
 
     # (This fixture is overridden for some tests...)
     @pytest.fixture
@@ -818,7 +823,7 @@ class TestStructuredLogsFormatter:
         ign_args, ign_kwargs = formatter_init_ignored_redundant_standard_arguments
         if formatter_init_kwargs_passing_variant is not FormatterInitKwargsPassingVariant.DIRECT:
             # The actual arguments (as a dict or its repr) are to be
-            # passed as the first (`fmt`) argument to `__init__()`...
+            # passed as the first positional argument to `__init__()`.
             ign_args = ign_args[1:]
             ign_kwargs = {
                 k: v for k, v in ign_kwargs.items()
@@ -1290,6 +1295,36 @@ class TestStructuredLogsFormatter:
             ),
             (
                 make_StructuredLogsFormatter_subclass(
+                    base_defaults=types.MappingProxyType({
+                        # (Example of non-dict mapping)
+                        'system': None,          # ("void" value)
+                        'component': None,       # ("void" value)
+                        'component_type': None,  # ("void" value)
+                    }),
+                ),
+                dict(
+                    defaults={},
+                    auto_makers={},
+                ),
+
+                # Expected public attributes
+                dict(
+                    defaults={},
+                    auto_makers={
+                        '<PREFIX>py_ver': AnyOfType(Function),
+                        '<PREFIX>script_args': AnyOfType(Function),
+                    },
+                    auto_made_record_attr_prefix=AnyOfType(str),
+                    record_attr_to_output_key={
+                        **STANDARD_RECORD_ATTR_TO_OUTPUT_KEY,
+                        '<PREFIX>py_ver': 'py_ver',
+                        '<PREFIX>script_args': 'script_args',
+                    },
+                    serializer=json.dumps,
+                ),
+            ),
+            (
+                make_StructuredLogsFormatter_subclass(
                     output_keys_required_in_defaults_or_auto_makers=frozenset(),
                     base_defaults={},
                     base_auto_makers={},
@@ -1347,27 +1382,6 @@ class TestStructuredLogsFormatter:
 
 
     @pytest.mark.parametrize(
-        'excessive_positional_args',
-        [
-            [42],
-            ['abc', object(), sentinel.WHATEVER],
-        ]
-    )
-    @pytest.mark.parametrize(
-        # (Overriding fixture)
-        'formatter_init_ignored_redundant_standard_arguments_variant',
-        [FormatterInitIgnoredRedundantStandardArgumentsVariant.POSITIONAL],
-    )
-    def test_init_with_excessive_positional_args_causing_type_error(
-        self,
-        make_formatter,
-        excessive_positional_args,
-    ):
-        with pytest.raises(TypeError, match=r'excessive positional argument'):
-            make_formatter(extra_args=excessive_positional_args)
-
-
-    @pytest.mark.parametrize(
         (
             # (Overriding these fixtures)
             'formatter_factory',
@@ -1377,7 +1391,7 @@ class TestStructuredLogsFormatter:
             (
                 StructuredLogsFormatter,
                 dict(
-                    foo=42,  # (excessive argument)
+                    foo=42,  # (unrecognized argument)
                     defaults={
                         'system': None,
                         'component': None,
@@ -1388,8 +1402,8 @@ class TestStructuredLogsFormatter:
             (
                 StructuredLogsFormatter,
                 dict(
-                    foo=42,  # (excessive argument)
-                    bar='43',  # (excessive argument)
+                    foo=42,  # (unrecognized argument)
+                    bar='43',  # (unrecognized argument)
                     defaults={
                         'system': EXAMPLE_SYSTEM,
                         'component_type': EXAMPLE_COMPONENT_TYPE,
@@ -1412,7 +1426,7 @@ class TestStructuredLogsFormatter:
                 dict(
                     foo=42,
                     bar='43',
-                    spam=b'44',  # (excessive argument)
+                    spam=b'44',  # (unrecognized argument)
                     defaults={
                         'system': EXAMPLE_SYSTEM,
                         'component': EXAMPLE_COMPONENT,
@@ -1422,11 +1436,226 @@ class TestStructuredLogsFormatter:
             ),
         ]
     )
-    def test_init_with_excessive_kwargs_causing_type_error(
+    def test_init_with_unrecognized_kwargs_causes_type_error(
         self,
         make_formatter,
     ):
         with pytest.raises(TypeError, match=r'unexpected keyword argument'):
+            make_formatter()
+
+
+    @pytest.mark.parametrize(
+        (
+            # (Overriding these fixtures)
+            'formatter_factory',
+            'formatter_init_kwargs',
+        ),
+        [
+            (
+                StructuredLogsFormatter,
+                {
+                    'defaults': {
+                        'system': None,
+                        'component': None,
+                        'component_type': None,
+                    },
+                    42: 'whatever',  # (unrecognized + with wrong type of key)
+                },
+            ),
+        ]
+    )
+    @pytest.mark.parametrize(
+        # (Overriding fixture)
+        'formatter_init_kwargs_passing_variant',
+        [
+            FormatterInitKwargsPassingVariant.MAPPING,
+            FormatterInitKwargsPassingVariant.STRING,
+        ],
+    )
+    def test_init_with_non_string_key_in_kwargs_mapping_passed_as_first_arg_causes_type_error(
+        self,
+        make_formatter,
+    ):
+        with pytest.raises(TypeError, match=r'unexpected keyword argument'):
+            make_formatter()
+
+
+    @pytest.mark.parametrize(
+        # (Overriding fixture)
+        'formatter_init_ignored_redundant_standard_arguments',
+        [
+            (
+                # *args
+                [None],
+
+                # **kwargs
+                {
+                    'fmt': None,
+                },
+            ),
+            (
+                # *args
+                [
+                    {'defaults': {'foo': 'bar'}},
+                ],
+
+                # **kwargs
+                {
+                    'fmt': None,
+                    'datefmt': None,
+                },
+            ),
+            (
+                # *args
+                [
+                    {'defaults': {'foo': 'bar'}},
+                ],
+
+                # **kwargs
+                {
+                    'fmt': None,
+                    'validate': True,
+                },
+            ),
+            (
+                # *args
+                [None],
+
+                # **kwargs
+                {
+                    'fmt': None,
+                    'datefmt': None,
+                    'style': '%',
+                    'validate': True,
+                },
+            ),
+        ],
+    )
+    @pytest.mark.parametrize(
+        # (Overriding fixture)
+        'formatter_init_kwargs_passing_variant',
+        [
+            FormatterInitKwargsPassingVariant.DIRECT,
+        ],
+    )
+    def test_init_with_both_first_arg_given_and_fmt_passed_as_real_kwarg_causes_type_error(
+        self,
+        make_formatter,
+    ):
+        with pytest.raises(TypeError, match=r'multiple.*\bfmt\b'):
+            make_formatter()
+
+
+    @pytest.mark.parametrize(
+        'excessive_positional_args',
+        [
+            [42],
+            ['abc', object(), sentinel.WHATEVER],
+        ]
+    )
+    @pytest.mark.parametrize(
+        # (Overriding fixture)
+        'formatter_init_ignored_redundant_standard_arguments_variant',
+        [
+            FormatterInitIgnoredRedundantStandardArgumentsVariant.POSITIONAL,
+        ],
+    )
+    def test_init_with_excessive_positional_args_causes_type_error(
+        self,
+        make_formatter,
+        excessive_positional_args,
+    ):
+        with pytest.raises(TypeError, match=r'excessive positional argument'):
+            make_formatter(extra_args=excessive_positional_args)
+
+
+    @pytest.mark.parametrize(
+        # (Overriding fixture)
+        'formatter_init_kwargs_passing_variant',
+        [
+            FormatterInitKwargsPassingVariant.STRING,
+        ],
+    )
+    @pytest.mark.parametrize(
+        # (Overriding fixture)
+        'prepare_formatter_init_kwargs_string',
+        [
+            (lambda _: '<not an `ast.literal_eval()`-evaluable string>'),
+            (lambda _: ''),
+        ],
+    )
+    def test_init_with_first_arg_being_string_not_evaluable_by_litera_eval_causes_value_error(
+        self,
+        make_formatter,
+    ):
+        with pytest.raises(ValueError, match=r'error.*when trying to evaluate'):
+            make_formatter()
+
+
+    @pytest.mark.parametrize(
+        # (Overriding fixture)
+        'formatter_init_ignored_redundant_standard_arguments',
+        [
+            (
+                # *args
+                [
+                    0,  # (unsupported type of first positional arg)
+                ],
+
+                # **kwargs
+                {},
+            ),
+            (
+                # *args
+                [
+                    object(),  # (unsupported type of first positional arg)
+                ],
+
+                # **kwargs
+                {
+                    'validate': True,
+                },
+            ),
+            (
+                # *args
+                [
+                    False,  # (unsupported type of first positional arg)
+                    None,
+                ],
+
+                # **kwargs
+                {
+                    'style': '%',
+                    'validate': True,
+                },
+            ),
+            (
+                # *args
+                [
+                    [('x', 42)],  # (unsupported type of first positional arg)
+                ],
+
+                # **kwargs
+                {
+                    'datefmt': None,
+                    'style': '%',
+                    'validate': True,
+                },
+            ),
+        ],
+    )
+    @pytest.mark.parametrize(
+        # (Overriding fixture)
+        'formatter_init_kwargs_passing_variant',
+        [
+            FormatterInitKwargsPassingVariant.DIRECT,
+        ],
+    )
+    def test_init_with_first_arg_not_being_mapping_or_str_or_none_causes_type_error(
+        self,
+        make_formatter,
+    ):
+        with pytest.raises(TypeError, match=r'expected.*mapping.*or.*literal_eval'):
             make_formatter()
 
 
@@ -1520,7 +1749,7 @@ class TestStructuredLogsFormatter:
             FormatterInitKwargsPassingVariant.STRING,
         ],
     )
-    def test_init_with_kwargs_passed_both_directly_and_as_first_arg_causing_type_error(
+    def test_init_with_kwargs_passed_both_directly_and_as_first_arg_causes_type_error(
         self,
         make_formatter,
         real_extra_kwargs,
@@ -1535,55 +1764,58 @@ class TestStructuredLogsFormatter:
         [
             (
                 # *args
-                [42],  # (unsupported type of truthy `fmt`)
-
-                # **kwargs
-                {},
-            ),
-            (
-                # *args
-                [],
-
-                # **kwargs
-                {'fmt': object()},  # (unsupported type of truthy `fmt`)
-            ),
-            (
-                # *args
                 [],
 
                 # **kwargs
                 {
-                    'fmt': b'tro-lo-lo',  # (unsupported type of truthy `fmt`)
-                    'datefmt': None,
-                    'style': '%',
-                    'validate': 1,
+                    'fmt': '',  # (unallowed: `fmt` kwarg not being None)
                 },
             ),
             (
                 # *args
-                [
-                    True,  # (unsupported type of truthy `fmt`)
-                    '',
-                ],
+                [],
 
                 # **kwargs
                 {
+                    'fmt': [],  # (unallowed: `fmt` kwarg not being None)
+                    'datefmt': None,
+                },
+            ),
+            (
+                # *args
+                [],
+
+                # **kwargs
+                {
+                    'fmt': object(),  # (unallowed: `fmt` kwarg not being None)
+                    'style': '%',
+                },
+            ),
+            (
+                # *args
+                [],
+
+                # **kwargs
+                {
+                    'fmt': b'tro-lo-lo',  # (unallowed: `fmt` kwarg not being None)
                     'style': '%',
                     'validate': True,
                 },
             ),
-        ],
+        ]
     )
     @pytest.mark.parametrize(
         # (Overriding fixture)
         'formatter_init_kwargs_passing_variant',
-        [FormatterInitKwargsPassingVariant.DIRECT],
+        [
+            FormatterInitKwargsPassingVariant.DIRECT,
+        ],
     )
-    def test_init_with_unsupported_type_of_truthy_fmt_causing_type_error(
+    def test_init_with_unallowed_customization_of_fmt_passed_as_real_kwarg_causes_type_error(
         self,
         make_formatter,
     ):
-        with pytest.raises(TypeError, match=r'expected.*mapping.*or.*literal_eval'):
+        with pytest.raises(TypeError, match=r'`fmt` is not customizable'):
             make_formatter()
 
 
@@ -1595,7 +1827,7 @@ class TestStructuredLogsFormatter:
                 # *args
                 [
                     None,
-                    'whatever...',  # (unallowed: truthy `datefmt`)
+                    '',  # (unallowed: `datefmt` not being None)
                 ],
 
                 # **kwargs
@@ -1607,26 +1839,40 @@ class TestStructuredLogsFormatter:
 
                 # **kwargs
                 dict(
-                    datefmt=True,  # (unallowed: truthy `datefmt`)
+                    datefmt=False,  # (unallowed: `datefmt` not being None)
                 ),
             ),
             (
                 # *args
-                [''],
+                [None],
 
                 # **kwargs
                 dict(
-                    datefmt=object(),  # (unallowed: truthy `datefmt`)
+                    datefmt=object(),  # (unallowed: `datefmt` not being None)
                     style='%',
                     validate=True,
                 )
             ),
+        ]
+    )
+    def test_init_with_unallowed_customization_of_datefmt_causes_type_error(
+        self,
+        make_formatter,
+    ):
+        with pytest.raises(TypeError, match=r'`datefmt` is not customizable'):
+            make_formatter()
+
+
+    @pytest.mark.parametrize(
+        # (Overriding fixture)
+        'formatter_init_ignored_redundant_standard_arguments',
+        [
             (
                 # *args
                 [
                     None,
-                    '',
-                    '$',  # (unallowed: `style` other than '%')
+                    None,
+                    '$',  # (unallowed: `style` not equal to '%')
                 ],
 
                 # **kwargs
@@ -1639,26 +1885,40 @@ class TestStructuredLogsFormatter:
                 # **kwargs
                 dict(
                     fmt=None,
-                    style='{',  # (unallowed: `style` other than '%')
+                    style='{',  # (unallowed: `style` not equal to '%')
                 ),
             ),
             (
                 # *args
-                ['', None],
+                [None, None],
 
                 # **kwargs
                 dict(
-                    style='',  # (unallowed: `style` other than '%')
+                    style='',  # (unallowed: `style` not equal to '%')
                     validate=True,
                 )
             ),
+        ]
+    )
+    def test_init_with_unallowed_customization_of_style_causes_type_error(
+        self,
+        make_formatter,
+    ):
+        with pytest.raises(TypeError, match=r'`style` is not customizable'):
+            make_formatter()
+
+
+    @pytest.mark.parametrize(
+        # (Overriding fixture)
+        'formatter_init_ignored_redundant_standard_arguments',
+        [
             (
                 # *args
                 [
                     None,
                     None,
                     '%',
-                    False,  # (unallowed: falsy `validate`)
+                    False,  # (unallowed: `validate` not being True)
                 ],
 
                 # **kwargs
@@ -1673,16 +1933,16 @@ class TestStructuredLogsFormatter:
                     fmt=None,
                     datefmt=None,
                     style='%',
-                    validate=None,  # (unallowed: falsy `validate`)
+                    validate=None,  # (unallowed: `validate` not being True)
                 ),
             ),
             (
                 # *args
-                ['', '', '%'],
+                [None, None, '%'],
 
                 # **kwargs
                 dict(
-                    validate='',  # (unallowed: falsy `validate`)
+                    validate=[123],  # (unallowed: `validate` not being True)
                 )
             ),
             (
@@ -1691,36 +1951,16 @@ class TestStructuredLogsFormatter:
 
                 # **kwargs
                 dict(
-                    datefmt=42,  # (unallowed: truthy `datefmt`)
-                    style='{',  # (unallowed: `style` other than '%')
-                    validate=[],  # (unallowed: falsy `validate`)
+                    validate=1,  # (unallowed: `validate` not being True)
                 ),
             ),
         ]
     )
-    def test_init_with_unallowed_customization_of_datefmt_style_or_validate_causing_type_error(
+    def test_init_with_unallowed_customization_of_validate_causes_type_error(
         self,
         make_formatter,
     ):
-        with pytest.raises(TypeError, match=r'is not customizable'):
-            make_formatter()
-
-
-    @pytest.mark.parametrize(
-        # (Overriding fixture)
-        'formatter_init_kwargs_passing_variant',
-        [FormatterInitKwargsPassingVariant.STRING],
-    )
-    @pytest.mark.parametrize(
-        # (Overriding fixture)
-        'prepare_formatter_init_kwargs_string',
-        [lambda _: '<not an `ast.literal_eval()`-evaluable string>'],
-    )
-    def test_init_with_fmt_string_not_empty_and_not_evaluable_by_litera_eval_causing_value_error(
-        self,
-        make_formatter,
-    ):
-        with pytest.raises(ValueError, match=r'error.*when trying to evaluate'):
+        with pytest.raises(TypeError, match=r'`validate` is not customizable'):
             make_formatter()
 
 
@@ -1772,7 +2012,7 @@ class TestStructuredLogsFormatter:
             ]
         ],
     )
-    def test_init_with_unresolvable_auto_maker_dotted_path_causing_value_error(
+    def test_init_with_unresolvable_auto_maker_dotted_path_causes_value_error(
         self,
         make_formatter,
     ):
@@ -1812,8 +2052,8 @@ class TestStructuredLogsFormatter:
                 ),
                 (
                     make_StructuredLogsFormatter_subclass(
-                        base_auto_makers={  # type: ignore
-                            'foo': wrong_auto_maker,
+                        base_auto_makers={   # noqa
+                            'foo': wrong_auto_maker,   # type: ignore[dict-item]
                         },
                     ),
                     dict(
@@ -1829,7 +2069,7 @@ class TestStructuredLogsFormatter:
             ]
         ],
     )
-    def test_init_with_non_callable_auto_maker_causing_type_error(
+    def test_init_with_non_callable_auto_maker_causes_type_error(
         self,
         make_formatter,
     ):
@@ -1857,7 +2097,7 @@ class TestStructuredLogsFormatter:
             ]
         ],
     )
-    def test_init_with_unresolvable_serializer_dotted_path_causing_value_error(
+    def test_init_with_unresolvable_serializer_dotted_path_causes_value_error(
         self,
         make_formatter,
     ):
@@ -1886,7 +2126,7 @@ class TestStructuredLogsFormatter:
             ]
         ],
     )
-    def test_init_with_non_callable_serializer_causing_type_error(
+    def test_init_with_non_callable_serializer_causes_type_error(
         self,
         make_formatter,
     ):
@@ -1964,7 +2204,7 @@ class TestStructuredLogsFormatter:
             ),
         ],
     )
-    def test_init_with_missing_defaults_or_auto_makers_key_causing_key_error(
+    def test_init_with_missing_defaults_or_auto_makers_key_causes_key_error(
         self,
         make_formatter,
     ):
@@ -1982,8 +2222,8 @@ class TestStructuredLogsFormatter:
             (
                 make_StructuredLogsFormatter_subclass(
                     output_keys_required_in_defaults_or_auto_makers=frozenset(),
-                    base_defaults={  # type: ignore
-                        42: 'whatever',
+                    base_defaults={   # noqa
+                        42: 'whatever',   # type: ignore[dict-item]
                         'system': EXAMPLE_SYSTEM,
                         'component': EXAMPLE_COMPONENT_TYPE,
                     },
@@ -2010,8 +2250,8 @@ class TestStructuredLogsFormatter:
             (
                 make_StructuredLogsFormatter_subclass(
                     output_keys_required_in_defaults_or_auto_makers=frozenset(),
-                    base_auto_makers={  # type: ignore
-                        42: ConstantValueAutoMaker('whatever'),
+                    base_auto_makers={   # noqa
+                        42: ConstantValueAutoMaker('whatever'),   # type: ignore[dict-item]
                         'component_type': ConstantValueAutoMaker(EXAMPLE_COMPONENT_TYPE),
                     },
                 ),
@@ -2038,9 +2278,9 @@ class TestStructuredLogsFormatter:
                     base_defaults={
                         'system': EXAMPLE_SYSTEM,
                     },
-                    base_record_attr_to_output_key={  # type: ignore
+                    base_record_attr_to_output_key={   # noqa
                         **STANDARD_RECORD_ATTR_TO_OUTPUT_KEY,
-                        'some_rec_attr': 42,
+                        'some_rec_attr': 42,   # type: ignore[dict-item]
                     },
                 ),
                 dict(
@@ -2052,7 +2292,7 @@ class TestStructuredLogsFormatter:
             ),
         ]
     )
-    def test_init_with_non_string_output_key_causing_type_error(
+    def test_init_with_non_string_output_key_causes_type_error(
         self,
         make_formatter,
     ):
@@ -2140,7 +2380,7 @@ class TestStructuredLogsFormatter:
             ),
         ]
     )
-    def test_init_with_too_long_output_key_causing_value_error(
+    def test_init_with_too_long_output_key_causes_value_error(
         self,
         make_formatter,
     ):
@@ -2504,21 +2744,21 @@ class TestStructuredLogsFormatter:
     def test_log_using_formatter_subclass_with_customized_prepare_value(
         self,
     ):
-        TODO
+        TODO   # type: ignore[name-defined]
 
 
     @pytest.mark.skip('...test not implemented yet...')
     def test_log_using_formatter_subclass_with_customized_prepare_submapping_key(
         self,
     ):
-        TODO
+        TODO   # type: ignore[name-defined]
 
 
     @pytest.mark.skip('...test not implemented yet...')
     def test_log_using_formatter_subclass_with_customized_serialize_prepared_output_data(
         self,
     ):
-        TODO
+        TODO   # type: ignore[name-defined]
 
 
     @pytest.mark.parametrize(
@@ -2892,7 +3132,7 @@ class TestStructuredLogsFormatter:
             ),
             LogCase(
                 lambda logger: logger.info(
-                    xm(**deepcopy(EXAMPLE_CUSTOM_ITEMS), exc_info=True),
+                    xm(**deepcopy(EXAMPLE_CUSTOM_ITEMS), exc_info=True),   # type: ignore[call-overload]   # noqa
                 ),
                 expected_output_base={
                     **get_output_base(level='INFO'),
@@ -2911,7 +3151,7 @@ class TestStructuredLogsFormatter:
             LogCase(
                 # (Rather a contrived case, yet still properly handled)
                 lambda logger: logger.error(
-                    xm(**deepcopy(EXAMPLE_CUSTOM_ITEMS), exc_info=True),
+                    xm(**deepcopy(EXAMPLE_CUSTOM_ITEMS), exc_info=True),   # type: ignore[call-overload]   # noqa
                     exc_info=True,
                 ),
                 expected_output_base={
@@ -2933,7 +3173,7 @@ class TestStructuredLogsFormatter:
             ),
             LogCase(
                 lambda logger: logger.exception(
-                    xm(**deepcopy(EXAMPLE_CUSTOM_ITEMS)),
+                    xm(**deepcopy(EXAMPLE_CUSTOM_ITEMS)),   # type: ignore[call-overload]   # noqa
                 ),
                 expected_output_base={
                     **get_output_base(level='ERROR'),
@@ -2952,7 +3192,7 @@ class TestStructuredLogsFormatter:
             LogCase(
                 # (Rather a contrived case, yet still properly handled)
                 lambda logger: logger.exception(
-                    xm(**deepcopy(EXAMPLE_CUSTOM_ITEMS), exc_info=True),
+                    xm(**deepcopy(EXAMPLE_CUSTOM_ITEMS), exc_info=True),   # type: ignore[call-overload]   # noqa
                 ),
                 expected_output_base={
                     **get_output_base(level='ERROR'),
@@ -3077,7 +3317,7 @@ class TestStructuredLogsFormatter:
     def test_log_with_exc_info_set_to_exception_or_exc_info_tuple(
         self,
     ):
-        TODO
+        TODO   # type: ignore[name-defined]
 
 
     @pytest.mark.parametrize(
@@ -3169,7 +3409,7 @@ class TestStructuredLogsFormatter:
             ),
             LogCase(
                 lambda logger: logger.error(
-                    xm(**deepcopy(EXAMPLE_CUSTOM_ITEMS), stack_info=True),
+                    xm(**deepcopy(EXAMPLE_CUSTOM_ITEMS), stack_info=True),   # type: ignore[call-overload]   # noqa
                 ),
                 expected_output_base={
                     **get_output_base(level='ERROR'),
@@ -3259,7 +3499,7 @@ class TestStructuredLogsFormatter:
 
         def a():
             logger.info(
-                xm(
+                xm(   # type: ignore[call-overload]
                     **deepcopy(EXAMPLE_CUSTOM_ITEMS),
                     **(stack_related_kwargs if pass_kwargs_to_xm else {}),
                 ),
@@ -4429,29 +4669,29 @@ class TestStructuredLogsFormatter:
 
 
     @pytest.mark.skip('...test not implemented yet...')
-    def test_log_with_formatTime_obtaining_non_none_datefmt_causing_printing_type_error_to_stderr(   # noqa
+    def test_log_with_formatTime_obtaining_non_none_datefmt_causes_printing_type_error_to_stderr(
         self,
     ):
-        TODO
+        TODO   # type: ignore[name-defined]
 
 
     @pytest.mark.skip('...test not implemented yet...')
     def test_unregister_auto_makers(
         self,
     ):
-        TODO
+        TODO   # type: ignore[name-defined]
 
 
 @pytest.mark.skip('...tests not implemented yet...')
 class TestExtendedMessage:
     def test_TODO(self):
-        TODO
+        TODO   # type: ignore[name-defined]
 
 
 @pytest.mark.skip('...tests not implemented yet...')
 class TestAutoMakersRegistryFunctions:
     def test_TODO(self):
-        TODO
+        TODO   # type: ignore[name-defined]
 
 
 def test_make_constant_value_provider():
@@ -4661,6 +4901,8 @@ class TestSnippetsInDocumentation:
         snippet_finder.lookup(substring='install', syntax_label='bash')
         snippet_finder.lookup(substring='# WRONG (!!!):')
         snippet_finder.lookup(substring='# All WRONG (!!!):')
+        snippet_finder.lookup(substring='__call__() -> Value')
+        snippet_finder.lookup(substring='__call__(output_data: dict[str, Any], /) -> str')
 
     @pytest.fixture(scope='class')
     def client_ip_context_var(self) -> contextvars.ContextVar[ipaddress.IPv4Address]:

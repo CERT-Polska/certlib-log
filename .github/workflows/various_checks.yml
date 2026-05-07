@@ -1,4 +1,4 @@
-name: "Various Checks [for now: just type check]"
+name: "Various Checks [for now: just type checks]"
 
 on:
   push:
@@ -29,6 +29,9 @@ jobs:
     - name: Install "for development", with "dev" dependencies
       run: |
         ./dev-install.bash
-    - name: Type check with mypy
+    - name: Type check the library with mypy
       run: |
         ./dev/venv/bin/python3 -m mypy -p certlib.log
+    - name: Type check the tests with mypy
+      run: |
+        ./dev/venv/bin/python3 -m mypy ./tests/test_certlib_log.py

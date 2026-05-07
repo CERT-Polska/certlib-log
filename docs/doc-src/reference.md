@@ -68,3 +68,47 @@
     handler: python
     options:
       heading_level: 2
+
+***
+
+## Static Typing Helpers
+
+!!! note
+
+    In your day-to-day work with the `certlib.log` library, you do not
+    need to delve into this stuff.
+
+::: certlib.log.ValueProvider
+    handler: python
+    options:
+      heading: 'ValueProvider'
+      heading_level: 3
+      members: false
+
+::: certlib.log.Serializer
+    handler: python
+    options:
+      heading: 'Serializer'
+      heading_level: 3
+      members: false
+
+::: certlib.log.DottedPath
+    handler: python
+    options:
+      heading: 'DottedPath'
+      heading_level: 3
+      show_signature_annotations: false
+
+::: certlib.log.KwargsMappingAsLiteralEvaluableString
+    handler: python
+    options:
+      heading: 'KwargsMappingAsLiteralEvaluableString'
+      heading_level: 3
+      show_signature_annotations: false
+
+!!! info
+
+    The flavor of the above *type aliases* (i.e., whether they
+    are [`TypeAlias`][typing.TypeAlias]-annotated ones or [*type
+    statement*](https://docs.python.org/3/reference/simple_stmts.html#type)-made
+    ones) is _**not**_ part of the public API.

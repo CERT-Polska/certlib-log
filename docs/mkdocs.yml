@@ -34,6 +34,7 @@ plugins:
               domains: [py]
           paths: [../src]
           options:
+            annotations_path: 'source'
             docstring_style: null
             line_length: 80
             heading_level: 1
@@ -43,6 +44,7 @@ plugins:
             relative_crossrefs: true
             scoped_crossrefs: true
             separate_signature: true
+            signature_crossrefs: true
             show_bases: false
             show_category_heading: false
             show_if_no_docstring: true
