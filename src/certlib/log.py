@@ -25,8 +25,8 @@ logging* stuff, it also offers a few other features...
 
 !!! note
 
-    `certlib.log` uses *only* the Python's standard library,
-    i.e., it **does *not* depend on any third-party packages**.
+    `certlib.log` uses *only* the Python standard library, i.e.,
+    it **does *not* depend on any third-party packages**.
 
 ***
 
@@ -98,9 +98,9 @@ the following possibilities:
   to as *auto-makers*; each *auto-maker* is just an argumentless function
   (or method, or other callable), automatically called to produce a value
   for the respective key -- whenever a new [log record][logging.LogRecord]
-  object is created by a logger (*always* in the thread in which the
-  respective logger method call is made), before the log record is
-  processed by any *handlers*, *filters* and *formatters*;
+  object is created by a logger (which only occurs if the logger is enabled
+  for the specified log level), before the log record is processed by any
+  *handlers*, *filters* and *formatters*;
 
 * to replace the legacy `%`-based style of log message formatting with
   the modern and more convenient `{}`-based one, or (when what you need
@@ -110,8 +110,8 @@ the following possibilities:
 While it is possible to use each of these capabilities independently of
 the others, the `certlib.log`'s stuff encourages combining them.
 
-The next few sections discuss the two main tools provided by the library:
-[`StructuredLogsFormatter`][] and [`xm`][].
+The following sections will discuss the two main tools provided by the
+library: [`StructuredLogsFormatter`][] and [`xm`][].
 
 ***
 
@@ -225,7 +225,7 @@ you need to consider that:
         **[`defaults`][StructuredLogsFormatter.defaults]** collection.
 
         See also: **[`StructuredLogsFormatter.get_output_keys_required_in_defaults_or_auto_makers`][]**
-        (the method which defines the said requirement).
+        (the method which defines the requirement in question).
 
 * It is *recommended* (though not enforced) that each of the following
   keys, *if it is relevant* to the particular `component_type`, appears in
@@ -247,11 +247,11 @@ you need to consider that:
     If the presence of some *output data* key makes sense only in
     a certain context (e.g., when handling a HTTP request...), just
     make the respective *auto-maker* return **[`None`][]** in any
-    other contexts. Such *void* items are automatically omitted from
-    *output data*.
+    other contexts. Such *void* items will be automatically omitted
+    from *output data*.
 
-Now we will prepare the *root logger*, attaching to it some handler
-*with our formatter* set on it:
+The next step is to prepare the *root logger*, and then to add to it
+some handler *with our formatter attached*:
 
 ```python
 # (continuing with the previous example)
@@ -614,12 +614,16 @@ logger.info(xm(my_data))
 
     Regarding the `"another"` item in the above examples as well as some
     of the items/arguments that appear in the next subsection's examples:
-    if you pass a function/method (in particular, a [**`lambda`**](https://docs.python.org/3/tutorial/controlflow.html#lambda-expressions)
-    expression) instead of a plain value, it will be lazily called (by a
-    formatter of any type, not necessarily a **`StructuredLogsFormatter`**)
-    to obtain the actual value. Note that, by default, the mechanism is
-    applied *only* if you pass a *function* or *method* object -- *not*
-    just an arbitrary callable object.
+    if you pass a function/method (also a [**`lambda`**](https://docs.python.org/3/tutorial/controlflow.html#lambda-expressions)
+    expression) instead of a plain value, it will be called (at most
+    once per `xm` use, by a formatter of any type, not necessarily a
+    **`StructuredLogsFormatter`**) to obtain the actual value.
+
+    !!! note
+
+        By default, the mechanism is applied *only* if you pass a
+        *function* or *method* object -- *not* just an arbitrary
+        callable object (as that could lead to inadvertent calls).
 
     In practice, this feature is useful if the creation of a certain
     value is costly, so that you would prefer that to be done *only* if
@@ -802,8 +806,8 @@ If you have not read the *reference documentation* for the
 [`StructuredLogsFormatter`][] class yet, you are strongly encouraged to
 do so. Among other things, you will find there a list of hook methods
 that can be extended/overridden in your subclasses. Apart from that, the
-said documentation includes (also in the individual descriptions of
-those hook methods) valuable information about other elements of the
+documentation in question includes (also in the individual descriptions
+of those hook methods) valuable information about other elements of the
 `StructuredLogsFormatter`'s interface and behavior.
 
 ***
@@ -1022,11 +1026,12 @@ class StructuredLogsFormatter(logging.Formatter):
     (`dict`), can be passed to the [`StructuredLogsFormatter`][] constructor
     as the *first positional argument*.
 
-    *Extra* arguments that match -- by *position* or by *name* -- any
-    _**non**-keyword-only_ parameters defined by [`logging.Formatter`][]
-    are *accepted but ignored* by the `StructuredLogsFormatter`
-    constructor, *provided that* the value of each (if given) is
-    the respective parameter's default value; that is:
+    **Moreover**, *extra* arguments that match -- by *position*
+    or by *name* -- any _**non**-keyword-only_ parameters defined
+    by [`logging.Formatter`][] are *accepted but ignored* by the
+    `StructuredLogsFormatter` constructor, *provided that* the
+    value of each (if given) is the respective parameter's default
+    value; that is:
 
     * the *first* or **`fmt`** argument -- needs to be [`None`][] (except
       that it is fine if the *first* argument is a mapping or a string
@@ -1047,8 +1052,8 @@ class StructuredLogsFormatter(logging.Formatter):
         using the [`logging.config.fileConfig`][]-specific configuration
         format (which, despite its limitations, is still quite popular).
 
-        See the **`formatter_structured`** section of the
-        [`fileConfig`-style configuration example](guide.md#certlib.log--loggingconfigfileconfig-style-configuration-example)
+        See the **`formatter_structured`** section of the `fileConfig`-style
+        [configuration example](guide.md#certlib.log--loggingconfigfileconfig-style-configuration-example)
         in the *User's Guide*.
 
     This class defines the following extendable/overridable hook methods:
@@ -1111,10 +1116,10 @@ class StructuredLogsFormatter(logging.Formatter):
           [constructor][StructuredLogsFormatter] (if actually passed),
 
         * that returned by the **[`make_base_record_attr_to_output_key`][]**
-          method (note that the said requirement applies to *output data*
-          keys -- which, when it comes to this mapping, are its *values*,
-          not its *keys*; and note that this mapping's values are also
-          allowed to be [`None`][]).
+          method (note that the requirement in question applies to *output
+          data* keys -- which, when it comes to this mapping, are its
+          *values*, not its *keys*; and note that this mapping's values
+          are also allowed to be [`None`][]).
     """
 
     #
@@ -1412,8 +1417,8 @@ class StructuredLogsFormatter(logging.Formatter):
 
         !!! info
 
-            The said requirement is considered satisfied _**also**_ if
-            some (or all) of the required items are provided *only as
+            The requirement in question is considered satisfied _**also**_
+            if some (or all) of the required items are provided *only as
             defaults* (i.e., only by the **[`make_base_defaults`][]**'s
             result or the **`defaults`** constructor argument) *and* some
             (or all) of them define such *default values* that -- after
@@ -1425,7 +1430,7 @@ class StructuredLogsFormatter(logging.Formatter):
 
             ```python
             my_formatter = StructuredLogsFormatter(
-                # This satisfies the said requirement:
+                # This satisfies the requirement:
                 defaults={
                     "system": None,
                     "component": None,
@@ -2691,16 +2696,16 @@ class ExtendedMessage:
     obtain the *actual value*, which will then replace (respectively,
     in [`args`][] or [`data`][]) the called function/method.
 
-    Let us be precise: all those calls and replacements will be
+    Let us be precise: all those calls-and-replacements will be
     triggered when *any* of the following methods is invoked on the
     `ExtendedMessage` instance for the first time: [`get_message_value`][],
     [`get_record_msg_and_args_equivalent_info`][], [`__str__`][] or
     [`iter_str_parts`][] (with the proviso that the last one returns an
     [iterator](https://docs.python.org/3/glossary.html#term-iterator)
-    which, to achieve the said effect, needs to be iterated over,
-    at least partially). Each of the said calls and replacements will
-    be made at most *once* per instance of `ExtendedMessage` (see the
-    [`_ensure_callable_args_and_data_items_resolved`][] method's
+    which, to achieve the effect in question, needs to be iterated over,
+    at least partially). Each of those calls-and-replacements will
+    be made at most *once* per instance of `ExtendedMessage` (see
+    the [`_ensure_callable_args_and_data_items_resolved`][] method's
     description...).
 
     Thanks to that mechanism, if the creation of some value is expected
@@ -3080,23 +3085,22 @@ class ExtendedMessage:
 
     def _ensure_callable_args_and_data_items_resolved(self) -> None:
         """
+        !!! exclusion "Interface exclusion"
+
+            This method is _**not**_ part of the public API -- _**except
+            that**_ it is allowed to be invoked by any methods implemented
+            by possible subclasses of **`ExtendedMessage`**.
+
         This method processes the items of [`args`][] and [`data`][] --
-        by *calling* each value that is an instance of any type included
-        in [`ExtendedMessage.recognized_callable_arg_or_data_item_types`][],
-        and then *replacing* that value with the result of that call. Each
-        call is made without arguments.
+        by *calling* each encountered instance of any type included in
+        [`ExtendedMessage.recognized_callable_arg_or_data_item_types`][],
+        and then *replacing* that value with the result of that call.
+        Each call is made without arguments.
 
         This method can be safely invoked multiple times on the same
         instance, *even* in the case of *concurrent* invocations. The
-        implementation guarantees that *none* of the said calls to
-        callable values will be made more than *once* per instance of
-        `ExtendedMessage`.
-
-        !!! warning "Interface restriction"
-
-            This method _**is not part of the public API**_ -- _**except
-            that**_ it is allowed to be invoked by any methods implemented
-            by possible subclasses of **`ExtendedMessage`**.
+        implementation guarantees that *none* of the calls in question
+        will be made more than *once* per instance of `ExtendedMessage`.
 
         !!! warning "Interface restriction"
 
@@ -3258,8 +3262,8 @@ def make_constant_value_provider(value: T) -> ValueProvider[T]:
     """
     A trivial (yet sometimes useful) helper: given an arbitrary object
     (**`value`**), create an argumentless function that will always
-    return that object (note that such an argumentless function can
-    be used as an *auto-maker*).
+    return that object (note that such argumentless functions can be
+    used as [*auto-makers*][register_log_record_attr_auto_maker]).
     """
     return (lambda: value)
 
@@ -3283,13 +3287,14 @@ def register_log_record_attr_auto_maker(
 
     The *auto-maker* needs to be an argumentless function or any other
     object that can be called with no arguments. A call to it will be
-    made once for each newly created log record (in the thread in which
-    the respective logger method call is being executed). Obviously, the
-    returned values are allowed to vary depending on the context (or even
-    with each call).
+    made at most once for each newly created log record (*only* if the
+    logger is enabled for the respective log level), in the thread in
+    which the respective logger method call is being executed. Obviously,
+    the returned values are allowed to vary depending on the context (or
+    even with each call).
 
     If, for the specified attribute name, some *auto-maker* is already
-    registered, this method raises [`KeyError`][].
+    registered, this function raises [`KeyError`][].
 
     !!! note
 
@@ -3327,7 +3332,7 @@ def unregister_log_record_attr_auto_maker(
     the previously registered *auto-maker*.
 
     If, for the specified attribute name, no *auto-maker* is currently
-    registered, this method raises [`KeyError`][].
+    registered, this function raises [`KeyError`][].
     """
     with _auto_makers_registry_and_internal_record_hooks_maintenance_lock:
         _remove_from_auto_makers_registry(rec_attr)
@@ -3363,14 +3368,14 @@ class ValueProvider(Protocol[Value]):
 
     !!! info "Typing details"
 
-        * The **`Value`** element of the above signature is a [*type
-          variable*](https://typing.python.org/en/latest/spec/generics.html#generics).
+        * The **`Value`** element of the above `__call__()` signature is
+          a [*type variable*](https://typing.python.org/en/latest/spec/generics.html#generics).
 
         * It has no [*upper
           bound*](https://typing.python.org/en/latest/spec/generics.html#type-variables-with-an-upper-bound)
           (or, in other words, its *upper bound* is [`object`][]).
 
-        * The **`ValueProvider`** *protocol* is
+        * The **`ValueProvider`** protocol is
           [*generic*](https://typing.python.org/en/latest/spec/protocol.html#generic-protocols).
           It is [*covariant*](https://typing.python.org/en/latest/spec/generics.html#variance)
           in that variable.

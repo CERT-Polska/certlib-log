@@ -108,7 +108,7 @@
 
 !!! info
 
-    The flavor of the above *type aliases* (i.e., whether they
+    The flavor of the above type aliases (i.e., whether they
     are [`TypeAlias`][typing.TypeAlias]-annotated ones or [*type
     statement*](https://docs.python.org/3/reference/simple_stmts.html#type)-made
     ones) is _**not**_ part of the public API.
