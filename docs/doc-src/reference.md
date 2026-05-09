@@ -78,6 +78,13 @@
     In your day-to-day work with the `certlib.log` library, you do not
     need to delve into this stuff.
 
+!!! exclusion "Interface exclusion"
+
+    The flavor of any *type aliases* -- i.e., whether they are
+    [`TypeAlias`][typing.TypeAlias]-annotated ones or [*type
+    statement*](https://docs.python.org/3/reference/simple_stmts.html#type)-made
+    ones -- is _**not**_ part of the public API.
+
 ::: certlib.log.ValueProvider
     handler: python
     options:
@@ -85,12 +92,19 @@
       heading_level: 3
       members: false
 
-::: certlib.log.Serializer
+::: certlib.log.OutputSerializer
     handler: python
     options:
-      heading: 'Serializer'
+      heading: 'OutputSerializer'
       heading_level: 3
       members: false
+
+::: certlib.log.OutputValue
+    handler: python
+    options:
+      heading: 'OutputValue'
+      heading_level: 3
+      show_signature_annotations: false
 
 ::: certlib.log.DottedPath
     handler: python
@@ -105,10 +119,3 @@
       heading: 'KwargsMappingAsLiteralEvaluableString'
       heading_level: 3
       show_signature_annotations: false
-
-!!! info
-
-    The flavor of the above type aliases (i.e., whether they
-    are [`TypeAlias`][typing.TypeAlias]-annotated ones or [*type
-    statement*](https://docs.python.org/3/reference/simple_stmts.html#type)-made
-    ones) is _**not**_ part of the public API.

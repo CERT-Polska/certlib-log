@@ -919,10 +919,15 @@ __all__ = (
     'unregister_log_record_attr_auto_maker',
 
     'ValueProvider',
-    'Serializer',
+    'OutputSerializer',
     'DottedPath',
     'KwargsMappingAsLiteralEvaluableString',
 )
+
+
+#
+# Global constants
+#
 
 
 COMMONLY_EXPECTED_NON_STANDARD_OUTPUT_KEYS: Final[Set[str]] = frozenset({
@@ -969,6 +974,11 @@ STANDARD_RECORD_ATTR_TO_OUTPUT_KEY: Final[Mapping[str, str | None]] = types.Mapp
 })
 
 
+#
+# Actual tools
+#
+
+
 class StructuredLogsFormatter(logging.Formatter):
 
     """
@@ -1005,12 +1015,20 @@ class StructuredLogsFormatter(logging.Formatter):
       also the [`make_base_auto_makers`][] method...).
 
     * **`serializer`** (a function or other callable; default: [`json.dumps`][]):
-      expected to take one argument being a (JSON-serializable) [`dict`][]
-      and return a [`str`][] (presumably, a JSON-serialized form of
-      the given data, even though you may decide to use some other
-      serialization format if it is OK for you/your organization).
-      A string being a *dotted path* (*importable dotted name*)
-      pointing to such a function (callable) can also be passed.
+      a callable that takes one argument being an *output data* [`dict`][]
+      (of type `dict[str, OutputValue]`, where [`OutputValue`][] denotes
+      whatever can be returned by the [`prepare_value`][] method) and that
+      returns a string (presumably, a JSON-serialized form of that dict,
+      even though you may decide to use some other serialization format,
+      if this is OK for you/your organization). Alternatively, a string
+      being a *dotted path* (*importable dotted name*) that points to
+      such a function (callable) can be given as the **`serializer`**
+      argument.
+
+    !!! note
+
+        The default implementation of the **[`prepare_value`][]** method
+        always returns [`json.dumps`][]-serializable values.
 
     !!! warning "Interface restriction"
 
@@ -1127,11 +1145,11 @@ class StructuredLogsFormatter(logging.Formatter):
 
     # * This-class-specific instance attributes:
 
-    defaults: Final[Mapping[str, Any]]
+    defaults: Final[Mapping[str, OutputValue]]
     auto_makers: Final[Mapping[str, ValueProvider[object]]]
     auto_made_record_attr_prefix: Final[str]
     record_attr_to_output_key: Final[Mapping[str, str | None]]
-    serializer: Final[Serializer]
+    serializer: Final[OutputSerializer]
 
     # * Instance-lifecycle-related stuff:
 
@@ -1141,7 +1159,7 @@ class StructuredLogsFormatter(logging.Formatter):
         *,
         defaults: Mapping[str, object] | None = None,
         auto_makers: Mapping[str, ValueProvider[object] | DottedPath] | None = None,
-        serializer: Serializer | DottedPath = json.dumps,
+        serializer: OutputSerializer | DottedPath = json.dumps,
     ):
         ...
 
@@ -1186,7 +1204,7 @@ class StructuredLogsFormatter(logging.Formatter):
         *,
         defaults: Mapping[str, object] | None = None,
         auto_makers: Mapping[str, ValueProvider[object] | DottedPath] | None = None,
-        serializer: Serializer | DottedPath = json.dumps,
+        serializer: OutputSerializer | DottedPath = json.dumps,
     ):
         ...
 
@@ -1711,7 +1729,7 @@ class StructuredLogsFormatter(logging.Formatter):
     extend that method in a subclass...).
     """
 
-    def get_prepared_output_data(self, record: logging.LogRecord) -> dict[str, Any]:
+    def get_prepared_output_data(self, record: logging.LogRecord) -> dict[str, OutputValue]:
         """
         A hook method: extend/override it in a subclass to modify/redefine
         how an *output data* dict is obtained from a log record object
@@ -1807,7 +1825,7 @@ class StructuredLogsFormatter(logging.Formatter):
             (as described above) will result in some keys ending up
             a little longer than 200 characters.
         """
-        output_data: dict[str, Any] = {}
+        output_data: dict[str, OutputValue] = {}
         actual_defaults = dict(self.defaults)
         handle_output_item = functools.partial(
             self._handle_output_item,
@@ -1847,7 +1865,7 @@ class StructuredLogsFormatter(logging.Formatter):
         dataclass_as_dict: Callable[[Any], dict[str, Any]] = dataclasses.asdict,
         last_resort: Callable[[object], str] = repr,
         **kwargs: Any,
-    ) -> Any:
+    ) -> OutputValue:
         """
         A hook method: extend/override it in a subclass to modify/redefine
         how every *value* in an *output data* dict is prepared before the
@@ -2066,7 +2084,7 @@ class StructuredLogsFormatter(logging.Formatter):
             key_str = key_str[:self._DESIRED_MAX_KEY_LENGTH]
         return key_str
 
-    def serialize_prepared_output_data(self, output_data: dict[str, Any]) -> str:
+    def serialize_prepared_output_data(self, output_data: dict[str, OutputValue]) -> str:
         """
         A hook method: extend/override it in a subclass to modify/redefine
         the *output data serialization* procedure.
@@ -2182,7 +2200,7 @@ class StructuredLogsFormatter(logging.Formatter):
     def _get_unfiltered_defaults(
         self,
         given_defaults: Mapping[str, object],
-    ) -> Mapping[str, Any]:
+    ) -> Mapping[str, OutputValue]:
         raw_defaults = dict(self.make_base_defaults())
         raw_defaults.update(given_defaults)
         return dict(sorted(
@@ -2219,7 +2237,7 @@ class StructuredLogsFormatter(logging.Formatter):
 
     def _check_output_keys_required_in_defaults_or_auto_makers(
         self,
-        unfiltered_defaults: Mapping[str, Any],
+        unfiltered_defaults: Mapping[str, OutputValue],
         unprefixed_auto_makers: Mapping[str, ValueProvider[object]],
     ) -> None:
         provided_keys = unfiltered_defaults.keys() | unprefixed_auto_makers.keys()
@@ -2233,8 +2251,8 @@ class StructuredLogsFormatter(logging.Formatter):
 
     def _get_actual_defaults(
         self,
-        unfiltered_defaults: Mapping[str, Any],
-    ) -> Mapping[str, Any]:
+        unfiltered_defaults: Mapping[str, OutputValue],
+    ) -> Mapping[str, OutputValue]:
         return {
             key: value_prepared
             for key, value_prepared in unfiltered_defaults.items()
@@ -2299,9 +2317,9 @@ class StructuredLogsFormatter(logging.Formatter):
 
     def _get_actual_serializer(
         self,
-        given_serializer: Serializer | DottedPath,
-    ) -> Serializer:
-        serializer: Serializer = (
+        given_serializer: OutputSerializer | DottedPath,
+    ) -> OutputSerializer:
+        serializer: OutputSerializer = (
             _resolve_dotted_path(given_serializer)
             if isinstance(given_serializer, str)
             else given_serializer
@@ -2443,9 +2461,9 @@ class StructuredLogsFormatter(logging.Formatter):
     def _handle_output_item(
         # Shared (output-data-dict-wide) arguments:
         desired_max_key_length: int,
-        prepare_value: Callable[[object], Any],
-        actual_defaults: dict[str, Any],
-        output_data: dict[str, Any],
+        prepare_value: Callable[[object], OutputValue],
+        actual_defaults: dict[str, OutputValue],
+        output_data: dict[str, OutputValue],
 
         # Individual (per-output-data-item) arguments:
         key: object,
@@ -3340,18 +3358,14 @@ def unregister_log_record_attr_auto_maker(
 
 #
 # Static typing helpers
+#
 
 
-# *Not* a part of the public API.
+# *Not* part of the public API.
 T = TypeVar('T')
 
-# *Not* a part of the public API.
+# *Not* part of the public API.
 Value = TypeVar('Value', covariant=True)
-
-
-# Note: the *mkdocstrings* library formats signatures without trailing
-# `/` markers. That's why we have formatted the `__call__()` signatures
-# of the protocols' defined below *manually* -- within the docstrings.
 
 
 class ValueProvider(Protocol[Value]):
@@ -3362,16 +3376,16 @@ class ValueProvider(Protocol[Value]):
 
     A [*protocol*][typing.Protocol] which describes any callable object
     (e.g., a function) that takes *no arguments* and returns a value of
-    *any type*; returned values may vary with each call. It is worth
+    *any type* (returned values may vary with each call). It is worth
     noting that, in particular, every *auto-maker* is supposed to be
     such a callable object.
 
     !!! info "Typing details"
 
-        * The **`Value`** element of the above `__call__()` signature is
-          a [*type variable*](https://typing.python.org/en/latest/spec/generics.html#generics).
+        * In the above `__call__()` signature, the **`Value`** element
+          is a [*type variable*](https://typing.python.org/en/latest/spec/generics.html#generics).
 
-        * It has no [*upper
+        * That variable has no [*upper
           bound*](https://typing.python.org/en/latest/spec/generics.html#type-variables-with-an-upper-bound)
           (or, in other words, its *upper bound* is [`object`][]).
 
@@ -3383,26 +3397,77 @@ class ValueProvider(Protocol[Value]):
     def __call__(self) -> Value: ...
 
 
-class Serializer(Protocol):
+class OutputSerializer(Protocol):
     """
     ```python
-    __call__(output_data: dict[str, Any], /) -> str
+    __call__(output_data: dict[str, OutputValue], /) -> str
     ```
 
     A [*protocol*][typing.Protocol] which describes any callable object
     (e.g., a function) that takes an *output data* dict (supposedly,
     returned by [`StructuredLogsFormatter.get_prepared_output_data`][])
-    as the sole positional argument and returns a string representing
+    as the sole positional argument, and returns a string representing
     that dict in *serialized* form (typically, but not necessarily, in
     JSON format).
+
+    !!! info "Typing details"
+
+        In the above `__call__()` signature, as everywhere else, the
+        **[`OutputValue`][]** element is just an alias of [`Any`][]
+        (see below).
     """
-    def __call__(self, output_data: dict[str, Any], /) -> str: ...
+    def __call__(self, output_data: dict[str, OutputValue], /) -> str: ...
+
+
+OutputValue: TypeAlias = Any
+"""
+A [*type alias*](https://typing.python.org/en/latest/spec/aliases.html#type-aliases)
+which is used to annotate top-level *values* in *output data* dicts.
+
+Given that every *output data* dict -- always of type `dict[str,
+OutputValue]` -- is:
+
+* created by [`StructuredLogsFormatter.get_prepared_output_data`][], with
+  each *value* obtained using [`StructuredLogsFormatter.prepare_value`][]
+  (whose return type is annotated as `OutputValue`),
+
+* then passed to [`StructuredLogsFormatter.serialize_prepared_output_data`][],
+
+* then, consequently, passed to [`StructuredLogsFormatter.serializer`][]
+  (expected to be [`OutputSerializer`][]-compliant)
+
+-- it should be emphasized that:
+
+* actual *runtime types* of any values considered an `OutputValue` are
+  decided by an implementation of [`StructuredLogsFormatter.prepare_value`][]
+  (*either* the default one *or* some provided by a subclass of
+  `StructuredLogsFormatter`);
+
+* [`StructuredLogsFormatter.serializer`][], as an object compliant with
+  [`OutputSerializer`][], is *required* to be capable of serializing a
+  dict that maps strings to any values returned by `prepare_value` (each
+  being an instance of some of the said *runtime types*).
+
+!!! note
+
+    The [`json.dumps`][] function, which is the default
+    **[`serializer`][StructuredLogsFormatter.serializer]**, satisfies
+    this requirement in respect to the default implementation of
+    **[`prepare_value`][StructuredLogsFormatter.prepare_value]**.
+
+!!! info "Typing details"
+
+    Accurately expressing the requirement in question using static types
+    is hardly possible (at least without making things overly complicated).
+    This is why **`OutputValue`** is simply an alias of the [`Any`][]
+    special type.
+"""
 
 
 DottedPath: TypeAlias = str
 """
 A [*type alias*](https://typing.python.org/en/latest/spec/aliases.html#type-aliases)
-to be used to annotate any string that is a *dotted path* (*importable
+which is used to annotate strings being a *dotted path* (*importable
 dotted name*).
 """
 
@@ -3410,9 +3475,9 @@ dotted name*).
 KwargsMappingAsLiteralEvaluableString: TypeAlias = str
 """
 A [*type alias*](https://typing.python.org/en/latest/spec/aliases.html#type-aliases)
-to be used to annotate any string that is an [`ast.literal_eval`][]-evaluable
-representation of a mapping (dict) of keyword arguments compatible with the
-main (first) signature of the [`StructuredLogsFormatter`][] constructor.
+which is used to annotate strings being an [`ast.literal_eval`][]-evaluable
+representation of a mapping (dict) of keyword arguments compatible with
+the main (first) signature of the [`StructuredLogsFormatter`][] constructor.
 """
 
 
