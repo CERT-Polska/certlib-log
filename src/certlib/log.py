@@ -138,9 +138,9 @@ of [`certlib.log.StructuredLogsFormatter`][] as a *formatter*.
 ### Basic Configuration
 
 Let us start by creating our [`StructuredLogsFormatter`][] instance
-(obviously, the concrete values used in the following code snippet
-are just sample ones -- to be replaced with values appropriate for
-your program/system):
+(obviously, the concrete values used in the following code snippet are
+just sample ones -- to be replaced with values that will be appropriate
+for your program/system):
 
 ```python
 import itertools
@@ -201,7 +201,7 @@ you need to consider that:
   one* of those two mappings (in `defaults` and/or `auto_makers`):
 
     * `"system"` (the name of the *entire system* or *project* your
-      script/application is part of; e.g.: `"My Funny System"`,
+      script/application is part of; e.g.: `"My Lovely System"`,
       [`"MWDB"`](https://github.com/CERT-Polska/mwdb-core),
       [`"n6"`](https://github.com/CERT-Polska/n6), etc.),
 
@@ -615,19 +615,20 @@ logger.info(xm(my_data))
     Regarding the `"another"` item in the above examples as well as some
     of the items/arguments that appear in the next subsection's examples:
     if you pass a function/method (also a [**`lambda`**](https://docs.python.org/3/tutorial/controlflow.html#lambda-expressions)
-    expression) instead of a plain value, it will be called (at most
-    once per `xm` use, by a formatter of any type, not necessarily a
-    **`StructuredLogsFormatter`**) to obtain the actual value.
+    expression) instead of a plain value, it will be automatically
+    called to obtain the actual value (at most once per **`xm`**
+    use, by a formatter of any type, that is, not necessarily by a
+    **`StructuredLogsFormatter`**).
+
+    In practice, this feature is useful if the creation of a certain
+    value is costly – then you may prefer that to be done *only* if
+    (and when) the log entry is to be actually formatted and emitted.
 
     !!! note
 
         By default, the mechanism is applied *only* if you pass a
         *function* or *method* object -- *not* just an arbitrary
         callable object (as that could lead to inadvertent calls).
-
-    In practice, this feature is useful if the creation of a certain
-    value is costly, so that you would prefer that to be done *only* if
-    (and when) the log entry is to be actually formatted and emitted.
 
 ***
 
@@ -1044,10 +1045,10 @@ class StructuredLogsFormatter(logging.Formatter):
     (`dict`), can be passed to the [`StructuredLogsFormatter`][] constructor
     as the *first positional argument*.
 
-    **Moreover**, *extra* arguments that match -- by *position*
-    or by *name* -- any _**non**-keyword-only_ parameters defined
-    by [`logging.Formatter`][] are *accepted but ignored* by the
-    `StructuredLogsFormatter` constructor, *provided that* the
+    **Moreover**, *extra* arguments that match -- by *position* or
+    by *name* -- any _**non**-keyword-only_ parameters defined by the
+    [`logging.Formatter`][] base class are *accepted but ignored* by
+    the `StructuredLogsFormatter` constructor, *provided that* the
     value of each (if given) is the respective parameter's default
     value; that is:
 
@@ -1057,7 +1058,8 @@ class StructuredLogsFormatter(logging.Formatter):
 
     * the *second* or **`datefmt`** argument -- needs to be [`None`][];
 
-    * the *third* or **`style`** argument -- needs to be the `"%"` string;
+    * the *third* or **`style`** argument -- needs to be the `"%"` string
+      (remember, it will be ignored anyway);
 
     * the *fourth* or **`validate`** argument -- needs to be [`True`][].
 
@@ -3476,8 +3478,9 @@ KwargsMappingAsLiteralEvaluableString: TypeAlias = str
 """
 A [*type alias*](https://typing.python.org/en/latest/spec/aliases.html#type-aliases)
 which is used to annotate strings being an [`ast.literal_eval`][]-evaluable
-representation of a mapping (dict) of keyword arguments compatible with
-the main (first) signature of the [`StructuredLogsFormatter`][] constructor.
+representation of a mapping (dict) of keyword arguments that are compatible
+with the main (first) signature of the [`StructuredLogsFormatter`][]
+constructor.
 """
 
 

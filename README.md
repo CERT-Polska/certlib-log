@@ -1,4 +1,4 @@
-# `certlib.log`
+# certlib.log
 
 ...is a library that extends the standard [`logging`](https://docs.python.org/3/library/logging.html)
 toolset. Among other things, it makes it possible to introduce
@@ -13,9 +13,11 @@ required).
 - **Home page:** [github.com/CERT-Polska/certlib-log](https://github.com/CERT-Polska/certlib-log)
 - **Contributing:** [github.com/CERT-Polska/certlib-log/pulls](https://github.com/CERT-Polska/certlib-log/pulls)
 
-You can install the [`certlib.log`](https://pypi.org/project/certlib-log/)
-library by running (typically, in a [*virtual environment*](https://packaging.python.org/en/latest/tutorials/installing-packages/#creating-virtual-environments))
-the command: **`python3 -m pip install certlib.log`**
+You can install the `certlib.log` library by running (typically, in a
+[*virtual environment*](https://packaging.python.org/en/latest/tutorials/installing-packages/#creating-virtual-environments))
+the command:
+
+    python3 -m pip install certlib.log
 
 The library is compatible with Python 3.10 and all newer versions of
 Python. It uses *only* the Python standard library, i.e., it **does
