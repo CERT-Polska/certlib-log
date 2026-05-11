@@ -59,6 +59,9 @@ plugins:
             show_symbol_type_toc: true
             show_source: true
 
+extra_css:
+  - stylesheets/extra.css
+
 markdown_extensions:
   - admonition
   - footnotes

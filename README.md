@@ -18,7 +18,7 @@ library by running (typically, in a [*virtual environment*](https://packaging.py
 the command: **`python3 -m pip install certlib.log`**
 
 The library is compatible with Python 3.10 and all newer versions of
-Python. It uses *only* the Python's standard library, i.e., it **does
+Python. It uses *only* the Python standard library, i.e., it **does
 *not* depend on any third-party packages**.
 
 
@@ -107,6 +107,7 @@ def example_with_no_text(temperature, pressure, debug_data_dict, calm=True):
 
     if calm:
         logger.info(xm(
+            # Just data:
             temperature=temperature,
             pressure=pressure,
         ))
@@ -122,7 +123,7 @@ def example_with_no_text(temperature, pressure, debug_data_dict, calm=True):
             stacklevel=2,
         ))
 
-    # Single dict providing all data is also OK:
+    # Single dict providing data is also OK:
     logger.debug(xm(debug_data_dict))
 ```
 

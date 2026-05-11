@@ -1,0 +1,41 @@
+name: "Release new certlib.log version"
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  call-test-workflow:
+    uses: ./.github/workflows/test.yml
+
+  call-various-checks-workflow:
+    uses: ./.github/workflows/various_checks.yml
+
+  build-and-publish:
+    needs:
+    - call-test-workflow
+    - call-various-checks-workflow
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.x'
+
+    - name: Install build dependencies
+      run: |
+        python3 -m pip install --upgrade pip
+        python3 -m pip install --upgrade build
+
+    - name: Build
+      run: |
+        python3 -m build
+
+    - name: Publish to PyPi
+      uses: pypa/gh-action-pypi-publish@v1.4.0
+      with:
+        user: __token__
+        password: ${{ secrets.pypi_password }}
+        verbose: true

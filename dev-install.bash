@@ -1,14 +1,31 @@
 #!/bin/bash
 
-find . -type f -name '*.pyc' -delete
-find . -type d -name '__pycache__' -delete
+echo "Starting *development*-only installation" \
+     "of 'certlib.log' and necessary stuff..."
 
-python3 -m pip install --upgrade --require-virtualenv --use-pep517 pip 2>/dev/null || {
+CERTLIB_LOG_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+cd -- "${CERTLIB_LOG_DIR}" || exit 1
+ls -l ./src/certlib/log.py &> /dev/null || exit 1
+
+echo "OK, set the current working directory to" \
+     "the project's root '${CERTLIB_LOG_DIR}'."
+
+find . -type f -name '*.pyc' -delete \
+    && find . -type d -name '__pycache__' -delete \
+|| echo "Warning: could not delete some *.pyc and/or __pycache__ stuff." >&2
+
+echo "Trying to upgrade pip + checking whether" \
+     "a virtual environment is activated..."
+python3 -m pip install --upgrade --require-virtualenv --use-pep517 \
+               --constraint dev/dev-requirements.txt \
+               pip \
+               2>/dev/null || {
+
     [[ "$?" != 3 ]] && exit 1
     echo "No virtual environment is activated." >&2
     CERTLIB_LOG_DEV_VENV_DIR='./dev/venv'
 
-    if [[ ! -d "$CERTLIB_LOG_DEV_VENV_DIR" ]]; then
+    if [[ ! -d "${CERTLIB_LOG_DEV_VENV_DIR}" ]]; then
         echo "As ${CERTLIB_LOG_DEV_VENV_DIR} does not exist, a new virtual" \
              "environment in '${CERTLIB_LOG_DEV_VENV_DIR}' will be created..."
         python3 -m venv "${CERTLIB_LOG_DEV_VENV_DIR}" || exit 1
@@ -16,16 +33,25 @@ python3 -m pip install --upgrade --require-virtualenv --use-pep517 pip 2>/dev/nu
 
     echo "Activating the '${CERTLIB_LOG_DEV_VENV_DIR}' virtual environment..."
     source "${CERTLIB_LOG_DEV_VENV_DIR}/bin/activate" || exit 1
-    python3 -m pip install --upgrade --require-virtualenv --use-pep517 pip || exit 1
-}
-[[ "$?" != 0 ]] && exit 1
+
+    echo "Upgrading pip..."
+    python3 -m pip install --upgrade --require-virtualenv --use-pep517 \
+                           --constraint dev/dev-requirements.txt \
+                           pip
+} || exit 1
 
 echo "OK, ready to install the actual stuff..."
 
-python3 -m pip install --require-virtualenv --use-pep517 -r dev/dev-requirements.txt && \
-    python3 -m pip install --require-virtualenv --use-pep517 -c dev/dev-requirements.txt -e .[dev]
-[[ "$?" != 0 ]] && {
-    echo "Failed to install 'certlib.log' and/or its *development*-only dependencies!" >&2
+python3 -m pip install --upgrade --require-virtualenv --use-pep517 \
+                       --build-constraint dev/dev-requirements.txt \
+                       -r dev/dev-requirements.txt \
+    && python3 -m pip install --upgrade --require-virtualenv --use-pep517 \
+                              --constraint dev/dev-requirements.txt \
+                              --build-constraint dev/dev-requirements.txt \
+                              -e .[dev] \
+|| {
+    echo "Failed to install 'certlib.log' and/or" \
+         "its *development*-only dependencies!" >&2
     exit 1
 }
 
@@ -38,14 +64,19 @@ else
          "have been installed in the current virtual environment."
 fi
 
+echo
 echo "** BUT PLEASE NOTE that it is a *development*-only installation" \
      "(just for running tests with 'pytest', or building docs with" \
-     "'mkdocs build -f docs/mkdocs.yml', or performing type check" \
-     "with 'mypy -p certlib.log', etc.)."
+     "'mkdocs build -f docs/mkdocs.yml', or performing type checks" \
+     "with 'mypy -p certlib.log; mypy tests/test_certlib_log.py', etc.)."
 
 if [[ -v CERTLIB_LOG_DEV_VENV_DIR ]]; then
+    echo
     echo "**** ALSO, PLEASE NOTE that to run/import the installed stuff" \
          "you need to ensure you *use* that environment. In particular," \
-         "you can activate it by executing the following bash command:" \
-         "'source ${CERTLIB_LOG_DEV_VENV_DIR}/bin/activate'"
+         "you can activate it now by executing the following bash command:"
+    echo
+    echo "     cd -- '${CERTLIB_LOG_DIR}'" \
+              "&& source ${CERTLIB_LOG_DEV_VENV_DIR}/bin/activate"
 fi
+echo

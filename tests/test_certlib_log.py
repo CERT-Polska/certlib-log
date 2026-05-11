@@ -5,7 +5,7 @@
 # License* (see the `LICENSE.txt` file in the source code repository:
 # https://github.com/CERT-Polska/certlib-log/blob/main/LICENSE.txt).
 
-# mypy: disable_error_code = "attr-defined, func-returns-value, method-assign, no-any-return, no-untyped-call, no-untyped-def, type-arg, unused-ignore"
+# mypy: disable_error_code = "attr-defined, func-returns-value, no-any-return, no-untyped-call, no-untyped-def, unused-ignore"
 
 from __future__ import annotations
 
@@ -398,7 +398,9 @@ def make_StructuredLogsFormatter_subclass(   # noqa
     ) = None,
 ) -> type[StructuredLogsFormatter]:
 
-    def _without_extra_accepted_kwargs(kwargs: Mapping) -> dict:
+    def _without_extra_accepted_kwargs(
+        kwargs: Mapping[str, Any],
+    ) -> dict[str, Any]:
         return {
             name: value
             for name, value in kwargs.items()
@@ -467,7 +469,7 @@ def make_StructuredLogsFormatter_subclass(   # noqa
                 )
 
     if prepare_submapping_key is not None:
-        cls.prepare_submapping_key = staticmethod(   # noqa
+        cls.prepare_submapping_key = staticmethod(   # type: ignore[method-assign]
             prepare_submapping_key                   # type: ignore[assignment]
         )
 
@@ -628,7 +630,7 @@ def get_output_base(
 
 
 @pytest.fixture(scope='session', autouse=True)
-def seen_formatter_auto_made_record_attr_prefixes() -> Generator[list]:
+def seen_formatter_auto_made_record_attr_prefixes() -> Generator[list[str]]:
     seen: list[str] = []
     yield seen
     # Check whether each per-instance prefix is unique:
@@ -4902,7 +4904,7 @@ class TestSnippetsInDocumentation:
         snippet_finder.lookup(substring='# WRONG (!!!):')
         snippet_finder.lookup(substring='# All WRONG (!!!):')
         snippet_finder.lookup(substring='__call__() -> Value')
-        snippet_finder.lookup(substring='__call__(output_data: dict[str, Any], /) -> str')
+        snippet_finder.lookup(substring='__call__(output_data')
 
     @pytest.fixture(scope='class')
     def client_ip_context_var(self) -> contextvars.ContextVar[ipaddress.IPv4Address]:
@@ -5573,7 +5575,7 @@ class TestSnippetsInDocumentation:
         self,
         snippet_finder,
     ):
-        snippet = snippet_finder.lookup(substring='This satisfies the said requirement')
+        snippet = snippet_finder.lookup(substring='This satisfies the requirement')
         variables = {'StructuredLogsFormatter': StructuredLogsFormatter}
 
         exec(snippet, variables)
