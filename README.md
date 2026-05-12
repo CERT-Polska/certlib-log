@@ -127,7 +127,7 @@ def example_with_no_text(temperature, pressure, debug_data_dict, calm=True):
     logger.debug(xm(debug_data_dict))
 ```
 
-You can find more examples in the [User's Guide](https://certlib-log.readthedocs.io/guide/).
+You can find more examples in the [User's Guide](https://certlib-log.readthedocs.io/en/latest/guide/).
 
 
 ## Copyright and License
