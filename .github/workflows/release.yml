@@ -38,4 +38,5 @@ jobs:
       with:
         user: __token__
         password: ${{ secrets.pypi_password }}
+        print-hash: true
         verbose: true
