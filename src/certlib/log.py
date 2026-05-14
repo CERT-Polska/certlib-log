@@ -662,7 +662,7 @@ class method would return an instance of [`dt.date`][datetime.date]
 representing a *February 2026* date, e.g., one equal to `dt.date(2026,
 2, 21)`).
 
-What it means when the logging system is configured to employ a
+What that means if the logging system is configured to employ a
 [`StructuredLogsFormatter`][], is that:
 
 * the formatted message will appear in the JSON-serialized *output
@@ -672,9 +672,9 @@ What it means when the logging system is configured to employ a
 
 !!! info
 
-    Please note that when you use **[`xm`][]**, you still benefit from
-    the standard mechanism of deferring message formatting until the log
-    entry really needs to be emitted (regardless of what formatter is in
+    When you use **[`xm`][]**, you still benefit from the standard
+    mechanism of deferring message formatting until the log entry
+    really needs to be emitted (regardless of what formatter is in
     use).
 
 The code in the next example does the same as above; the only difference
@@ -1023,8 +1023,7 @@ class StructuredLogsFormatter(logging.Formatter):
       even though you may decide to use some other serialization format,
       if this is OK for you/your organization). Alternatively, a string
       being a *dotted path* (*importable dotted name*) that points to
-      such a function (callable) can be given as the **`serializer`**
-      argument.
+      such a callable can be given as the **`serializer`** argument.
 
     !!! note
 
@@ -1064,6 +1063,11 @@ class StructuredLogsFormatter(logging.Formatter):
     * the *fourth* or **`validate`** argument -- needs to be [`True`][].
 
     If any of them does not comply, [`TypeError`][] is raised.
+
+    !!! info
+
+        Obviously, passing any unexpected (surplus) arguments also
+        causes [`TypeError`][].
 
     !!! note
 
@@ -1250,11 +1254,11 @@ class StructuredLogsFormatter(logging.Formatter):
 
     def unregister_auto_makers(self) -> None:
         """
-        A rarely useful method: you should invoke it on an instance
-        of `StructuredLogsFormatter` *only when* you need to stop
-        using that instance but continue using any `logging` stuff
-        during further program execution (this does not seem to be
-        a common case).
+        A rarely useful method: you may want to invoke it on an instance
+        of `StructuredLogsFormatter` *only when* you need to stop using
+        that instance but continue using any `logging` stuff during
+        further program execution (this does not seem to be a common
+        case).
         """
         for rec_attr in self.auto_makers.keys():
             unregister_log_record_attr_auto_maker(rec_attr)
@@ -1450,7 +1454,7 @@ class StructuredLogsFormatter(logging.Formatter):
 
             ```python
             my_formatter = StructuredLogsFormatter(
-                # This satisfies the requirement:
+                # This is OK (the requirement is satisfied):
                 defaults={
                     "system": None,
                     "component": None,
@@ -1650,7 +1654,7 @@ class StructuredLogsFormatter(logging.Formatter):
         representation is a *UTC* one (with `Z`, rather than `+00:00`,
         as its suffix), e.g.: `"2026-03-15 13:48:56.726403Z"`.
 
-        !!! info
+        !!! note
 
             The [`logging.Formatter`][]-specific attributes related to
             timestamp formatting (`converter`, `default_time_format` and
@@ -1807,7 +1811,8 @@ class StructuredLogsFormatter(logging.Formatter):
           described above; and *even* if some *default value* is defined
           for that key!); note that *nested* values, even if *void*, are
           *never* subject to such an *exclusion* (at least if the default
-          implementation of `prepare_value` is used);
+          implementations of `prepare_value` and `prepare_submapping_key`
+          are used);
 
         * potential *item collisions* (which might occur, for example,
           when some **key** is present *both* in the `ExtendedMessage`'s
@@ -2620,17 +2625,17 @@ class ExtendedMessage:
 
         When it comes to the arguments **`exc_info`**, **`stack_info`**
         and **`stacklevel`**, they should *not* be included in that
-        mapping; each of them, if to be specified, should *only* be
-        specified as a real keyword argument (putting any of them in
-        that mapping will result in undefined behavior).
+        mapping. Each of them, if to be specified, should *only* be
+        specified as a real keyword argument. Putting any of them in
+        that mapping will result in undefined behavior.
 
     !!! warning "Interface restriction"
 
         If you pass a **`stack_info`** and/or **`stacklevel`** argument
         to the **[`ExtendedMessage`][]** (**[`xm`][]**) constructor, you
         should *not* pass **`stack_info`** or **`stacklevel`** to the
-        related [logger method call](https://docs.python.org/3/library/logging.html#logging.Logger.debug)
-        (doing so will result in undefined behavior).
+        related [logger method call](https://docs.python.org/3/library/logging.html#logging.Logger.debug);
+        doing so will result in undefined behavior.
 
         ```python
         # All WRONG (!!!):
@@ -2670,7 +2675,7 @@ class ExtendedMessage:
         as the first positional argument to a [logger method
         call](https://docs.python.org/3/library/logging.html#logging.Logger.debug),
         you should *not* pass to that call any other *positional*
-        arguments (doing so will result in undefined behavior).
+        arguments; doing so will result in undefined behavior.
 
         ```python
         # WRONG (!!!):
@@ -3454,7 +3459,7 @@ OutputValue]` -- is:
 
     The [`json.dumps`][] function, which is the default
     **[`serializer`][StructuredLogsFormatter.serializer]**, satisfies
-    this requirement in respect to the default implementation of
+    this requirement with respect to the default implementation of
     **[`prepare_value`][StructuredLogsFormatter.prepare_value]**.
 
 !!! info "Typing details"

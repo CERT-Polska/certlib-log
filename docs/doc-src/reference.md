@@ -1,11 +1,33 @@
 # API Reference
 
-!!! info
+!!! exclusion "Interface exclusion"
+
+    In general, the following elements are _**not**_ part of the public
+    API (so, in particular, they may change in *minor* or *patch* versions
+    of the `certlib.log` library):
+
+    * any elements *not* documented in this *API reference*;
+
+    * specific *runtime types* of any objects bound to a documented
+      element of the API (variable, attribute, parameter or call
+      result) -- *provided that* they remain correct with respect to
+      the element's type annotation, according to the [static typing
+      rules](https://typing.python.org/en/latest/spec/index.html);
+
+    * specific behaviors in cases where -- according to the
+      documentation -- *undefined behavior* is expected;
+
+    * any elements that appear in this document *only* in source code
+      excerpts (available via `<> Source code...` drop-down widgets),
+      e.g., specific exception messages.
+
+!!! warning "Important"
 
     Whenever this document refers to *undefined behavior*, this should
     be understood to mean: *the API makes no guarantees about what will
     happen -- an exception or a malfunction is likely.*
 
+***
 
 ::: certlib.log.StructuredLogsFormatter
     handler: python

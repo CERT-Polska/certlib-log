@@ -5575,7 +5575,7 @@ class TestSnippetsInDocumentation:
         self,
         snippet_finder,
     ):
-        snippet = snippet_finder.lookup(substring='This satisfies the requirement')
+        snippet = snippet_finder.lookup(substring='requirement is satisfied')
         variables = {'StructuredLogsFormatter': StructuredLogsFormatter}
 
         exec(snippet, variables)
