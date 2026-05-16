@@ -1,5 +1,15 @@
 # API Reference
 
+!!! danger "Warning"
+
+    The `certlib.log` library is currently in the _**beta**_ stage
+    of development. This means, in particular, that _**backward
+    incompatible**_ changes to the public API are still possible
+    (even if unlikely) in *non-major* versions -- _**until**_ the
+    final _**1.0.0**_ version is released.
+
+***
+
 !!! exclusion "Interface exclusion"
 
     In general, the following elements are _**not**_ part of the public
