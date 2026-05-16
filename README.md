@@ -1,17 +1,17 @@
 # certlib.log
 
-...is a library that extends the standard [`logging`](https://docs.python.org/3/library/logging.html)
+...is a library that extends the standard **[`logging`](https://docs.python.org/3/library/logging.html)**
 toolset. Among other things, it makes it possible to introduce
-*structured logging* with minimal fuss, and/or to start using the
-modern `{}`-based style of log message formatting (gradually if
+_**structured logging**_ with minimal fuss, and/or to start using the
+modern _**`{}`-based style of log message formatting**_ (gradually if
 required).
 
 
 ## Basic Info
 
 - **Documentation:** [certlib-log.readthedocs.io](https://certlib-log.readthedocs.io)
-- **Home page:** [github.com/CERT-Polska/certlib-log](https://github.com/CERT-Polska/certlib-log)
-- **Contributing:** [github.com/CERT-Polska/certlib-log/pulls](https://github.com/CERT-Polska/certlib-log/pulls)
+- **Repository:** [github.com/CERT-Polska/certlib-log](https://github.com/CERT-Polska/certlib-log)
+- **Package:** [pypi.org/project/certlib-log](https://pypi.org/project/certlib-log/)
 
 You can install the `certlib.log` library by running (typically, in a
 [*virtual environment*](https://packaging.python.org/en/latest/tutorials/installing-packages/#creating-virtual-environments))
