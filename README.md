@@ -2,9 +2,9 @@
 
 ...is a library that extends the standard **[`logging`](https://docs.python.org/3/library/logging.html)**
 toolset. Among other things, it makes it possible to introduce
-_**structured logging**_ with minimal fuss, and/or to start using the
-modern _**`{}`-based style of log message formatting**_ (gradually if
-required).
+_**structured logging**_ with minimal fuss, and/or start using the
+modern _**`{}`-based style**_ of log message formatting (gradually
+if required).
 
 
 ## Basic Info
@@ -20,7 +20,7 @@ the command:
     python3 -m pip install certlib.log
 
 The library is compatible with Python 3.10 and all newer versions of
-Python. It uses *only* the Python standard library, i.e., it **does
+Python. It uses *only* the Python standard library, i.e., **it does
 *not* depend on any third-party packages**.
 
 
