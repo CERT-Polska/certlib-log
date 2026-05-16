@@ -1303,6 +1303,7 @@ class TestStructuredLogsFormatter:
                         'component': None,       # ("void" value)
                         'component_type': None,  # ("void" value)
                     }),
+                    base_auto_makers={},
                 ),
                 dict(
                     defaults={},
@@ -1312,15 +1313,10 @@ class TestStructuredLogsFormatter:
                 # Expected public attributes
                 dict(
                     defaults={},
-                    auto_makers={
-                        '<PREFIX>py_ver': AnyOfType(Function),
-                        '<PREFIX>script_args': AnyOfType(Function),
-                    },
+                    auto_makers={},
                     auto_made_record_attr_prefix=AnyOfType(str),
                     record_attr_to_output_key={
                         **STANDARD_RECORD_ATTR_TO_OUTPUT_KEY,
-                        '<PREFIX>py_ver': 'py_ver',
-                        '<PREFIX>script_args': 'script_args',
                     },
                     serializer=json.dumps,
                 ),

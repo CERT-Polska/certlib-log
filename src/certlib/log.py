@@ -932,11 +932,6 @@ __all__ = (
 
 
 COMMONLY_EXPECTED_NON_STANDARD_OUTPUT_KEYS: Final[Set[str]] = frozenset({
-    # These items are to be provided automatically (at least by default)
-    # by the `StructuredLogsFormatter`'s machinery.
-    'py_ver',
-    'script_args',
-
     # These items *need* to be provided individually per system/component
     # (in `StructuredLogsFormatter` configuration, or by subclassing...).
     'system',
@@ -1432,12 +1427,10 @@ class StructuredLogsFormatter(logging.Formatter):
 
         The default implementation of this method just uses the set of
         keys defined as [`COMMONLY_EXPECTED_NON_STANDARD_OUTPUT_KEYS`][]
-        (here it is worth noting that, because the default implementation
-        of [`make_base_auto_makers`][] already provides *auto-makers*
-        for certain keys, the *only* keys for which it is *required*
-        to specify *default values* or *auto-makers* when invoking the
-        [`StructuredLogsFormatter`][] constructor -- are: `"system"`,
-        `"component"` and `"component_type"`).
+        (which means that, when invoking the [`StructuredLogsFormatter`][]
+        constructor, it is *required* to specify *default values* and/or
+        *auto-makers* for the keys: `"system"`, `"component"` and
+        `"component_type"`).
 
         !!! info
 
