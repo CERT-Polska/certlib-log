@@ -1,10 +1,9 @@
 # certlib.log
 
-...is a library that extends the standard **[`logging`](https://docs.python.org/3/library/logging.html)**
-toolset. Among other things, it makes it possible to introduce
-_**structured logging**_ with minimal fuss, and/or to start using the
-modern _**`{}`-based style of log message formatting**_ (gradually if
-required).
+`certlib.log` is a library that extends the standard [logging](https://docs.python.org/3/library/logging.html)
+toolset -- making it possible to introduce _**structured logging**_ with
+minimal fuss, and/or use the modern _**`{}`-based style**_ of log message
+formatting, among _**other things**_...
 
 
 ## Basic Info
@@ -20,8 +19,35 @@ the command:
     python3 -m pip install certlib.log
 
 The library is compatible with Python 3.10 and all newer versions of
-Python. It uses *only* the Python standard library, i.e., it **does
+Python. It uses *only* the Python standard library, i.e., **it does
 *not* depend on any third-party packages**.
+
+
+## Principles and Benefits
+
+The primary reason for creating `certlib.log` was to make it easier to
+configure *structured logging* across various systems created and used
+by [CERT Polska](https://cert.pl/en/) -- in a possibly consistent way
+and without spending too much time adjusting the existing stuff.
+
+A **key design decision** was to build the library on top of the
+standard [logging](https://docs.python.org/3/library/logging.html)
+toolset (rather than introducing some alternative machinery).
+
+In particular, this approach **makes it possible to**:
+
+- start using the library in already existing projects (especially,
+  to introduce *structured logging*) without changing a single line
+  of code;
+
+- gradually introduce selected features offered by the library
+  (such as `{}`-style message formatting, message-less logging of pure
+  data, or setting log entry fields automatically, e.g., from [context
+  variables](https://docs.python.org/3/library/contextvars.html)...);
+
+- retain existing logging configuration methods (whether using an
+  [`*.ini` file](https://docs.python.org/3/library/logging.config.html#configuration-file-format),
+  or loading a [configuration dictionary](https://docs.python.org/3/library/logging.config.html#configuration-dictionary-schema)).
 
 
 ## Examples
