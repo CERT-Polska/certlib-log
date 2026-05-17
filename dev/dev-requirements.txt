@@ -4,7 +4,7 @@
 #
 #    pip-compile --allow-unsafe --strip-extras dev-requirements.in
 #
-ast-serialize==0.3.0
+ast-serialize==0.4.0
     # via mypy
 babel==2.18.0
     # via
@@ -14,7 +14,7 @@ backrefs==7.0
     # via
     #   -r ../docs/doc-requirements.txt
     #   mkdocs-material
-black==26.3.1
+black==26.5.0
     # via -r ../docs/doc-requirements.txt
 build==1.5.0
     # via
@@ -28,7 +28,7 @@ charset-normalizer==3.4.7
     # via
     #   -r ../docs/doc-requirements.txt
     #   requests
-click==8.3.3
+click==8.4.0
     # via
     #   -r ../docs/doc-requirements.txt
     #   black
@@ -50,7 +50,7 @@ griffelib==2.0.2
     # via
     #   -r ../docs/doc-requirements.txt
     #   mkdocstrings-python
-idna==3.13
+idna==3.15
     # via
     #   -r ../docs/doc-requirements.txt
     #   requests
@@ -64,7 +64,7 @@ jinja2==3.1.6
     #   mkdocs
     #   mkdocs-material
     #   mkdocstrings
-librt==0.10.0
+librt==0.11.0
     # via mypy
 markdown==3.10.2
     # via
@@ -113,7 +113,7 @@ mkdocstrings==1.0.4
     #   mkdocstrings-python
 mkdocstrings-python==2.0.3
     # via -r ../docs/doc-requirements.txt
-mypy==2.0.0
+mypy==2.1.0
     # via -r dev-requirements.in
 mypy-extensions==1.1.0
     # via
@@ -158,7 +158,7 @@ pygments==2.20.0
     #   -r ../tests/test-requirements.txt
     #   mkdocs-material
     #   pytest
-pymdown-extensions==10.21.2
+pymdown-extensions==10.21.3
     # via
     #   -r ../docs/doc-requirements.txt
     #   mkdocs-material
@@ -188,7 +188,7 @@ pyyaml-env-tag==1.1
     # via
     #   -r ../docs/doc-requirements.txt
     #   mkdocs
-requests==2.33.1
+requests==2.34.2
     # via
     #   -r ../docs/doc-requirements.txt
     #   mkdocs-material
