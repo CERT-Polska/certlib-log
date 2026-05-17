@@ -11,7 +11,8 @@ description = """\
     A library extending the standard logging toolbox \
     (e.g., facilitating structured logging with minimal fuss).\
 """
-requires-python = ">=3.10"
+# TODO: update this after dropping unofficial support for Py3.9:
+requires-python = ">=3.9"
 
 readme = "README.md"
 maintainers = [

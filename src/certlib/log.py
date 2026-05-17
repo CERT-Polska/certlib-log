@@ -896,16 +896,18 @@ from inspect import (
     signature,
 )
 from typing import (
+    TYPE_CHECKING,
     Any,
     ClassVar,
     Final,
     Literal,
     Protocol,
-    TypeAlias,
     TypeVar,
     cast,
     overload,
 )
+if TYPE_CHECKING:
+    from typing import TypeAlias
 
 
 __all__ = (

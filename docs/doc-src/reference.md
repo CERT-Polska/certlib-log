@@ -40,7 +40,9 @@ contravenes the documented API results in *undefined behavior*.
 
     * specific behaviors in cases where -- according to the
       documentation -- *undefined behavior* is expected (see
-      the definition above).
+      the definition above);
+
+    * the *unofficial* support for Python 3.9.
 
 ***
 
