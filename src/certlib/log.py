@@ -895,16 +895,18 @@ from inspect import (
     signature,
 )
 from typing import (
+    TYPE_CHECKING,
     Any,
     ClassVar,
     Final,
     Literal,
     Protocol,
-    TypeAlias,
     TypeVar,
     cast,
     overload,
 )
+if TYPE_CHECKING:
+    from typing import TypeAlias
 
 
 __all__ = (
@@ -1012,8 +1014,7 @@ class StructuredLogsFormatter(logging.Formatter):
 
     * **`serializer`** (a function or other callable; default: [`json.dumps`][]):
       a callable that takes one argument being an *output data* [`dict`][]
-      (of type `dict[str, OutputValue]`, where [`OutputValue`][] denotes
-      whatever can be returned by the [`prepare_value`][] method) and that
+      (of type `dict[str, OutputValue]` -- see [`OutputValue`][]...) and
       returns a string (presumably, a JSON-serialized form of that dict,
       even though you may decide to use some other serialization format,
       if this is OK for you/your organization). Alternatively, a string
@@ -1061,8 +1062,7 @@ class StructuredLogsFormatter(logging.Formatter):
 
     !!! info
 
-        Obviously, passing any unexpected (surplus) arguments also
-        causes [`TypeError`][].
+        Passing any unexpected (surplus) arguments also causes [`TypeError`][].
 
     !!! note
 
@@ -2527,7 +2527,9 @@ class ExtendedMessage:
     There is a convenience alias of this class: **[`xm`][]**. As being
     very short, it is simply much more ergonomic than the actual class
     name -- given that this tool is intended to be used every time you
-    log something. For example:
+    log something...
+
+    Example uses:
 
     ```python
     import datetime, hashlib, ipaddress, logging, sys
@@ -2607,14 +2609,16 @@ class ExtendedMessage:
 
     **Alternatively**, a mapping (e.g., a [`dict`][]) of *extra data*
     items can be passed to the [constructor][ExtendedMessage] as the
-    *first positional argument*. Then any *extra positional or keyword
-    arguments* are forbidden -- except **`exc_info`**, **`stack_info`**
-    and **`stacklevel`**. The effect is the same as passing each of
-    that mapping's items as an *extra keyword argument* (without passing
-    a message pattern as the *first positional argument*). The mapping,
-    after conversion to a `dict`, is assigned to the [`data`][] attribute.
+    *first positional argument*. The effect is the same as if each of
+    its items was passed as an *extra keyword argument* (without passing
+    any positional arguments). The mapping, after conversion to a `dict`,
+    is assigned to the [`data`][] attribute.
 
     !!! warning "Interface restriction"
+
+        If a mapping is passed as the *first positional argument*,
+        then passing any other arguments except **`exc_info`**,
+        **`stack_info`** and **`stacklevel`** causes [`TypeError`][].
 
         When it comes to the arguments **`exc_info`**, **`stack_info`**
         and **`stacklevel`**, they should *not* be included in that
@@ -3105,9 +3109,9 @@ class ExtendedMessage:
         """
         !!! exclusion "Interface exclusion"
 
-            This method is _**not**_ part of the public API -- _**except
-            that**_ it is allowed to be invoked by any methods implemented
-            by possible subclasses of **`ExtendedMessage`**.
+            This method is _**not**_ part of the API -- _**except that**_
+            it is allowed to be invoked by any methods implemented by
+            possible subclasses of **`ExtendedMessage`**.
 
         This method processes the items of [`args`][] and [`data`][] --
         by *calling* each encountered instance of any type included in
@@ -3424,43 +3428,44 @@ OutputValue: TypeAlias = Any
 A [*type alias*](https://typing.python.org/en/latest/spec/aliases.html#type-aliases)
 which is used to annotate top-level *values* in *output data* dicts.
 
-Given that every *output data* dict -- always of type `dict[str,
-OutputValue]` -- is:
+!!! warning "Required *preparation--serialization* compatibility"
 
-* created by [`StructuredLogsFormatter.get_prepared_output_data`][], with
-  each *value* obtained using [`StructuredLogsFormatter.prepare_value`][]
-  (whose return type is annotated as `OutputValue`),
+    Typically, an *output data* dict (annotated as `dict[str,
+    OutputValue]`) is:
 
-* then passed to [`StructuredLogsFormatter.serialize_prepared_output_data`][],
+    * created by **[`StructuredLogsFormatter.get_prepared_output_data`][]**
+      -- with each *value* obtained by invoking **[`StructuredLogsFormatter.prepare_value`][]**
+      (whose return type annotation is **[`OutputValue`][]**);
 
-* then, consequently, passed to [`StructuredLogsFormatter.serializer`][]
-  (expected to be [`OutputSerializer`][]-compliant)
+    * passed to **[`StructuredLogsFormatter.serialize_prepared_output_data`][]**
+      -- and then passed by it to **[`StructuredLogsFormatter.serializer`][]**
+      (which is annotated as **[`OutputSerializer`][]**).
 
--- it should be emphasized that:
+    So every **[`serializer`][StructuredLogsFormatter.serializer]** is
+    _**required**_ to be capable of serializing any dict that maps strings
+    to values whose types, generally referred to as **[`OutputValue`][]**,
+    are decided by the (default or customized) implementation of
+    **[`prepare_value`][StructuredLogsFormatter.prepare_value]**
+    (and/or by customized implementations of
+    **[`get_prepared_output_data`][StructuredLogsFormatter.get_prepared_output_data]** and/or
+    **[`serialize_prepared_output_data`][StructuredLogsFormatter.serialize_prepared_output_data]**,
+    if they change something in this regard).
 
-* actual *runtime types* of any values considered an `OutputValue` are
-  decided by an implementation of [`StructuredLogsFormatter.prepare_value`][]
-  (*either* the default one *or* some provided by a subclass of
-  `StructuredLogsFormatter`);
+    !!! note
 
-* [`StructuredLogsFormatter.serializer`][], as an object compliant with
-  [`OutputSerializer`][], is *required* to be capable of serializing a
-  dict that maps strings to any values returned by `prepare_value` (each
-  being an instance of some of the said *runtime types*).
+        The [`json.dumps`][] function, which is the default
+        **[`serializer`][StructuredLogsFormatter.serializer]**,
+        satisfies this requirement for the default implementations
+        of **[`prepare_value`][StructuredLogsFormatter.prepare_value]**,
+        **[`get_prepared_output_data`][StructuredLogsFormatter.get_prepared_output_data]** and
+        **[`serialize_prepared_output_data`][StructuredLogsFormatter.serialize_prepared_output_data]**.
 
-!!! note
+    !!! info "Typing details"
 
-    The [`json.dumps`][] function, which is the default
-    **[`serializer`][StructuredLogsFormatter.serializer]**, satisfies
-    this requirement with respect to the default implementation of
-    **[`prepare_value`][StructuredLogsFormatter.prepare_value]**.
-
-!!! info "Typing details"
-
-    Accurately expressing the requirement in question using static types
-    is hardly possible (at least without making things overly complicated).
-    This is why **`OutputValue`** is simply an alias of the [`Any`][]
-    special type.
+        Accurately expressing the above requirement using static
+        types is hardly possible (at least without making things
+        overly complicated). This is why **[`OutputValue`][]** is
+        defined just as an alias of the [`Any`][] special type.
 """
 
 

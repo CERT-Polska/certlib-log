@@ -754,11 +754,14 @@ class TestStructuredLogsFormatter:
         ign_args: Sequence[Any]
         ign_kwargs: Mapping[str, Any]
 
-        match formatter_init_ignored_redundant_standard_arguments_variant:
-            case FormatterInitIgnoredRedundantStandardArgumentsVariant.NONE:
+        # TODO: restore `match` after dropping unofficial support for Py3.9
+        if formatter_init_ignored_redundant_standard_arguments_variant is FormatterInitIgnoredRedundantStandardArgumentsVariant.NONE:  # noqa
+        # match formatter_init_ignored_redundant_standard_arguments_variant:
+        #     case FormatterInitIgnoredRedundantStandardArgumentsVariant.NONE:
                 ign_args = ()
                 ign_kwargs = {}
-            case FormatterInitIgnoredRedundantStandardArgumentsVariant.POSITIONAL:
+        elif formatter_init_ignored_redundant_standard_arguments_variant is FormatterInitIgnoredRedundantStandardArgumentsVariant.POSITIONAL:  # noqa
+            # case FormatterInitIgnoredRedundantStandardArgumentsVariant.POSITIONAL:
                 ign_args = (
                     None,  # `fmt`
                     None,  # `datefmt`
@@ -766,7 +769,8 @@ class TestStructuredLogsFormatter:
                     True,  # `validate`
                 )
                 ign_kwargs = {}
-            case FormatterInitIgnoredRedundantStandardArgumentsVariant.KEYWORD:
+        elif formatter_init_ignored_redundant_standard_arguments_variant is FormatterInitIgnoredRedundantStandardArgumentsVariant.KEYWORD:  # noqa
+            # case FormatterInitIgnoredRedundantStandardArgumentsVariant.KEYWORD:
                 ign_args = ()
                 ign_kwargs = {
                     'fmt': None,
@@ -774,7 +778,8 @@ class TestStructuredLogsFormatter:
                     'style': '%',
                     'validate': True,
                 }
-            case FormatterInitIgnoredRedundantStandardArgumentsVariant.MIXED:
+        elif formatter_init_ignored_redundant_standard_arguments_variant is FormatterInitIgnoredRedundantStandardArgumentsVariant.MIXED:  # noqa
+            # case FormatterInitIgnoredRedundantStandardArgumentsVariant.MIXED:
                 ign_args = (
                     None,  # `fmt`
                     None,  # `datefmt`
@@ -783,8 +788,10 @@ class TestStructuredLogsFormatter:
                     'style': '%',
                     'validate': True,
                 }
-            case unrecognized_variant:
-                raise AssertionError(f'{unrecognized_variant=}')
+        else:
+            raise AssertionError(f'unrecognized_variant={formatter_init_ignored_redundant_standard_arguments_variant!r}')  # noqa
+            # case unrecognized_variant:
+            #     raise AssertionError(f'{unrecognized_variant=}')
 
         return ign_args, ign_kwargs
 
@@ -839,20 +846,26 @@ class TestStructuredLogsFormatter:
         ) -> StructuredLogsFormatter:
             if extra_kwargs is None:
                 extra_kwargs = {}
-            match formatter_init_kwargs_passing_variant:
-                case FormatterInitKwargsPassingVariant.DIRECT:
+            # TODO: restore `match` after dropping unofficial support for Py3.9
+            if formatter_init_kwargs_passing_variant is FormatterInitKwargsPassingVariant.DIRECT:
+            # match formatter_init_kwargs_passing_variant:
+            #     case FormatterInitKwargsPassingVariant.DIRECT:
                     args = (*ign_args, *extra_args)
                     kwargs = dict(**ign_kwargs, **extra_kwargs, **formatter_init_kwargs)
-                case FormatterInitKwargsPassingVariant.MAPPING:
+            elif formatter_init_kwargs_passing_variant is FormatterInitKwargsPassingVariant.MAPPING:  # noqa
+                # case FormatterInitKwargsPassingVariant.MAPPING:
                     m = prepare_formatter_init_kwargs_mapping(formatter_init_kwargs)
                     args = (m, *ign_args, *extra_args)
                     kwargs = dict(**ign_kwargs, **extra_kwargs)
-                case FormatterInitKwargsPassingVariant.STRING:
+            elif formatter_init_kwargs_passing_variant is FormatterInitKwargsPassingVariant.STRING:
+                # case FormatterInitKwargsPassingVariant.STRING:
                     s = prepare_formatter_init_kwargs_string(formatter_init_kwargs)
                     args = (s, *ign_args, *extra_args)
                     kwargs = dict(**ign_kwargs, **extra_kwargs)
-                case unrecognized_variant:
-                    raise AssertionError(f'{unrecognized_variant=}')
+            else:
+                raise AssertionError(f'unrecognized_variant={formatter_init_kwargs_passing_variant!r}')  # noqa
+                # case unrecognized_variant:
+                #     raise AssertionError(f'{unrecognized_variant=}')
             f = formatter_factory(*args, **kwargs)
             seen_formatter_auto_made_record_attr_prefixes.append(f.auto_made_record_attr_prefix)
             return f
@@ -4951,8 +4964,10 @@ class TestSnippetsInDocumentation:
     ) -> str:
         mark_as_covered = not customized_formatter_cls_module_and_name
 
-        match config_snippet_label:
-            case 'imperative':
+        # TODO: restore `match` after dropping unofficial support for Py3.9
+        if config_snippet_label == 'imperative':
+        # match config_snippet_label:
+        #     case 'imperative':
                 config_snippet = '\n'.join([
                     snippet_finder.lookup(
                         substring='structured_logs_formatter = StructuredLogsFormatter(',
@@ -4963,19 +4978,23 @@ class TestSnippetsInDocumentation:
                         mark_as_covered=mark_as_covered,
                     ),
                 ])
-            case 'dictConfig':
+        elif config_snippet_label == 'dictConfig':
+            # case 'dictConfig':
                 config_snippet = snippet_finder.lookup(
                     substring='logging.config.dictConfig(logging_configuration_dict)',
                     mark_as_covered=mark_as_covered,
                 )
-            case 'fileConfig':
+        elif config_snippet_label == 'fileConfig':
+            # case 'fileConfig':
                 config_snippet = snippet_finder.lookup(
                     substring='class = certlib.log.StructuredLogsFormatter',
                     syntax_label='ini',
                     mark_as_covered=mark_as_covered,
                 )
-            case unrecognized_label:
-                raise AssertionError(f'{unrecognized_label=}')
+        else:
+            raise AssertionError(f'unrecognized_label={config_snippet_label!r}')
+            # case unrecognized_label:
+            #     raise AssertionError(f'{unrecognized_label=}')
 
         if customized_formatter_cls_module_and_name:
             module_name, cls_name = customized_formatter_cls_module_and_name
@@ -5393,6 +5412,9 @@ class TestSnippetsInDocumentation:
         snippet = snippet_finder.lookup(
             substring='MyEnhancedStructuredLogsFormatter'
         )
+        # TODO: remove this after dropping unofficial support for Py3.9:
+        if sys.version_info[:2] == (3, 9):
+            snippet = snippet.replace('@staticmethod', '')
         # Prepare module `attrs` with necessary stubs:
         attrs_module = Module('attrs')
         attrs_module.has = lambda obj_type: obj_type is type(sentinel.ABC)

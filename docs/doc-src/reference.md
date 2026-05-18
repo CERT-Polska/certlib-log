@@ -4,38 +4,45 @@
 
     The `certlib.log` library is currently in the _**beta**_ stage
     of development. This means, in particular, that _**backward
-    incompatible**_ changes to the public API are still possible
-    (even if unlikely) in *non-major* versions -- _**until**_ the
+    incompatible**_ changes to the public API are possible -- even
+    if unlikely -- in any (*pre-release*) versions, _**until**_ the
     final _**1.0.0**_ version is released.
 
-***
+## General Remarks
+
+The `certlib.log` library is compatible with Python 3.10 and all newer
+versions of Python.
+
+An **important definition**: whenever this document refers to
+_**undefined behavior**_, this should be understood to mean: *the
+API makes no guarantees about what will happen -- an exception or
+a malfunction is likely.*
+
+Unless otherwise specified, using the library in a way that
+contravenes the documented API results in *undefined behavior*.
 
 !!! exclusion "Interface exclusion"
 
-    In general, the following elements are _**not**_ part of the public
-    API (so, in particular, they may change in *minor* or *patch* versions
-    of the `certlib.log` library):
+    The following elements/features are _**not**_ part of the API (so,
+    in particular, they may change or disappear in *minor* or *patch*
+    versions of the library):
 
-    * any elements *not* documented in this *API reference*;
+    * any elements *not* documented in this *API reference* as well as
+      elements that appear only in source code excerpts (available via
+      `<> Source code...` drop-down widgets), e.g., specific exception
+      messages;
 
-    * specific *runtime types* of any objects bound to a documented
-      element of the API (variable, attribute, parameter or call
-      result) -- *provided that* they remain correct with respect to
-      the element's type annotation, according to the [static typing
+    * specific *runtime types* of any objects bound to an element
+      of the API (variable, attribute, parameter or call result),
+      *provided that* they remain correct with respect to the
+      element's type annotation, according to the [static typing
       rules](https://typing.python.org/en/latest/spec/index.html);
 
     * specific behaviors in cases where -- according to the
-      documentation -- *undefined behavior* is expected;
+      documentation -- *undefined behavior* is expected (see
+      the definition above);
 
-    * any elements that appear in this document *only* in source code
-      excerpts (available via `<> Source code...` drop-down widgets),
-      e.g., specific exception messages.
-
-!!! warning "Important"
-
-    Whenever this document refers to *undefined behavior*, this should
-    be understood to mean: *the API makes no guarantees about what will
-    happen -- an exception or a malfunction is likely.*
+    * the *unofficial* support for Python 3.9.
 
 ***
 
@@ -115,7 +122,7 @@
     The flavor of any *type aliases* -- i.e., whether they are
     [`TypeAlias`][typing.TypeAlias]-annotated ones or [*type
     statement*](https://docs.python.org/3/reference/simple_stmts.html#type)-made
-    ones -- is _**not**_ part of the public API.
+    ones -- is _**not**_ part of the API.
 
 ::: certlib.log.ValueProvider
     handler: python
