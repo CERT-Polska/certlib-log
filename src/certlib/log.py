@@ -250,8 +250,8 @@ you need to consider that:
     other contexts. Such *void* items will be automatically omitted
     from *output data*.
 
-The next step is to prepare the *root logger*, and then to add to it
-some handler *with our formatter attached*:
+The next step is to prepare the *root logger*, and then add a handler to
+it *with our formatter attached*:
 
 ```python
 # (continuing with the previous example)
@@ -642,11 +642,12 @@ modern and convenient [`{}`-based style of message formatting](https://docs.pyth
 
 !!! note
 
-    What we are discussing here concerns formatting *text messages*
-    themselves (i.e., the contents of log records’ `message`), rather
-    than *entire log entries* (in which `message` is just a field). Note
-    that the latter is completely orthogonal to the former. Whereas the
-    standard tools provided by the `logging` module [*do* support](https://docs.python.org/3/library/logging.html#formatter-objects)
+    What we are discussing here concerns the formatting of *text
+    messages* themselves (i.e., the contents of log records’ `message`),
+    rather than the formatting of *entire log entries* (where `message`
+    is just a field). Note that the latter is completely orthogonal to
+    the former. Whereas the standard tools provided by the `logging`
+    module [*do* support](https://docs.python.org/3/library/logging.html#formatter-objects)
     the `{}`-based formatting style for the latter, they do *not* support
     it for the former.
 
