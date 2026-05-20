@@ -4,8 +4,8 @@
 
     The `certlib.log` library is currently in the _**beta**_ stage
     of development. This means, in particular, that _**backward
-    incompatible**_ changes to the public API are possible -- even
-    if unlikely -- in any (*pre-release*) versions, _**until**_ the
+    incompatible**_ changes to the public API are possible, even
+    if unlikely, in any (*pre-release*) versions -- _**until**_ the
     final _**1.0.0**_ version is released.
 
 ## General Remarks
@@ -13,19 +13,19 @@
 The `certlib.log` library is compatible with Python 3.10 and all newer
 versions of Python.
 
-An **important definition**: whenever this document refers to
-_**undefined behavior**_, this should be understood to mean: *the
-API makes no guarantees about what will happen -- an exception or
-a malfunction is likely.*
+**Important definition**: whenever this document refers to _**undefined
+behavior**_, this should be understood to mean: *the API makes no
+guarantees about what will happen -- an exception or a malfunction
+is likely.*
 
-Unless otherwise specified, using the library in a way that
-contravenes the documented API results in *undefined behavior*.
+Unless otherwise specified, using the library in a way that contravenes
+the documented API will result in *undefined behavior*.
 
 !!! exclusion "Interface exclusion"
 
     The following elements/features are _**not**_ part of the API (so,
-    in particular, they may change or disappear in *minor* or *patch*
-    versions of the library):
+    in particular, they may change -- or be removed if applicable --
+    in *minor* or *patch* versions of the library):
 
     * any elements *not* documented in this *API reference* as well as
       elements that appear only in source code excerpts (available via
@@ -42,7 +42,7 @@ contravenes the documented API results in *undefined behavior*.
       documentation -- *undefined behavior* is expected (see
       the definition above);
 
-    * the *unofficial* support for Python 3.9.
+    * *unofficial* support for Python 3.9.
 
 ***
 

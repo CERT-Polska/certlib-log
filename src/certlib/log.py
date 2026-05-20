@@ -640,6 +640,16 @@ logging, but -- what using the [`xm`][] tool makes possible -- with the
 modern and convenient [`{}`-based style of message formatting](https://docs.python.org/3/library/string.html#format-string-syntax)
 (rather than the legacy, less convenient and less powerful, `%`-based one).
 
+!!! note
+
+    What we are discussing here concerns formatting *text messages*
+    themselves (i.e., the contents of log records’ `message`), rather
+    than *entire log entries* (in which `message` is just a field). Note
+    that the latter is completely orthogonal to the former. Whereas the
+    standard tools provided by the `logging` module [*do* support](https://docs.python.org/3/library/logging.html#formatter-objects)
+    the `{}`-based formatting style for the latter, they do *not* support
+    it for the former.
+
 ```python
 import datetime as dt
 import logging
@@ -987,7 +997,7 @@ class StructuredLogsFormatter(logging.Formatter):
 
         If the three call signatures defined by the
         **[`StructuredLogsFormatter`][]** constructor seem
-        overwhelming, don't worry. In most cases, you will
+        overwhelming, do not worry. In most cases, you will
         only really be interested in the first one (the
         *main* signature). The details are provided below.
 
@@ -2623,17 +2633,26 @@ class ExtendedMessage:
 
         When it comes to the arguments **`exc_info`**, **`stack_info`**
         and **`stacklevel`**, they should *not* be included in that
-        mapping. Each of them, if to be specified, should *only* be
-        specified as a real keyword argument. Putting any of them in
-        that mapping will result in undefined behavior.
+        mapping (doing so will result in undefined behavior). Each of
+        them, if to be specified, should *only* be specified as a real
+        keyword argument.
+
+    !!! warning "Interface restriction"
+
+        A [`string.templatelib.Template`][] object (which is typically
+        created by evaluating a *[t-string](https://docs.python.org/3/library/stdtypes.html#stdtypes-tstrings)*)
+        should *not* be passed as the *first positional argument*
+        (doing so will result in undefined behavior). This possibility
+        is reserved for future versions of `certlib.log`, in which
+        dedicated support for such objects may be provided.
 
     !!! warning "Interface restriction"
 
         If you pass a **`stack_info`** and/or **`stacklevel`** argument
         to the **[`ExtendedMessage`][]** (**[`xm`][]**) constructor, you
         should *not* pass **`stack_info`** or **`stacklevel`** to the
-        related [logger method call](https://docs.python.org/3/library/logging.html#logging.Logger.debug);
-        doing so will result in undefined behavior.
+        related [logger method call](https://docs.python.org/3/library/logging.html#logging.Logger.debug)
+        (doing so will result in undefined behavior).
 
         ```python
         # All WRONG (!!!):
@@ -2673,7 +2692,7 @@ class ExtendedMessage:
         as the first positional argument to a [logger method
         call](https://docs.python.org/3/library/logging.html#logging.Logger.debug),
         you should *not* pass to that call any other *positional*
-        arguments; doing so will result in undefined behavior.
+        arguments (doing so will result in undefined behavior).
 
         ```python
         # WRONG (!!!):
@@ -3418,7 +3437,7 @@ class OutputSerializer(Protocol):
     !!! info "Typing details"
 
         In the above `__call__()` signature, as everywhere else, the
-        **[`OutputValue`][]** element is just an alias of [`Any`][]
+        **[`OutputValue`][]** element is just an alias for [`Any`][]
         (see below).
     """
     def __call__(self, output_data: dict[str, OutputValue], /) -> str: ...
@@ -3464,9 +3483,10 @@ which is used to annotate top-level *values* in *output data* dicts.
     !!! info "Typing details"
 
         Accurately expressing the above requirement using static
-        types is hardly possible (at least without making things
-        overly complicated). This is why **[`OutputValue`][]** is
-        defined just as an alias of the [`Any`][] special type.
+        types would be difficult (at least without making things
+        overly complicated), so that approach is not taken. Instead,
+        **[`OutputValue`][]** is defined just as an alias for the
+        [`Any`][] special type.
 """
 
 

@@ -10,8 +10,8 @@ The *public API* is documented in the [API Reference](https://certlib-log.readth
 
     The `certlib.log` library is currently in the _**beta**_ stage
     of development. This means, in particular, that _**backward
-    incompatible**_ changes to the public API are possible -- even
-    if unlikely -- in any (*pre-release*) versions, _**until**_ the
+    incompatible**_ changes to the public API are possible, even
+    if unlikely, in any (*pre-release*) versions -- _**until**_ the
     final _**1.0.0**_ version is released.
 
 
