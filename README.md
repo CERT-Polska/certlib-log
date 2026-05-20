@@ -1,9 +1,9 @@
 # certlib.log
 
-`certlib.log` is a library that extends the standard [logging](https://docs.python.org/3/library/logging.html)
-toolset -- making it possible to introduce _**structured logging**_ with
-minimal fuss, and/or use the modern _**`{}`-based style**_ of log message
-formatting, among _**other things**_...
+...is a library that extends the standard [logging](https://docs.python.org/3/library/logging.html)
+toolset. It allows you to introduce _**structured logging**_ with minimal
+fuss, and/or leverage some other _**logging goodies**_ (e.g., `{}`-style
+message formatting).
 
 
 ## Basic Info
@@ -28,21 +28,21 @@ Python. It uses *only* the Python standard library, i.e., **it does
 The primary reason for creating `certlib.log` was to make it easier to
 configure *structured logging* across various systems created and used
 by [CERT Polska](https://cert.pl/en/) -- in a possibly consistent way
-and without spending too much time adjusting the existing stuff.
+and without requiring extensive adjustments.
 
-A **key design decision** was to build the library on top of the
-standard [logging](https://docs.python.org/3/library/logging.html)
+An important **design decision** was to build the library on top of
+the standard [logging](https://docs.python.org/3/library/logging.html)
 toolset (rather than introducing some alternative machinery).
 
-In particular, this approach **makes it possible to**:
+This approach **makes it possible to**:
 
-- start using the library in already existing projects (especially,
-  to introduce *structured logging*) without changing a single line
-  of code;
+- start using the library in existing projects (especially, to enable
+  *structured logging*) -- without changing a single line of code;
 
 - gradually introduce selected features offered by the library
-  (such as `{}`-style message formatting, message-less logging of pure
-  data, or setting log entry fields automatically, e.g., from [context
+  (such as [`{}`-style](https://docs.python.org/3/library/string.html#format-string-syntax)
+  message formatting, data-only *message-less* log records, or
+  *auto-making* of log record fields -- e.g. from [context
   variables](https://docs.python.org/3/library/contextvars.html)...);
 
 - retain existing logging configuration methods (whether using an
