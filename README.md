@@ -36,8 +36,9 @@ toolset (rather than introducing some alternative machinery).
 
 This approach **makes it possible to**:
 
-- start using the library in existing projects (especially, to enable
-  *structured logging*) -- without changing a single line of code;
+- start using the library in existing projects (especially, to
+  enable *structured logging*) -- usually without changing a single
+  line of code;
 
 - gradually introduce selected features offered by the library
   (such as [`{}`-style](https://docs.python.org/3/library/string.html#format-string-syntax)
