@@ -33,7 +33,7 @@ the documented API will result in *undefined behavior*.
       messages;
 
     * specific *runtime types* of any objects bound to an element
-      of the API (variable, attribute, parameter or call result),
+      of the API (a variable, attribute, parameter or call result),
       *provided that* they remain correct with respect to the
       element's type annotation, according to the [static typing
       rules](https://typing.python.org/en/latest/spec/index.html);
