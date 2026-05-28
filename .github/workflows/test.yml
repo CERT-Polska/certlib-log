@@ -57,18 +57,12 @@ jobs:
       uses: actions/setup-python@v6
       with:
         python-version: '3.9'
-        cache: 'pip'
-        cache-dependency-path: tests/test-requirements.txt
 
     - name: Install pytest
       run: |
         python3 -m pip install --upgrade pip
         python3 -m pip install --use-pep517 'pytest>=8.0'
 
-    - name: Adjust certain files
-      run: |
-        sed -E -i -e 's/9.0/8.0/g' .pytest.toml
-
     - name: Test with pytest
       run: |
-        pytest
+        pytest -ra --doctest-modules src/certlib tests
