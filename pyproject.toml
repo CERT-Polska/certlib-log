@@ -8,7 +8,7 @@
 name = "certlib-log"
 dynamic = ["version", "optional-dependencies"]
 description = """\
-    A library extending the standard logging toolbox \
+    A library extending the standard logging toolset \
     (e.g., facilitating structured logging with minimal fuss).\
 """
 # TODO: update this after dropping unofficial support for Py3.9:

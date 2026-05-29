@@ -32,23 +32,23 @@ and without requiring extensive adjustments.
 
 An important **design decision** was to build the library on top of
 the standard [logging](https://docs.python.org/3/library/logging.html)
-toolset (rather than introducing some alternative machinery).
+mechanisms (rather than introducing alternative machinery).
 
 This approach **makes it possible to**:
 
-- start using the library in existing projects (especially, to
-  enable *structured logging*) -- usually without changing a single
-  line of code;
+- just start using the library in existing projects (especially, to
+  enable [*structured logging*](https://certlib-log.readthedocs.io/page/guide/#certlib.log--tldr-how-to-quickly-enable-structured-logging))
+  -- usually without changing a single line of code;
 
-- gradually introduce selected features offered by the library
-  (such as [`{}`-style](https://docs.python.org/3/library/string.html#format-string-syntax)
-  message formatting, data-only *message-less* log records, or
-  *auto-making* of log record fields -- e.g. from [context
-  variables](https://docs.python.org/3/library/contextvars.html)...);
+- depending on the needs, gradually introduce selected features provided
+  by the library (such as [*`{}`-style*](https://certlib-log.readthedocs.io/page/guide/#certlib.log--modern-formatting-style)
+  message formatting, data-only [*message-less*](https://certlib-log.readthedocs.io/page/guide/#certlib.log--dealing-with-pure-data)
+  log records, or [*auto-making*](https://certlib-log.readthedocs.io/page/reference/#certlib.log.register_log_record_attr_auto_maker)
+  of log record fields, e.g., from [context variables](https://docs.python.org/3/library/contextvars.html)...);
 
-- retain existing logging configuration methods (whether using an
-  [`*.ini` file](https://docs.python.org/3/library/logging.config.html#configuration-file-format),
-  or loading a [configuration dictionary](https://docs.python.org/3/library/logging.config.html#configuration-dictionary-schema)).
+- retain existing logging configuration methods (whether
+  using an [`*.ini` file](https://docs.python.org/3/library/logging.config.html#configuration-file-format)
+  or loading a [configuration dict](https://docs.python.org/3/library/logging.config.html#logging.config.dictConfig)).
 
 
 ## Examples
