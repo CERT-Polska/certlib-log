@@ -1039,14 +1039,15 @@ class StructuredLogsFormatter(logging.Formatter):
 
     !!! note
 
-        The type of each *output data* dict (passed to **`serializer`**)
+        The type of every *output data* dict (taken by **`serializer`**)
         is annotated as **`dict[str, OutputValue]`** -- where, essentially,
-        **[`OutputValue`][]** denotes all types of values that might be
-        returned by the (actually used) implementation of the
-        **[`prepare_value`][]** method.
+        the **[`OutputValue`][]** element denotes all types of values
+        that might be returned by the actual implementation of the
+        **[`prepare_value`][]** method. In other words, that method
+        is what determines those types.
 
-        Note that the default implementation of that method always returns
-        [`json.dumps`][]-serializable values.
+        Note that the default implementation of that method always
+        returns values of [`json.dumps`][]-compatible types.
 
     !!! warning "Interface restriction"
 
