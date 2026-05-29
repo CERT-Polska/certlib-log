@@ -1,7 +1,7 @@
 # certlib.log
 
 ...is a library that extends the standard [logging](https://docs.python.org/3/library/logging.html)
-toolbox. It allows you to introduce _**structured logging**_ with minimal
+toolset. It allows you to introduce _**structured logging**_ with minimal
 fuss, and/or leverage some other _**logging goodies**_ (e.g., `{}`-style
 message formatting).
 

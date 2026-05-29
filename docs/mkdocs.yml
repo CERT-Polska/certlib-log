@@ -1,6 +1,6 @@
 site_name: "Documentation for certlib.log"
 site_url: "https://certlib-log.readthedocs.io"
-site_description: "The documentation for `certlib.log` - a library extending the standard `logging` toolbox (e.g., facilitating structured logging with minimal fuss)."
+site_description: "The documentation for `certlib.log` - a library that extends the standard `logging` toolset (e.g., facilitating structured logging with minimal fuss)."
 
 copyright: "Copyright (c) 2026, CERT Polska. All rights reserved. License: BSD-3-Clause."
 repo_url: "https://github.com/CERT-Polska/certlib-log"
