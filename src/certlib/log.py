@@ -1307,6 +1307,11 @@ class StructuredLogsFormatter(logging.Formatter):
           `exc_text` attribute is possibly set to a value returned by
           `formatException`);
 
+        * if the log record's `exc_info` attribute is a `(None, None,
+          None)` tuple, then it is treated as if it were *falsy* (the
+          `formatException` method if not invoked, and the log record's
+          `exc_text` attribute is *not* set);
+
         * the string returned by `formatMessage` becomes the return value
           of *this* method (so this method *never* appends to that string
           any *formatted traceback* or *formatted stack information*, and
@@ -1321,7 +1326,7 @@ class StructuredLogsFormatter(logging.Formatter):
           log record is an instance of [`ExtendedMessage`][] ([`xm`][]),
           then that instance's [`get_message_value`][ExtendedMessage.get_message_value]
           method is invoked (directly), *instead* of the log record's
-          method [`getMessage`][logging.LogRecord.getMessage].
+          method [`getMessage`][logging.LogRecord.getMessage];
         """
         # (Compare to the source code of `logging.Formatter.format()`...)
         msg = getattr(record, 'msg', None)
@@ -1342,7 +1347,9 @@ class StructuredLogsFormatter(logging.Formatter):
             record.message = record.getMessage()
         if self.usesTime():
             record.asctime = self.formatTime(record, self.datefmt)
-        if record.exc_info and not record.exc_text:
+        if (record.exc_info
+              and record.exc_info != (None, None, None)
+              and not record.exc_text):
             record.exc_text = self.formatException(record.exc_info)
         return self.formatMessage(record)
 
