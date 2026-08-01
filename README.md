@@ -36,11 +36,11 @@ mechanisms (rather than introducing alternative machinery).
 
 This approach **makes it possible to**:
 
-- just start using the library in existing projects (especially, to
-  enable [*structured logging*](https://certlib-log.readthedocs.io/page/guide/#certlib.log--tldr-how-to-quickly-enable-structured-logging))
-  -- usually without changing a single line of code;
+- just start using the library in existing projects -- especially, to
+  enable [*structured logging*](https://certlib-log.readthedocs.io/page/guide/#certlib.log--tldr-how-to-quickly-enable-structured-logging)
+  (usually, without changing a single line of code);
 
-- depending on the needs, gradually introduce selected features provided
+- depending on the needs, gradually introduce other features provided
   by the library (such as [*`{}`-style*](https://certlib-log.readthedocs.io/page/guide/#certlib.log--modern-formatting-style)
   message formatting, data-only [*message-less*](https://certlib-log.readthedocs.io/page/guide/#certlib.log--dealing-with-pure-data)
   log records, or [*auto-making*](https://certlib-log.readthedocs.io/page/reference/#certlib.log.register_log_record_attr_auto_maker)
@@ -63,16 +63,16 @@ logging.config.dictConfig({
         "structured": {
             "()": "certlib.log.StructuredLogsFormatter",
             "defaults": {
-                # Each key in this dict should be an *output data* key.
-                # Each value should specify the respective *default value*.
+                # * Each key in this dict should be an *output data* key.
+                # * Each value should specify the respective *default value*.
                 "system": "MyExample",
                 "component": "MyAPI",
                 "component_type": "web"
             },
             "auto_makers": {
-                # Each key in this dict should be an *output data* key.
-                # Each value should specify an *argumentless callable*
-                # (for example, the `get()` method of some `ContextVar`).
+                # * Each key in this dict should be an *output data* key.
+                # * Each value should specify an *argumentless callable*
+                #   (for example, the `get()` method of some `ContextVar`).
                 "client_ip": "myexample.myapi.client_ip_context_var.get",
                 "nano_time": "time.time_ns"
             }
@@ -94,7 +94,7 @@ logging.config.dictConfig({
 })
 ```
 
-### Logging Stuff With *`{}`-Formatted Text Message* or *No Text Message*
+### Logging with *`{}`-Formatted Text Message* or *No Text Message*
 
 ```python
 import datetime as dt

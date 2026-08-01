@@ -13,14 +13,6 @@
 The `certlib.log` library is compatible with Python 3.10 and all newer
 versions of Python.
 
-**Important definition**: whenever this document refers to _**undefined
-behavior**_, this should be understood to mean: *the API makes no
-guarantees about what will happen -- an exception or a malfunction
-is likely.*
-
-Unless otherwise specified, using the library in a way that contravenes
-the documented API will result in *undefined behavior*.
-
 !!! exclusion "Interface exclusion"
 
     The following elements/features are _**not**_ part of the API (so,
@@ -40,9 +32,16 @@ the documented API will result in *undefined behavior*.
 
     * specific behaviors in cases where -- according to the
       documentation -- *undefined behavior* is expected (see
-      the definition above);
+      the definition below);
 
     * *unofficial* support for Python 3.9.
+
+**Important**: whenever this document refers to _**undefined behavior**_,
+this should be understood to mean: *the API makes no guarantees about
+what will happen -- an exception or a malfunction is likely.*
+
+In particular, unless otherwise specified, using the library in a way
+that contravenes the documented API will result in *undefined behavior*.
 
 ***
 
@@ -115,7 +114,7 @@ the documented API will result in *undefined behavior*.
 !!! note
 
     In your day-to-day work with the `certlib.log` library, you do not
-    need to delve into this stuff.
+    need to delve too deeply into this stuff.
 
 !!! exclusion "Interface exclusion"
 
