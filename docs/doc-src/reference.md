@@ -95,13 +95,6 @@ that contravenes the documented API will result in *undefined behavior*.
 
 ***
 
-::: certlib.log.COMMONLY_EXPECTED_NON_STANDARD_OUTPUT_KEYS
-    handler: python
-    options:
-      heading_level: 2
-
-***
-
 ::: certlib.log.STANDARD_RECORD_ATTR_TO_OUTPUT_KEY
     handler: python
     options:
@@ -157,3 +150,24 @@ that contravenes the documented API will result in *undefined behavior*.
       heading: 'KwargsMappingAsLiteralEvaluableString'
       heading_level: 3
       show_signature_annotations: false
+
+::: certlib.log.ConfCorrector
+    handler: python
+    options:
+      heading: 'ConfCorrector'
+      heading_level: 3
+      members: false
+
+::: certlib.log.ConfDict
+    handler: python
+    options:
+      heading: 'ConfDict'
+      heading_level: 3
+      members: false
+
+::: certlib.log.CorrectedConfDict
+    handler: python
+    options:
+      heading: 'CorrectedConfDict'
+      heading_level: 3
+      members: false

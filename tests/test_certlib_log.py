@@ -67,7 +67,6 @@ project_root_path = pathlib.Path(__file__).resolve(strict=True).parent.parent
 sys.path.insert(0, str(project_root_path / 'src'))
 import certlib.log
 from certlib.log import (
-    COMMONLY_EXPECTED_NON_STANDARD_OUTPUT_KEYS,
     STANDARD_RECORD_ATTR_TO_OUTPUT_KEY,
     StructuredLogsFormatter,
     _clear_auto_makers_and_internal_record_hooks_related_global_state,
@@ -317,11 +316,6 @@ class ListLogHandler(logging.Handler):
 
 class ExampleSubclassOfStructuredLogsFormatter(StructuredLogsFormatter):
 
-    def get_output_keys_required_in_defaults_or_auto_makers(self) -> Set[str]:
-        return frozenset(
-            super().get_output_keys_required_in_defaults_or_auto_makers()
-        ) | {'zero'}
-
     def make_base_defaults(self) -> Mapping[str, object]:
         return dict(super().make_base_defaults()) | {
             'system': EXAMPLE_SYSTEM,
@@ -383,7 +377,7 @@ def make_StructuredLogsFormatter_subclass(   # noqa
     *,
     extra_accepted_kwarg_names: Set[str] = frozenset(),
 
-    output_keys_required_in_defaults_or_auto_makers: Set[str] | None = None,
+    output_keys_required_in_defaults_or_auto_makers: Set[str] | None = None,  # XXX
     base_defaults: Mapping[str, object] | None = None,
     base_auto_makers: Mapping[str, str | Callable[[], object]] | None = None,
     base_record_attr_to_output_key: Mapping[str, str | None] | None = None,
@@ -431,10 +425,6 @@ def make_StructuredLogsFormatter_subclass(   # noqa
                 else:
                     kwargs = _without_extra_accepted_kwargs(kwargs)
                 super().__init__(*args, **kwargs)
-
-        if output_keys_required_in_defaults_or_auto_makers is not None:
-            def get_output_keys_required_in_defaults_or_auto_makers(self):
-                return output_keys_required_in_defaults_or_auto_makers
 
         if base_defaults is not None:
             def make_base_defaults(self):
@@ -676,9 +666,10 @@ class TestStructuredLogsFormatter:
 
         make_StructuredLogsFormatter_subclass(
             extra_accepted_kwarg_names={'some_unused'},
-            output_keys_required_in_defaults_or_auto_makers=(
-                COMMONLY_EXPECTED_NON_STANDARD_OUTPUT_KEYS - {'component_type'}
-            ),
+            ### XXX
+            # output_keys_required_in_defaults_or_auto_makers=(
+            #     COMMONLY_EXPECTED_NON_STANDARD_OUTPUT_KEYS - {'component_type'}
+            # ),
             # (Examples of non-dict mappings)
             base_defaults=collections.ChainMap({
                 # (See `formatter_init_kwargs` fixture's params...)
@@ -1179,6 +1170,7 @@ class TestStructuredLogsFormatter:
                 # * Formatter factory:
                 make_StructuredLogsFormatter_subclass(
                     extra_accepted_kwarg_names={'foo', 'bar'},
+                    ### XXX
                     output_keys_required_in_defaults_or_auto_makers=frozenset({
                         'a',
                         'b',
@@ -1244,6 +1236,7 @@ class TestStructuredLogsFormatter:
             (
                 # * Formatter factory:
                 make_StructuredLogsFormatter_subclass(
+                    ### XXX
                     output_keys_required_in_defaults_or_auto_makers=frozenset({
                         'a',
                         'b',
@@ -1350,6 +1343,7 @@ class TestStructuredLogsFormatter:
             (
                 # * Formatter factory:
                 make_StructuredLogsFormatter_subclass(
+                    ### XXX
                     output_keys_required_in_defaults_or_auto_makers=frozenset(),
                     base_defaults={},
                     base_auto_makers={},
@@ -2200,6 +2194,7 @@ class TestStructuredLogsFormatter:
             (
                 # (missing *output data* keys: 'bb', 'qq')
                 make_StructuredLogsFormatter_subclass(
+                    ### XXX
                     output_keys_required_in_defaults_or_auto_makers=frozenset({
                         'a',
                         'b',
@@ -2245,6 +2240,7 @@ class TestStructuredLogsFormatter:
         [
             (
                 make_StructuredLogsFormatter_subclass(
+                    ### XXX
                     output_keys_required_in_defaults_or_auto_makers=frozenset(),
                     base_defaults={   # noqa
                         42: 'whatever',   # type: ignore[dict-item]
@@ -2273,6 +2269,7 @@ class TestStructuredLogsFormatter:
             ),
             (
                 make_StructuredLogsFormatter_subclass(
+                    ### XXX
                     output_keys_required_in_defaults_or_auto_makers=frozenset(),
                     base_auto_makers={   # noqa
                         42: ConstantValueAutoMaker('whatever'),   # type: ignore[dict-item]
@@ -2333,6 +2330,7 @@ class TestStructuredLogsFormatter:
         [
             (
                 make_StructuredLogsFormatter_subclass(
+                    ### XXX
                     output_keys_required_in_defaults_or_auto_makers=frozenset(),
                     base_defaults={
                         'D' * 201: 'whatever',
@@ -2361,6 +2359,7 @@ class TestStructuredLogsFormatter:
             ),
             (
                 make_StructuredLogsFormatter_subclass(
+                    ### XXX
                     output_keys_required_in_defaults_or_auto_makers=frozenset(),
                     base_auto_makers={
                         'A' * 201: ConstantValueAutoMaker('whatever'),
@@ -4928,6 +4927,7 @@ class TestSnippetsInDocumentation:
         snippet_finder.lookup(substring='# All WRONG (!!!):')
         snippet_finder.lookup(substring='__call__() -> Value')
         snippet_finder.lookup(substring='__call__(output_data')
+        snippet_finder.lookup(substring='__call__(conf_dict')
 
     @pytest.fixture(scope='class')
     def client_ip_context_var(self) -> contextvars.ContextVar[ipaddress.IPv4Address]:
@@ -4965,7 +4965,13 @@ class TestSnippetsInDocumentation:
     def customized_formatter_cls_module_and_name(self) -> tuple[str, str] | None:
         return None
 
-    @pytest.fixture(params=['imperative', 'dictConfig', 'fileConfig'])
+    @pytest.fixture(params=[
+        'imperative',
+        'dictConfig',
+        'fileConfig',
+        'TLDR-imperative',
+        'TLDR-dictConfig',
+    ])
     def config_snippet_label(self, request) -> str:
         return request.param
 
@@ -5003,6 +5009,19 @@ class TestSnippetsInDocumentation:
                 config_snippet = snippet_finder.lookup(
                     substring='class = certlib.log.StructuredLogsFormatter',
                     syntax_label='ini',
+                    mark_as_covered=mark_as_covered,
+                )
+        elif config_snippet_label == 'TLDR-imperative':
+        # match config_snippet_label:
+        #     case 'TLDR-imperative':
+                config_snippet = snippet_finder.lookup(
+                    substring='fmt = certlib.log.StructuredLogsFormatter()',
+                    mark_as_covered=mark_as_covered,
+                )
+        elif config_snippet_label == 'TLDR-dictConfig':
+            # case 'TLDR-dictConfig':
+                config_snippet = snippet_finder.lookup(
+                    substring='logging.config.dictConfig({',
                     mark_as_covered=mark_as_covered,
                 )
         else:
@@ -5098,14 +5117,17 @@ class TestSnippetsInDocumentation:
         # a few items by using `AnyOfType` placeholders.)
         items: dict[str, Any] = {
             'func': '<module>',
-            'system': 'MyOwn',
-            'component': 'Portal',
-            'component_type': 'web',
             'timestamp': expected_utc_formatted_timestamp,
-            'client_ip': '192.168.0.123',
-            'the_answer': 42,
-            'nano_time': AnyOfType(int),
         }
+        if 'TLDR' not in config_snippet_label:
+            items |= {
+                'client_ip': '192.168.0.123',
+                'component': 'Portal',
+                'component_type': 'web',
+                'nano_time': AnyOfType(int),
+                'system': 'MyOwn',
+                'the_answer': 42,
+            }
         if config_snippet_label == 'imperative':
             # Not included in `dictConfig`/`fileConfig` config snippets:
             items['just_local_counter'] = AnyOfType(int)
@@ -5122,7 +5144,6 @@ class TestSnippetsInDocumentation:
             snippet = snippet_finder.lookup(substring, syntax_label='json')
             items = json.loads(snippet)
             items['pid'] = os.getpid()
-            items['py_ver'] = '.'.join(map(str, sys.version_info))
             if config_snippet_label != 'imperative':
                 # Not included in `dictConfig`/`fileConfig` config snippets:
                 del items['just_local_counter']
@@ -5600,20 +5621,6 @@ class TestSnippetsInDocumentation:
                 },
             },
         ]
-
-
-    def test_formatter_get_output_keys_required_in_defaults_or_auto_makers_snippet(
-        self,
-        snippet_finder,
-    ):
-        snippet = snippet_finder.lookup(substring='requirement is satisfied')
-        variables = {'StructuredLogsFormatter': StructuredLogsFormatter}
-
-        exec(snippet, variables)
-
-        f = variables.get('my_formatter')
-        assert isinstance(f, StructuredLogsFormatter)
-        assert not f.defaults
 
 
     readme_path = project_root_path / 'README.md'
