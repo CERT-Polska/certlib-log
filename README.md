@@ -38,12 +38,12 @@ This approach **makes it possible to**:
 
 - just start using the library in existing projects -- especially, to
   enable [*structured logging*](https://certlib-log.readthedocs.io/page/guide/#certlib.log--tldr-how-to-quickly-enable-structured-logging)
-  (usually, without changing a single line of code);
+  (often without changing a single line of code);
 
 - depending on the needs, gradually introduce other features provided
   by the library (such as [*`{}`-style*](https://certlib-log.readthedocs.io/page/guide/#certlib.log--modern-formatting-style)
   message formatting, data-only [*message-less*](https://certlib-log.readthedocs.io/page/guide/#certlib.log--dealing-with-pure-data)
-  log records, or [*auto-making*](https://certlib-log.readthedocs.io/page/reference/#certlib.log.register_log_record_attr_auto_maker)
+  log records, [*auto-making*](https://certlib-log.readthedocs.io/page/reference/#certlib.log.register_log_record_attr_auto_maker)
   of log record fields, e.g., from [context variables](https://docs.python.org/3/library/contextvars.html)...);
 
 - retain existing logging configuration methods (whether
@@ -53,7 +53,19 @@ This approach **makes it possible to**:
 
 ## Examples
 
-### Configuring *Structured Logging* and *Auto-Makers*
+### Minimal *Structured Logging* Setup
+
+```python
+import logging, certlib.log
+
+some_handler = logging.StreamHandler()
+some_handler.setFormatter(
+    certlib.log.StructuredLogsFormatter()
+)
+logging.getLogger().addHandler(some_handler)
+```
+
+### More Elaborate Variant, with *Auto-Makers* and *Defaults*
 
 ```python
 import logging.config
@@ -152,7 +164,7 @@ def example_with_no_text(temperature, pressure, debug_data_dict, calm=True):
             stacklevel=2,
         ))
 
-    # Single dict providing data is also OK:
+    # Providing data by passing a single dict is also OK:
     logger.debug(xm(debug_data_dict))
 ```
 

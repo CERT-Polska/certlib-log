@@ -69,7 +69,7 @@ that contravenes the documented API will result in *undefined behavior*.
         - "!^_"
         - "^__str__$"
         - "^__repr__$"
-        - "^_ensure_callable_args_and_data_items_resolved$"
+        - "^_ensure_deferred_values_created$"
       show_attribute_values: false
 
 ***

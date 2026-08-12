@@ -17,7 +17,7 @@ The *public API* is documented in the [API Reference](https://certlib-log.readth
 
 ## [Unreleased] (2026-XX-XX)
 
-- [To be documented when the final _**1.0.0**_ version is released...]
+- [TBD...]
 
 
 [Unreleased]: https://github.com/CERT-Polska/certlib-log/compare/initial-commit...main

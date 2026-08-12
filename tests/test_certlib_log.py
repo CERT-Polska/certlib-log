@@ -28,6 +28,7 @@ import math
 import operator
 import os
 import pathlib
+import random
 import re
 import sys
 import textwrap
@@ -102,6 +103,8 @@ EXAMPLE_LOGGER_NAME = 'some.example.logger'
 EXAMPLE_SYSTEM = 'My Example System'
 EXAMPLE_COMPONENT = 'some_example_parser'
 EXAMPLE_COMPONENT_TYPE = 'parser'
+EXAMPLE_PY_VER = '.'.join(map(str, (sys.version_info or ())))
+EXAMPLE_SCRIPT_ARGS = ('prog', 'arg1', 'arg2')
 
 EXAMPLE_TIMESTAMP_IN_NANOSECONDS = 1_770_903_450_848_759_680
 EXAMPLE_TIMESTAMP_FORMATTED = '2026-02-12 13:37:30.848760Z'
@@ -142,7 +145,7 @@ EXAMPLE_CUSTOM_ITEMS = {
     'my enum member...': ExampleEnum.FOO,
     'IPv4 address': ipaddress.IPv4Address('10.20.30.40'),
     'my_subdict': {
-        (1, 2): (1, (1, (1, {1: 0.0}))),
+        (1, 2): (1, (1, (1, {1: 0.0, float('inf'): float('inf')}))),
         ExampleClassWithCustomStrAndRepr(): ExampleClassWithCustomStrAndRepr(),
         42: ExampleNamedTuple(
             'Forty two! 🍀',
@@ -163,6 +166,8 @@ EXAMPLE_CUSTOM_ITEMS = {
             0,
             decimal.Decimal('123.456000'),
             2.34,
+            float('nan'),
+            -float('inf'),
             fractions.Fraction(10, -8),
         ],
         'Singletons': [None, True, False],
@@ -200,7 +205,7 @@ EXAMPLE_PREPARED_CUSTOM_OUTPUT_ITEMS = {
     'my enum member...': 'ExampleEnum.FOO',
     'IPv4 address': '10.20.30.40',
     'my_subdict': {
-        '(1, 2)': [1, [1, [1, {'1': 0.0}]]],
+        '(1, 2)': [1, [1, [1, {'1': 0.0, 'inf': 'inf'}]]],
         '-> STR <-': '-> REPR <-',
         '42': {
             'label': 'Forty two! 🍀',
@@ -221,6 +226,8 @@ EXAMPLE_PREPARED_CUSTOM_OUTPUT_ITEMS = {
             0,
             '123.456000',
             2.34,
+            'nan',
+            '-inf',
             '-5/4',
         ],
         'Singletons': [None, True, False],
@@ -377,7 +384,6 @@ def make_StructuredLogsFormatter_subclass(   # noqa
     *,
     extra_accepted_kwarg_names: Set[str] = frozenset(),
 
-    output_keys_required_in_defaults_or_auto_makers: Set[str] | None = None,  # XXX
     base_defaults: Mapping[str, object] | None = None,
     base_auto_makers: Mapping[str, str | Callable[[], object]] | None = None,
     base_record_attr_to_output_key: Mapping[str, str | None] | None = None,
@@ -495,7 +501,7 @@ class ImportableWrapper:
     @functools.cached_property
     def importable_dotted_name_unique_tip(self) -> str:
         self_id = id(self)
-        id_based_suffix = f'{abs(self_id)}:x' + ('p' if self_id >= 0 else 'n')
+        id_based_suffix = f'{abs(self_id):x}' + ('p' if self_id >= 0 else 'n')
         return f'_{type(self).__name__}_by_id_{id_based_suffix}'
 
     def __repr__(self) -> str:
@@ -537,18 +543,76 @@ class CallableImportableWrapper(ImportableWrapper):
         return self.wrapped_object(*args, **kwargs)
 
 
-ExampleSerializer = CallableImportableWrapper(
+class SimpleConfCorrector(CallableImportableWrapper):
+
+    def __new__(
+        cls,
+        *,
+        defaults: Mapping[str, Any] | Any = EMPTY_MAPPING,
+        auto_makers: Mapping[str, Any] | Any  = EMPTY_MAPPING,
+        base_record_attr_to_output_key: Mapping[str, Any] | Any  = EMPTY_MAPPING,
+        serializer: Any | None = None,
+        required_keys: Set[str] = frozenset(),
+        _prng=random.Random('** arbitrary deterministic seed **'),
+    ) -> Self:
+
+        def _get_updated(orig, changes):
+            updated: dict[str, Any]
+            if changes is sentinel.DELETE_ALL:
+                updated = {}
+            else:
+                updated = deepcopy(dict(orig))
+                for key, val in changes.items():
+                    if val == sentinel.DELETE:
+                        del updated[key]
+                    else:
+                        updated[key] = val
+            if _prng.choice([True, False]):
+                # (Example of non-dict mapping)
+                return types.MappingProxyType(updated)
+            return updated
+
+        def conf_corrector_impl(conf):
+            corrected_conf: dict[str, Any] = {
+                'defaults': _get_updated(
+                    conf['defaults'],
+                    defaults,
+                ),
+                'auto_makers': _get_updated(
+                    conf['auto_makers'],
+                    auto_makers,
+                ),
+                'base_record_attr_to_output_key': _get_updated(
+                    conf['base_record_attr_to_output_key'],
+                    base_record_attr_to_output_key,
+                ),
+                'serializer': (
+                    conf['serializer'] if serializer is None
+                    else serializer
+                ),
+            }
+            all_required_keys = required_keys | set(
+                conf['conf_corrector_params'].get('extra_required_keys', ())
+            )
+            all_provided_keys = (
+                corrected_conf['defaults'].keys()
+                | corrected_conf['auto_makers'].keys()
+            )
+            missing_keys = all_required_keys - all_provided_keys
+            if missing_keys:
+                raise ValueError(f'{missing_keys=}')
+            return corrected_conf
+
+        return super().__new__(cls, conf_corrector_impl)
+
+
+example_serializer = CallableImportableWrapper(
     functools.partial(
         json.dumps,
         indent=4,
         sort_keys=True,
     ),
 )
-
-
-
-
-
 
 
 @dataclasses.dataclass(frozen=True)
@@ -601,7 +665,6 @@ def get_output_base(
 
     logger = EXAMPLE_LOGGER_NAME
     pid = os.getpid()
-    py_ver = '.'.join(map(str, sys.version_info))
     timestamp = EXAMPLE_TIMESTAMP_FORMATTED
 
     return {
@@ -612,8 +675,6 @@ def get_output_base(
         'logger': logger,
         'pid': pid,
         'process_name': AnyOfType(str),
-        'py_ver': py_ver,
-        'script_args': AnyOfType(list),
         'src': AnyOfType(str),
         'thread_id': AnyOfType(int),
         'thread_name': AnyOfType(str),
@@ -666,10 +727,6 @@ class TestStructuredLogsFormatter:
 
         make_StructuredLogsFormatter_subclass(
             extra_accepted_kwarg_names={'some_unused'},
-            ### XXX
-            # output_keys_required_in_defaults_or_auto_makers=(
-            #     COMMONLY_EXPECTED_NON_STANDARD_OUTPUT_KEYS - {'component_type'}
-            # ),
             # (Examples of non-dict mappings)
             base_defaults=collections.ChainMap({
                 # (See `formatter_init_kwargs` fixture's params...)
@@ -702,7 +759,7 @@ class TestStructuredLogsFormatter:
                 'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT).importable_dotted_name,
                 'component_type': ConstantValueAutoMaker(EXAMPLE_COMPONENT_TYPE),
             },
-            serializer=ExampleSerializer,
+            serializer=example_serializer,
         ),
         dict(
             defaults=types.MappingProxyType({
@@ -719,6 +776,31 @@ class TestStructuredLogsFormatter:
                 'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT),
                 'component_type': ConstantValueAutoMaker(EXAMPLE_COMPONENT_TYPE),
             }),
+        ),
+        dict(
+            defaults={
+                'component': {'...not-used...'},
+            },
+            auto_makers={
+                'component_type': ConstantValueAutoMaker(EXAMPLE_COMPONENT_TYPE),
+            },
+            serializer=(
+                # Not a valid serializer, yet it will be overridden by
+                # the `conf_corrector`-provided serializer (see below).
+                'time.time'
+            ),
+            conf_corrector=SimpleConfCorrector(
+                defaults={
+                    'system': EXAMPLE_SYSTEM,
+                },
+                auto_makers=types.MappingProxyType({
+                    # (Example of non-dict mapping)
+                    'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT).importable_dotted_name,
+                }),
+                serializer=example_serializer,
+                required_keys={'system', 'component', 'component_type'},
+            ),
+            conf_corrector_params={'Nu!': 'My Liege!'},
         ),
     ])
     def formatter_init_kwargs(
@@ -962,12 +1044,91 @@ class TestStructuredLogsFormatter:
                 # * Formatter factory:
                 StructuredLogsFormatter,
                 # * Arguments:
+                dict(),
+                # * Expected public attributes:
+                dict(
+                    defaults={},
+                    auto_makers={},
+                    auto_made_record_attr_prefix=AnyOfType(str),
+                    record_attr_to_output_key={
+                        **STANDARD_RECORD_ATTR_TO_OUTPUT_KEY,
+                    },
+                    serializer=json.dumps,
+                ),
+            ),
+            (
+                # * Formatter factory:
+                StructuredLogsFormatter,
+                # * Arguments:
+                dict(
+                    defaults={},
+                    auto_makers={},
+                    serializer=example_serializer,
+                    conf_corrector=SimpleConfCorrector(),
+                    conf_corrector_params={},
+                ),
+                # * Expected public attributes:
+                dict(
+                    defaults={},
+                    auto_makers={},
+                    auto_made_record_attr_prefix=AnyOfType(str),
+                    record_attr_to_output_key={
+                        **STANDARD_RECORD_ATTR_TO_OUTPUT_KEY,
+                    },
+                    serializer=example_serializer,
+                ),
+            ),
+            (
+                # * Formatter factory:
+                make_StructuredLogsFormatter_subclass(
+                    base_defaults={},
+                    base_auto_makers={},
+                    base_record_attr_to_output_key={},
+                ),
+                # * Arguments:
+                dict(),
+                # * Expected public attributes:
+                dict(
+                    defaults={},
+                    auto_makers={},
+                    auto_made_record_attr_prefix=AnyOfType(str),
+                    record_attr_to_output_key={},
+                    serializer=json.dumps,
+                ),
+            ),
+            (
+                # * Formatter factory:
+                StructuredLogsFormatter,
+                # * Arguments:
+                dict(
+                    defaults=collections.ChainMap({
+                        # (Example of non-dict mapping)
+                        'system': None,          # (*void* value)
+                        'component': None,       # (*void* value)
+                        'component_type': None,  # (*void* value)
+                    }),
+                ),
+                # * Expected public attributes:
+                dict(
+                    defaults={},
+                    auto_makers={},
+                    auto_made_record_attr_prefix=AnyOfType(str),
+                    record_attr_to_output_key={
+                        **STANDARD_RECORD_ATTR_TO_OUTPUT_KEY,
+                    },
+                    serializer=json.dumps,
+                ),
+            ),
+            (
+                # * Formatter factory:
+                StructuredLogsFormatter,
+                # * Arguments:
                 dict(
                     defaults={
                         'system': EXAMPLE_SYSTEM,
                         'component_type': EXAMPLE_COMPONENT_TYPE,
                         'vege': ['mar', 'chew', 'ka'],
-                        'void_value_that_will_be_omitted': [],  # ("void" value)
+                        'void_value_that_will_be_omitted': [],
                         'xyz': {('pom', 'i', 'dor'): 1111},
                         'D' * 200: {'L' * 10000: ['L' * 10000]},
                     },
@@ -977,7 +1138,7 @@ class TestStructuredLogsFormatter:
                         'foo': ConstantValueAutoMaker(None),
                         'zero': ConstantValueAutoMaker(0).importable_dotted_name,
                     }),
-                    serializer=ExampleSerializer,
+                    serializer=example_serializer,
                 ),
                 # * Expected public attributes:
                 dict(
@@ -991,8 +1152,6 @@ class TestStructuredLogsFormatter:
                     auto_makers={
                         'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT),
                         'foo': ConstantValueAutoMaker(None),
-                        'py_ver': AnyOfType(Function),
-                        'script_args': AnyOfType(Function),
                         'zero': ConstantValueAutoMaker(0),
                     },
                     auto_made_record_attr_prefix=AnyOfType(str),
@@ -1000,11 +1159,9 @@ class TestStructuredLogsFormatter:
                         **STANDARD_RECORD_ATTR_TO_OUTPUT_KEY,
                         '<PREFIX>component': 'component',
                         '<PREFIX>foo': 'foo',
-                        '<PREFIX>py_ver': 'py_ver',
-                        '<PREFIX>script_args': 'script_args',
                         '<PREFIX>zero': 'zero',
                     },
-                    serializer=ExampleSerializer,
+                    serializer=example_serializer,
                 ),
             ),
             (
@@ -1012,26 +1169,81 @@ class TestStructuredLogsFormatter:
                 StructuredLogsFormatter,
                 # * Arguments:
                 dict(
-                    defaults=collections.ChainMap({
-                        # (Example of non-dict mapping)
-                        'system': None,          # ("void" value)
-                        'component': None,       # ("void" value)
-                        'component_type': None,  # ("void" value)
-                    }),
+                    conf_corrector=SimpleConfCorrector(
+                        defaults={
+                            'system': EXAMPLE_SYSTEM,
+                            'component_type': EXAMPLE_COMPONENT_TYPE,
+                            'vege': ['mar', 'chew', 'ka'],
+                            'void_value_that_will_be_omitted': [],
+                            'xyz': {('pom', 'i', 'dor'): 1111},
+                            'D' * 200: {'L' * 10000: ['L' * 10000]},
+                        },
+                        auto_makers=types.MappingProxyType({
+                            # (Example of non-dict mapping)
+                            'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT),
+                            'foo': ConstantValueAutoMaker(None),
+                            'zero': ConstantValueAutoMaker(0).importable_dotted_name,
+                        }),
+                        serializer=example_serializer,
+                    ),
                 ),
                 # * Expected public attributes:
                 dict(
-                    defaults={},
+                    defaults={
+                        'system': EXAMPLE_SYSTEM,
+                        'component_type': EXAMPLE_COMPONENT_TYPE,
+                        'vege': ['mar', 'chew', 'ka'],
+                        'xyz': {"('pom', 'i', 'dor')": 1111},
+                        'D' * 200: {'L' * 200: ['L' * 10000]},
+                    },
                     auto_makers={
-                        'py_ver': AnyOfType(Function),
-                        'script_args': AnyOfType(Function),
+                        'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT),
+                        'foo': ConstantValueAutoMaker(None),
+                        'zero': ConstantValueAutoMaker(0),
                     },
                     auto_made_record_attr_prefix=AnyOfType(str),
                     record_attr_to_output_key={
                         **STANDARD_RECORD_ATTR_TO_OUTPUT_KEY,
-                        '<PREFIX>py_ver': 'py_ver',
-                        '<PREFIX>script_args': 'script_args',
+                        '<PREFIX>component': 'component',
+                        '<PREFIX>foo': 'foo',
+                        '<PREFIX>zero': 'zero',
                     },
+                    serializer=example_serializer,
+                ),
+            ),
+            (
+                # * Formatter factory:
+                StructuredLogsFormatter,
+                # * Arguments:
+                dict(
+                    defaults={
+                        'system': EXAMPLE_SYSTEM,
+                        'component_type': EXAMPLE_COMPONENT_TYPE,
+                        'vege': ['mar', 'chew', 'ka'],
+                        'void_value_that_will_be_omitted': [],
+                        'xyz': {('pom', 'i', 'dor'): 1111},
+                        'D' * 200: {'L' * 10000: ['L' * 10000]},
+                    },
+                    auto_makers=types.MappingProxyType({
+                        # (Example of non-dict mapping)
+                        'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT),
+                        'foo': ConstantValueAutoMaker(None),
+                        'zero': ConstantValueAutoMaker(0).importable_dotted_name,
+                    }),
+                    serializer=example_serializer,
+                    conf_corrector=SimpleConfCorrector(
+                        defaults=sentinel.DELETE_ALL,
+                        auto_makers=sentinel.DELETE_ALL,
+                        base_record_attr_to_output_key=sentinel.DELETE_ALL,
+                        serializer='json.dumps',
+                    ),
+                ),
+                # * Expected public attributes:
+                dict(
+                    defaults={},
+                    auto_makers={},
+                    auto_made_record_attr_prefix=AnyOfType(str),
+                    record_attr_to_output_key={},
                     serializer=json.dumps,
                 ),
             ),
@@ -1047,6 +1259,14 @@ class TestStructuredLogsFormatter:
                         'A' * 200: ConstantValueAutoMaker('L' * 10000),
                     },
                     serializer='json.dumps',
+                    conf_corrector=SimpleConfCorrector(
+                        auto_makers={
+                            'py_ver': (
+                                ConstantValueAutoMaker(EXAMPLE_PY_VER).importable_dotted_name
+                            ),
+                            'script_args': lambda: EXAMPLE_SCRIPT_ARGS,
+                        },
+                    ),
                 ),
                 # * Expected public attributes:
                 dict(
@@ -1055,7 +1275,7 @@ class TestStructuredLogsFormatter:
                         'system': ConstantValueAutoMaker(None),
                         'component': ConstantValueAutoMaker(None),
                         'component_type': ConstantValueAutoMaker(None),
-                        'py_ver': AnyOfType(Function),
+                        'py_ver': ConstantValueAutoMaker(EXAMPLE_PY_VER),
                         'script_args': AnyOfType(Function),
                         'A' * 200: ConstantValueAutoMaker('L' * 10000),
                     },
@@ -1087,21 +1307,45 @@ class TestStructuredLogsFormatter:
                     },
                     auto_makers={
                         'component': AnyOfType(Function),
-                        'py_ver': AnyOfType(Function),
-                        'script_args': AnyOfType(Function),
                         'zero': AnyOfType(Function),
                     },
                     auto_made_record_attr_prefix=AnyOfType(str),
-                    record_attr_to_output_key=types.MappingProxyType({
-                        # (Example of non-dict mapping)
+                    record_attr_to_output_key={
                         **STANDARD_RECORD_ATTR_TO_OUTPUT_KEY,
                         'attr_name_with_typo': 'attr_name_without_typo',
                         'one_silly_undesired_attr': None,
                         '<PREFIX>component': 'component',
-                        '<PREFIX>py_ver': 'py_ver',
-                        '<PREFIX>script_args': 'script_args',
                         '<PREFIX>zero': 'zero',
-                    }),
+                    },
+                    serializer=json.dumps,
+                ),
+            ),
+            (
+                # * Formatter factory:
+                ExampleSubclassOfStructuredLogsFormatter,
+                # * Arguments:
+                dict(
+                    conf_corrector=SimpleConfCorrector(
+                        base_record_attr_to_output_key=sentinel.DELETE_ALL,
+                    ),
+                ),
+                # * Expected public attributes:
+                dict(
+                    defaults={
+                        'component_type': EXAMPLE_COMPONENT_TYPE,
+                        'system': EXAMPLE_SYSTEM,
+                        'xyz': '2026-04-27',
+                        'zero': ['a default TO BE OVERRIDDEN...'],
+                    },
+                    auto_makers={
+                        'component': AnyOfType(Function),
+                        'zero': AnyOfType(Function),
+                    },
+                    auto_made_record_attr_prefix=AnyOfType(str),
+                    record_attr_to_output_key={
+                        '<PREFIX>component': 'component',
+                        '<PREFIX>zero': 'zero',
+                    },
                     serializer=json.dumps,
                 ),
             ),
@@ -1129,7 +1373,17 @@ class TestStructuredLogsFormatter:
                         'component_type': ConstantValueAutoMaker('czegoś tam'),
                         'xyz': ConstantValueAutoMaker(dt.date(2026, 4, 27)),
                     }),
-                    serializer=ExampleSerializer.importable_dotted_name,
+                    serializer=(
+                        # Not a valid serializer, yet it will be overridden by
+                        # the `conf_corrector`-provided serializer (see below).
+                        'time.time'
+                    ),
+                    conf_corrector=(
+                        SimpleConfCorrector(
+                            required_keys={'component', 'vege', 'zero'},
+                            serializer=example_serializer.importable_dotted_name,
+                        ).importable_dotted_name
+                    ),
                 ),
                 # * Expected public attributes:
                 dict(
@@ -1146,8 +1400,6 @@ class TestStructuredLogsFormatter:
                     auto_makers={
                         'component': ConstantValueAutoMaker('coś tam'),
                         'component_type': ConstantValueAutoMaker('czegoś tam'),
-                        'py_ver': AnyOfType(Function),
-                        'script_args': AnyOfType(Function),
                         'xyz': ConstantValueAutoMaker(dt.date(2026, 4, 27)),
                         'zero': AnyOfType(Function),
                     },
@@ -1158,58 +1410,53 @@ class TestStructuredLogsFormatter:
                         'one_silly_undesired_attr': None,
                         '<PREFIX>component': 'component',
                         '<PREFIX>component_type': 'component_type',
-                        '<PREFIX>py_ver': 'py_ver',
-                        '<PREFIX>script_args': 'script_args',
                         '<PREFIX>xyz': 'xyz',
                         '<PREFIX>zero': 'zero',
                     },
-                    serializer=ExampleSerializer,
+                    serializer=example_serializer,
                 ),
             ),
             (
                 # * Formatter factory:
                 make_StructuredLogsFormatter_subclass(
                     extra_accepted_kwarg_names={'foo', 'bar'},
-                    ### XXX
-                    output_keys_required_in_defaults_or_auto_makers=frozenset({
-                        'a',
-                        'b',
-                        'qq',
-                    }),
                     base_defaults={
                         'a': 0.0,
+                        'abcdefgh': 'ijklmnop',
                         'd': {'ddd': 'DDD'},
-                        'qq': None,    # ("void" value)
-                        'ryq': None,   # ("void" value)
-                        'napa': None,  # ("void" value)
-                        'tyku': None,  # ("void" value)
+                        'qq': None,    # (*void* value)
+                        'ryq': None,   # (*void* value)
+                        'napa': None,  # (*void* value)
+                        'tyku': None,  # (*void* value)
                         'D' * 200: {'L' * 10000: ['L' * 10000]},
                     },
                     base_auto_makers={
                         'b': ConstantValueAutoMaker('bbb'),
                         'napa': ConstantValueAutoMaker('N'),
                         'tyku': ConstantValueAutoMaker('T'),
+                        'qwerty': ConstantValueAutoMaker('asdfgh'),
                         'A' * 200: ConstantValueAutoMaker('L' * 10000),
                     },
                     base_record_attr_to_output_key={
-                        'a': 'A',
+                        'a': 'A???',
                         'c': 'C',
                         'tyku': 'qqryq napatyku',
                         'R' * 10000: 'K' * 200,
                     },
-                    prepare_value_kwargs=dict(to_str_types=(float,)),
+                    prepare_value_kwargs=dict(to_str_types=(float, dt.time)),
                     prepare_submapping_key=(lambda key: f'-*-{key!r}-*-'),
                 ),
                 # * Arguments:
                 dict(
                     foo=["FOO"],
                     bar={"BAR": 42},
-                    serializer=ExampleSerializer,
+                    serializer='json.dumps',
                 ),
                 # * Expected public attributes:
                 dict(
                     defaults={
                         'a': '0.0',
+                        'abcdefgh': 'ijklmnop',
                         'd': {"-*-'ddd'-*-": 'DDD'},
                         'D' * 200: {f"-*-{'L' * 10000!r}-*-": ['L' * 10000]},
                     },
@@ -1218,41 +1465,123 @@ class TestStructuredLogsFormatter:
                         'napa': ConstantValueAutoMaker('N'),
                         'tyku': ConstantValueAutoMaker('T'),
                         'A' * 200: ConstantValueAutoMaker('L' * 10000),
+                        'qwerty': ConstantValueAutoMaker('asdfgh'),
                     },
                     auto_made_record_attr_prefix=AnyOfType(str),
                     record_attr_to_output_key={
-                        'a': 'A',
+                        'a': 'A???',
                         'c': 'C',
                         'tyku': 'qqryq napatyku',
                         'R' * 10000: 'K' * 200,
                         '<PREFIX>b': 'b',
                         '<PREFIX>napa': 'napa',
                         '<PREFIX>tyku': 'tyku',
+                        '<PREFIX>qwerty': 'qwerty',
                         f"<PREFIX>{'A' * 200}": 'A' * 200,
                     },
-                    serializer=ExampleSerializer,
+                    serializer=json.dumps,
                 ),
             ),
             (
                 # * Formatter factory:
                 make_StructuredLogsFormatter_subclass(
-                    ### XXX
-                    output_keys_required_in_defaults_or_auto_makers=frozenset({
-                        'a',
-                        'b',
-                        'qq',
-                        'ryq',
-                        'napa',
-                        'tyku',
-                    }),
+                    extra_accepted_kwarg_names={'foo', 'bar'},
+                    base_defaults={
+                        'a': 0.0,
+                        'abcdefgh': 'ijklmnop',
+                        'd': {'ddd': 'DDD'},
+                        'qq': None,    # (*void* value)
+                        'ryq': None,   # (*void* value)
+                        'napa': None,  # (*void* value)
+                        'tyku': None,  # (*void* value)
+                        'D' * 200: {'L' * 10000: ['L' * 10000]},
+                    },
+                    base_auto_makers={
+                        'b': ConstantValueAutoMaker('bbb'),
+                        'napa': ConstantValueAutoMaker('N'),
+                        'tyku': ConstantValueAutoMaker('T'),
+                        'qwerty': ConstantValueAutoMaker('asdfgh'),
+                        'A' * 200: ConstantValueAutoMaker('L' * 10000),
+                    },
+                    base_record_attr_to_output_key={
+                        'a': 'A???',
+                        'c': 'C',
+                        'tyku': 'qqryq napatyku',
+                        'R' * 10000: 'K' * 200,
+                    },
+                    prepare_value_kwargs=dict(to_str_types=(float, dt.time)),
+                    prepare_submapping_key=(lambda key: f'-*-{key!r}-*-'),
+                ),
+                # * Arguments:
+                dict(
+                    foo=["FOO"],
+                    bar={"BAR": 42},
+                    serializer='json.dumps',
+                    conf_corrector=SimpleConfCorrector(
+                        defaults={
+                            'a': 999999.42,
+                            'abcdefgh': sentinel.DELETE,
+                            'ryq': 'mój ty basałyku',
+                            'A ja?': 42,
+                        },
+                        auto_makers={
+                            'qwerty': sentinel.DELETE,
+                            'zxcvbn': ConstantValueAutoMaker(12345678),
+                        },
+                        base_record_attr_to_output_key={
+                            'a': 'A',
+                            'aaaa': 'AAAA',
+                        },
+                        required_keys={
+                            'a',
+                            'b',
+                        },
+                        serializer=example_serializer,
+                    ),
+                ),
+                # * Expected public attributes:
+                dict(
+                    defaults={
+                        'a': '999999.42',
+                        'd': {"-*-'ddd'-*-": 'DDD'},
+                        'D' * 200: {f"-*-{'L' * 10000!r}-*-": ['L' * 10000]},
+                        'ryq': 'mój ty basałyku',
+                        'A ja?': 42,
+                    },
+                    auto_makers={
+                        'b': ConstantValueAutoMaker('bbb'),
+                        'napa': ConstantValueAutoMaker('N'),
+                        'tyku': ConstantValueAutoMaker('T'),
+                        'A' * 200: ConstantValueAutoMaker('L' * 10000),
+                        'zxcvbn': ConstantValueAutoMaker(12345678),
+                    },
+                    auto_made_record_attr_prefix=AnyOfType(str),
+                    record_attr_to_output_key={
+                        'a': 'A',
+                        'aaaa': 'AAAA',
+                        'c': 'C',
+                        'tyku': 'qqryq napatyku',
+                        'R' * 10000: 'K' * 200,
+                        '<PREFIX>b': 'b',
+                        '<PREFIX>napa': 'napa',
+                        '<PREFIX>tyku': 'tyku',
+                        '<PREFIX>zxcvbn': 'zxcvbn',
+                        f"<PREFIX>{'A' * 200}": 'A' * 200,
+                    },
+                    serializer=example_serializer,
+                ),
+            ),
+            (
+                # * Formatter factory:
+                make_StructuredLogsFormatter_subclass(
                     base_defaults=types.MappingProxyType({
                         # (Example of non-dict mapping)
                         'a': 0.0,
                         'ryq': 'Na-na-na-na-na...',
-                        'tyku': None,  # ("void" value)
+                        'tyku': None,  # (*void* value)
                         'v': 1.0,
-                        'zebra-1': [],  # ("void" value)
-                        'zebra-2': {},  # ("void" value)
+                        'zebra-1': [],  # (*void* value)
+                        'zebra-2': {},  # (*void* value)
                         'zebra-3': ['Three shall be the number thou shalt count'],
                     }),
                     base_auto_makers=collections.ChainMap({
@@ -1266,7 +1595,7 @@ class TestStructuredLogsFormatter:
                         'c': 'C',
                         'tyku': 'qqryq napatyku',
                     }),
-                    prepare_value_kwargs=dict(to_str_types=(float,)),
+                    prepare_value_kwargs=dict(to_str_types=(float, dt.time)),
                     prepare_submapping_key=(lambda key: f'-*-{key!r}-*-'),
                 ),
                 # * Arguments:
@@ -1274,19 +1603,29 @@ class TestStructuredLogsFormatter:
                     defaults=collections.ChainMap({
                         # (Example of non-dict mapping)
                         'd': {'ddd': 'DDD'},
-                        'qq': None,  # ("void" value)
-                        'ryq': None,  # ("void" value)
-                        'napa': None,  # ("void" value)
+                        'qq': None,  # (*void* value)
+                        'ryq': None,  # (*void* value)
+                        'napa': None,  # (*void* value)
                         'v': 2.0,
-                        'zebra-1': '',  # ("void" value)
+                        'zebra-1': '',  # (*void* value)
                         'zebra-2': ['2nd'],
-                        'zebra-3': (),  # ("void" value)
+                        'zebra-3': (),  # (*void* value)
                     }),
                     auto_makers=types.MappingProxyType({
                         # (Example of non-dict mapping)
                         'b': ConstantValueAutoMaker('bbb'),
                         'napa': ConstantValueAutoMaker('N'),
                     }),
+                    conf_corrector=SimpleConfCorrector().importable_dotted_name,
+                    conf_corrector_params={
+                        'extra_required_keys': {
+                            'a',
+                            'b',
+                            'v',
+                            'napa',
+                            'tyku',
+                        },
+                    },
                 ),
                 # * Expected public attributes:
                 dict(
@@ -1316,48 +1655,107 @@ class TestStructuredLogsFormatter:
             (
                 # * Formatter factory:
                 make_StructuredLogsFormatter_subclass(
-                    base_defaults=types.MappingProxyType({
+                    base_defaults={
+                        'system': 'Śmystem',
+                        'późno ⏰': dt.time(23, 59),
+                        'void_value_that_will_be_omitted': [],
+                        'xyz': {('pom', 'i', 'dor'): 1111},
+                        'D' * 200: 'Macarron?',
+                    },
+                    base_auto_makers=collections.ChainMap({
                         # (Example of non-dict mapping)
-                        'system': None,          # ("void" value)
-                        'component': None,       # ("void" value)
-                        'component_type': None,  # ("void" value)
+                        'component_type': ConstantValueAutoMaker(EXAMPLE_COMPONENT_TYPE),
+                        'zero': ConstantValueAutoMaker(777777777).importable_dotted_name,
                     }),
-                    base_auto_makers={},
+                    base_record_attr_to_output_key=types.MappingProxyType({
+                        # (Example of non-dict mapping)
+                        'strawberries': '🍓🍓',
+                        'tomatoes': '🍅🍅🍅',
+                    }),
+                    prepare_value_kwargs=dict(to_str_types=(float, dt.time)),
+                    prepare_submapping_key=(lambda key: f'-*-{key!r}-*-'),
                 ),
                 # * Arguments:
                 dict(
-                    defaults={},
-                    auto_makers={},
+                    defaults={
+                        'system': EXAMPLE_SYSTEM,
+                        'vege': ['mar', 'chew', 'ka'],
+                        'D' * 200: 'No, Chacarron.',
+                    },
+                    auto_makers=types.MappingProxyType({
+                        # (Example of non-dict mapping)
+                        'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT),
+                        'zero': ConstantValueAutoMaker('𝋠'),
+                    }),
+                    serializer=CallableImportableWrapper(json.dumps),
+                    conf_corrector=SimpleConfCorrector(
+                        defaults={
+                            'component_type': 'Ni!',
+                            'component': 123.456,
+                            'vege': ['🥕', '🥒', '🍅'],
+                            'void_value_that_will_be_omitted': {},
+                            'xyz': {('pom', 'i', 'dor'): {'🍅': '🚪'}},
+                            'D' * 200: {'L' * 10000: ['L' * 10000]},
+                        },
+                        auto_makers=types.MappingProxyType({
+                            # (Example of non-dict mapping)
+                            'foo': ConstantValueAutoMaker(None),
+                            'późno ⏰': ConstantValueAutoMaker(dt.time(22, 22)),
+                            'zero': ConstantValueAutoMaker(0).importable_dotted_name,
+                        }),
+                        base_record_attr_to_output_key=collections.ChainMap({
+                            # (Example of non-dict mapping)
+                            'cucumbers': '🥒🥒🥒🥒',
+                            'strawberries': '🍓🍓🍓🍓🍓',
+                        }),
+                        serializer=example_serializer,
+                    ),
+                    conf_corrector_params={
+                        'extra_required_keys': {
+                            'system',
+                            'component_type',
+                            'component',
+                            'foo',
+                            'późno ⏰',
+                            'vege',
+                            'xyz',
+                            'zero',
+                            'D' * 200,
+                        },
+                    },
                 ),
                 # * Expected public attributes:
                 dict(
-                    defaults={},
-                    auto_makers={},
+                    defaults={
+                        'system': EXAMPLE_SYSTEM,
+                        'component_type': 'Ni!',
+                        'component': '123.456',
+                        'późno ⏰': '23:59:00',
+                        'vege': ['🥕', '🥒', '🍅'],
+                        'xyz': {
+                            "-*-('pom', 'i', 'dor')-*-": {"-*-'🍅'-*-": '🚪'},
+                        },
+                        'D' * 200: {f"-*-{'L' * 10000!r}-*-": ['L' * 10000]},
+                    },
+                    auto_makers={
+                        'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT),
+                        'component_type': ConstantValueAutoMaker(EXAMPLE_COMPONENT_TYPE),
+                        'foo': ConstantValueAutoMaker(None),
+                        'późno ⏰': ConstantValueAutoMaker(dt.time(22, 22)),
+                        'zero': ConstantValueAutoMaker(0),
+                    },
                     auto_made_record_attr_prefix=AnyOfType(str),
                     record_attr_to_output_key={
-                        **STANDARD_RECORD_ATTR_TO_OUTPUT_KEY,
+                        'cucumbers': '🥒🥒🥒🥒',
+                        'strawberries': '🍓🍓🍓🍓🍓',
+                        'tomatoes': '🍅🍅🍅',
+                        '<PREFIX>component': 'component',
+                        '<PREFIX>component_type': 'component_type',
+                        '<PREFIX>foo': 'foo',
+                        '<PREFIX>późno ⏰': 'późno ⏰',
+                        '<PREFIX>zero': 'zero',
                     },
-                    serializer=json.dumps,
-                ),
-            ),
-            (
-                # * Formatter factory:
-                make_StructuredLogsFormatter_subclass(
-                    ### XXX
-                    output_keys_required_in_defaults_or_auto_makers=frozenset(),
-                    base_defaults={},
-                    base_auto_makers={},
-                    base_record_attr_to_output_key={},
-                ),
-                # * Arguments:
-                dict(),
-                # * Expected public attributes:
-                dict(
-                    defaults={},
-                    auto_makers={},
-                    auto_made_record_attr_prefix=AnyOfType(str),
-                    record_attr_to_output_key={},
-                    serializer=json.dumps,
+                    serializer=example_serializer,
                 ),
             ),
         ],
@@ -1395,7 +1793,7 @@ class TestStructuredLogsFormatter:
         }
         assert actual_public_attrs == expected_public_attrs
         assert formatter.auto_made_record_attr_prefix.startswith(
-            StructuredLogsFormatter._COMMON_PART_OF_PER_FORMATTER_AUTO_MADE_RECORD_ATTR_PREFIX
+            StructuredLogsFormatter.COMMON_AUTO_PREFIX
         )
 
 
@@ -1410,11 +1808,6 @@ class TestStructuredLogsFormatter:
                 StructuredLogsFormatter,
                 dict(
                     foo=42,  # (unrecognized argument)
-                    defaults={
-                        'system': None,
-                        'component': None,
-                        'component_type': None,
-                    },
                 ),
             ),
             (
@@ -1434,7 +1827,15 @@ class TestStructuredLogsFormatter:
                         'foo': ConstantValueAutoMaker(None),
                         'zero': ConstantValueAutoMaker(0).importable_dotted_name,
                     },
-                    serializer=ExampleSerializer,
+                    serializer=example_serializer,
+                    conf_corrector=SimpleConfCorrector().importable_dotted_name,
+                    conf_corrector_params={
+                        'extra_required_keys': {
+                            'system',
+                            'component',
+                            'component_type',
+                        },
+                    },
                 ),
             ),
             (
@@ -1690,11 +2091,7 @@ class TestStructuredLogsFormatter:
 
                 # Mapping of kwargs to be passed as first positional arg
                 dict(
-                    defaults={
-                        'system': None,
-                        'component': None,
-                        'component_type': None,
-                    },
+                    defaults={},
                 ),
 
                 # Real **kwargs
@@ -1717,7 +2114,15 @@ class TestStructuredLogsFormatter:
                         'foo': ConstantValueAutoMaker(None),
                         'zero': ConstantValueAutoMaker(0).importable_dotted_name,
                     },
-                    serializer=ExampleSerializer,
+                    serializer=example_serializer,
+                    conf_corrector=SimpleConfCorrector(
+                        required_keys={
+                            'system',
+                            'component_type',
+                            'component',
+                        },
+                    ),
+                    conf_corrector_params={'Nu!': 'My Liege!'},
                 ),
 
                 # Real **kwargs
@@ -1734,7 +2139,15 @@ class TestStructuredLogsFormatter:
                         'foo': ConstantValueAutoMaker(None),
                         'zero': ConstantValueAutoMaker(0).importable_dotted_name,
                     },
-                    serializer=ExampleSerializer,
+                    serializer=example_serializer,
+                    conf_corrector=SimpleConfCorrector(
+                        required_keys={
+                            'system',
+                            'component_type',
+                            'component',
+                        },
+                    ),
+                    conf_corrector_params={'Nu!': 'My Liege!'},
                 ),
             ),
             (
@@ -2008,7 +2421,7 @@ class TestStructuredLogsFormatter:
                             'component': unresolvable_dotted_path,
                             'component_type': ConstantValueAutoMaker(EXAMPLE_COMPONENT_TYPE),
                         },
-                        serializer=ExampleSerializer,
+                        serializer=example_serializer,
                     ),
                 ),
                 (
@@ -2065,7 +2478,7 @@ class TestStructuredLogsFormatter:
                             'component': wrong_auto_maker,
                             'component_type': ConstantValueAutoMaker(EXAMPLE_COMPONENT_TYPE),
                         },
-                        serializer=ExampleSerializer,
+                        serializer=example_serializer,
                     ),
                 ),
                 (
@@ -2099,16 +2512,7 @@ class TestStructuredLogsFormatter:
         # (Overriding fixture)
         'formatter_init_kwargs',
         [
-            dict(
-                defaults={
-                    'system': EXAMPLE_SYSTEM,
-                },
-                auto_makers={
-                    'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT_TYPE),
-                    'component_type': ConstantValueAutoMaker(EXAMPLE_COMPONENT_TYPE),
-                },
-                serializer=unresolvable_dotted_path,
-            )
+            dict(serializer=unresolvable_dotted_path)
             for unresolvable_dotted_path in [
                 'some_NON_EXISTENT_MODULE.whatever',
                 'collections.abc.some_NON_EXISTENT_OBJECT',
@@ -2127,16 +2531,7 @@ class TestStructuredLogsFormatter:
         # (Overriding fixture)
         'formatter_init_kwargs',
         [
-            dict(
-                defaults={
-                    'system': EXAMPLE_SYSTEM,
-                },
-                auto_makers={
-                    'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT_TYPE),
-                    'component_type': ConstantValueAutoMaker(EXAMPLE_COMPONENT_TYPE),
-                },
-                serializer=wrong_serializer,
-            )
+            dict(serializer=wrong_serializer)
             for wrong_serializer in [
                 # (both wrong, as being/pointing to a *non-callable* object)
                 ImportableWrapper(None),
@@ -2153,6 +2548,45 @@ class TestStructuredLogsFormatter:
 
 
     @pytest.mark.parametrize(
+        # (Overriding fixture)
+        'formatter_init_kwargs',
+        [
+            dict(conf_corrector=unresolvable_dotted_path)
+            for unresolvable_dotted_path in [
+                'some_NON_EXISTENT_MODULE.whatever',
+                'collections.abc.some_NON_EXISTENT_OBJECT',
+            ]
+        ],
+    )
+    def test_init_with_unresolvable_conf_corrector_dotted_path_raises_value_error(
+        self,
+        make_formatter,
+    ):
+        with pytest.raises(ValueError, match=r'cannot resolve dotted_path='):
+            make_formatter()
+
+
+    @pytest.mark.parametrize(
+        # (Overriding fixture)
+        'formatter_init_kwargs',
+        [
+            dict(conf_corrector=wrong_conf_corrector)
+            for wrong_conf_corrector in [
+                # (both wrong, as being/pointing to a *non-callable* object)
+                ImportableWrapper(None),
+                ImportableWrapper(None).importable_dotted_name,
+            ]
+        ],
+    )
+    def test_init_with_non_callable_conf_corrector_raises_type_error(
+        self,
+        make_formatter,
+    ):
+        with pytest.raises(TypeError, match=r'conf.*corrector.*not.*callable'):
+            make_formatter()
+
+
+    @pytest.mark.parametrize(
         (
             # (Overriding these fixtures)
             'formatter_factory',
@@ -2160,7 +2594,6 @@ class TestStructuredLogsFormatter:
         ),
         [
             (
-                # (missing *output data* key: 'component')
                 StructuredLogsFormatter,
                 dict(
                     defaults={
@@ -2169,40 +2602,58 @@ class TestStructuredLogsFormatter:
                     auto_makers={
                         'component_type': ConstantValueAutoMaker(EXAMPLE_COMPONENT_TYPE),
                     },
-                    serializer=ExampleSerializer,
+                    serializer=example_serializer,
+                    conf_corrector=SimpleConfCorrector(
+                        required_keys={
+                            'system',
+                            'component_type',
+                            'component',       # <- missing
+                        },
+                    ),
+                    conf_corrector_params={'Nu!': 'My Liege!'},
                 ),
             ),
             (
-                # (missing *output data* key: 'system')
                 StructuredLogsFormatter,
                 dict(
                     defaults={
                         'component': EXAMPLE_COMPONENT_TYPE,
                         'component_type': EXAMPLE_COMPONENT_TYPE,
                     },
+                    conf_corrector=(
+                        SimpleConfCorrector(
+                            required_keys={
+                                'system',      # <- missing
+                                'component_type',
+                                'component',
+                            },
+                        ).importable_dotted_name
+                    ),
                 ),
             ),
             (
-                # (missing *output data* keys: 'system' and 'component_type')
                 StructuredLogsFormatter,
                 dict(
                     auto_makers={
                         'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT),
+                    },
+                    conf_corrector=SimpleConfCorrector(
+                        auto_makers={
+                            'system': ConstantValueAutoMaker(EXAMPLE_SYSTEM),
+                        },
+                    ),
+                    conf_corrector_params={
+                        'extra_required_keys': {
+                            'system',
+                            'component_type',  # <- missing
+                            'component',
+                        },
                     },
                 ),
             ),
             (
                 # (missing *output data* keys: 'bb', 'qq')
                 make_StructuredLogsFormatter_subclass(
-                    ### XXX
-                    output_keys_required_in_defaults_or_auto_makers=frozenset({
-                        'a',
-                        'b',
-                        'bb',
-                        'c',
-                        'qq',
-                        'QQ',
-                    }),
                     base_defaults={
                         'a': 0.0,
                     },
@@ -2219,16 +2670,39 @@ class TestStructuredLogsFormatter:
                     auto_makers={
                         'c': ConstantValueAutoMaker('ccc'),
                     },
+                    conf_corrector=SimpleConfCorrector(
+                        required_keys={
+                            'a',
+                            'b',
+                            'bb',
+                            'c',
+                            'qq',
+                            'QQ',
+                        },
+                    ),
                 ),
             ),
         ],
     )
-    def test_init_with_missing_defaults_or_auto_makers_key_causes_key_error(
+    def test_init_with_conf_corrector_raising_error(
         self,
         make_formatter,
     ):
-        with pytest.raises(KeyError, match=r'missing default .* auto-maker'):
+        # Note: the particular *correctors* used in this test raise a
+        # `ValueError` as shown below -- but other *correctors* could
+        # raise entirely different exceptions.
+        with pytest.raises(ValueError, match=r'missing_keys='):
             make_formatter()
+
+
+    @pytest.mark.skip('...test not implemented yet...')
+    def test_init_with_conf_corrector_producing_invalid_result(
+        # TODO in particular:
+        #   * with missing keys -> KeyError...
+        #   * not a mapping -> TypeError...
+        self,
+    ):
+        TODO   # type: ignore[name-defined]
 
 
     @pytest.mark.parametrize(
@@ -2240,8 +2714,6 @@ class TestStructuredLogsFormatter:
         [
             (
                 make_StructuredLogsFormatter_subclass(
-                    ### XXX
-                    output_keys_required_in_defaults_or_auto_makers=frozenset(),
                     base_defaults={   # noqa
                         42: 'whatever',   # type: ignore[dict-item]
                         'system': EXAMPLE_SYSTEM,
@@ -2264,13 +2736,11 @@ class TestStructuredLogsFormatter:
                     auto_makers={
                         'component_type': ConstantValueAutoMaker(EXAMPLE_COMPONENT_TYPE),
                     },
-                    serializer=ExampleSerializer,
+                    serializer=example_serializer,
                 ),
             ),
             (
                 make_StructuredLogsFormatter_subclass(
-                    ### XXX
-                    output_keys_required_in_defaults_or_auto_makers=frozenset(),
                     base_auto_makers={   # noqa
                         42: ConstantValueAutoMaker('whatever'),   # type: ignore[dict-item]
                         'component_type': ConstantValueAutoMaker(EXAMPLE_COMPONENT_TYPE),
@@ -2330,8 +2800,6 @@ class TestStructuredLogsFormatter:
         [
             (
                 make_StructuredLogsFormatter_subclass(
-                    ### XXX
-                    output_keys_required_in_defaults_or_auto_makers=frozenset(),
                     base_defaults={
                         'D' * 201: 'whatever',
                         'system': EXAMPLE_SYSTEM,
@@ -2354,13 +2822,11 @@ class TestStructuredLogsFormatter:
                     auto_makers={
                         'component_type': ConstantValueAutoMaker(EXAMPLE_COMPONENT_TYPE),
                     },
-                    serializer=ExampleSerializer,
+                    serializer=example_serializer,
                 ),
             ),
             (
                 make_StructuredLogsFormatter_subclass(
-                    ### XXX
-                    output_keys_required_in_defaults_or_auto_makers=frozenset(),
                     base_auto_makers={
                         'A' * 201: ConstantValueAutoMaker('whatever'),
                         'component_type': ConstantValueAutoMaker(EXAMPLE_COMPONENT_TYPE),
@@ -2898,8 +3364,6 @@ class TestStructuredLogsFormatter:
                     defaults={
                         'message_base': '...NOT-to-be-used...',
                         'Sir Lancelot': '...NOT-to-be-used-either...',
-                        'py_ver': '.'.join(map(str, sys.version_info)),
-                        'script_args': ['...whatever...'],
                     },
                     auto_makers={
                         'message': ConstantValueAutoMaker('message from auto-maker'),
@@ -2962,7 +3426,6 @@ class TestStructuredLogsFormatter:
                     },
                     base_auto_makers={
                         'component_type': ConstantValueAutoMaker(EXAMPLE_COMPONENT_TYPE),
-                        'py_ver': ConstantValueAutoMaker('.'.join(map(str, sys.version_info))),
                         'err': ConstantValueAutoMaker('from auto-maker'),
                     },
                     base_record_attr_to_output_key={
@@ -2982,7 +3445,6 @@ class TestStructuredLogsFormatter:
                         ),
                     },
                     auto_makers={
-                        'script_args': ConstantValueAutoMaker(('...whatever...',)),
                         'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT),
                     },
                 ),
@@ -3575,6 +4037,22 @@ class TestStructuredLogsFormatter:
             assert stack_lines[-i].endswith(suffix)
 
 
+    @pytest.mark.skip('...test not implemented yet...')
+    def test_log_with_formatTime_obtaining_non_none_datefmt_causes_printing_type_error_to_stderr(  # noqa
+        self,
+    ):
+        TODO   # type: ignore[name-defined]
+
+
+    @pytest.mark.skip('...test not implemented yet...')
+    def test_multiple_formatters_used_simultaneously_work_independently_of_each_other(
+        # TODO: in particular, each uses the stuff produced by its own *auto-makers*,
+        #       ignoring any stuff produced by other formatter instances.
+        self,
+    ):
+        TODO   # type: ignore[name-defined]
+
+
     @pytest.mark.parametrize(
         (
             # (Overriding these fixtures)
@@ -3616,7 +4094,7 @@ class TestStructuredLogsFormatter:
                         ),
                         'xyz': ConstantValueAutoMaker(dt.date(2026, 4, 27)),
                     },
-                    serializer=ExampleSerializer.importable_dotted_name,
+                    serializer=example_serializer.importable_dotted_name,
                 ),
             ),
             (
@@ -4692,13 +5170,6 @@ class TestStructuredLogsFormatter:
 
 
     @pytest.mark.skip('...test not implemented yet...')
-    def test_log_with_formatTime_obtaining_non_none_datefmt_causes_printing_type_error_to_stderr(
-        self,
-    ):
-        TODO   # type: ignore[name-defined]
-
-
-    @pytest.mark.skip('...test not implemented yet...')
     def test_unregister_auto_makers(
         self,
     ):
@@ -4801,29 +5272,40 @@ class TestSnippetsInDocumentation:
             self,
             substring: str,
             *,
+            no_substring: str | None = None,
             syntax_label: str = 'python',
             mark_as_covered: bool = True,
         ) -> str:
 
+            def matches(snippet) -> bool:
+                return (
+                    snippet.syntax_label == syntax_label
+                    and substring in snippet.dedented_content
+                    and (
+                        no_substring is None
+                        or no_substring not in snippet.dedented_content
+                    )
+                )
+
             matching_snippets = [
                 snippet
                 for snippet in self._all_snippets_sorted_by_start_lineno
-                if (snippet.syntax_label == syntax_label
-                    and substring in snippet.dedented_content)
+                if matches(snippet)
             ]
             if not matching_snippets:
                 raise AssertionError(
                     f'no matching snippet found in {self._source_descr} '
-                    f'({syntax_label=}, {substring=})'
+                    f'({syntax_label=}, {substring=}, {no_substring=})'
                 )
             try:
                 [the_snippet] = matching_snippets
             except ValueError as exc:
                 listing = '\n'.join(map(str, matching_snippets))
                 raise AssertionError(
-                    f'{len(matching_snippets)} (more than one) '
-                    f'matching snippets found in {self._source_descr} '
-                    f'({syntax_label=}, {substring=}):\n\n{listing}'
+                    f'{len(matching_snippets)} matching snippets '
+                    f'(more than one) found in {self._source_descr} '
+                    f'({syntax_label=}, {substring=}, {no_substring=}):'
+                    f'\n\n{listing}'
                 ) from exc
 
             if mark_as_covered:
@@ -4927,7 +5409,7 @@ class TestSnippetsInDocumentation:
         snippet_finder.lookup(substring='# All WRONG (!!!):')
         snippet_finder.lookup(substring='__call__() -> Value')
         snippet_finder.lookup(substring='__call__(output_data')
-        snippet_finder.lookup(substring='__call__(conf_dict')
+        snippet_finder.lookup(substring='__call__(conf: ConfDict)')
 
     @pytest.fixture(scope='class')
     def client_ip_context_var(self) -> contextvars.ContextVar[ipaddress.IPv4Address]:
@@ -4969,8 +5451,6 @@ class TestSnippetsInDocumentation:
         'imperative',
         'dictConfig',
         'fileConfig',
-        'TLDR-imperative',
-        'TLDR-dictConfig',
     ])
     def config_snippet_label(self, request) -> str:
         return request.param
@@ -4991,10 +5471,11 @@ class TestSnippetsInDocumentation:
                 config_snippet = '\n'.join([
                     snippet_finder.lookup(
                         substring='structured_logs_formatter = StructuredLogsFormatter(',
+                        no_substring='conf_corrector',
                         mark_as_covered=mark_as_covered,
                     ),
                     snippet_finder.lookup(
-                        substring='# (continuing with the previous example)',
+                        substring='# (continuing with our main example)',
                         mark_as_covered=mark_as_covered,
                     ),
                 ])
@@ -5009,19 +5490,6 @@ class TestSnippetsInDocumentation:
                 config_snippet = snippet_finder.lookup(
                     substring='class = certlib.log.StructuredLogsFormatter',
                     syntax_label='ini',
-                    mark_as_covered=mark_as_covered,
-                )
-        elif config_snippet_label == 'TLDR-imperative':
-        # match config_snippet_label:
-        #     case 'TLDR-imperative':
-                config_snippet = snippet_finder.lookup(
-                    substring='fmt = certlib.log.StructuredLogsFormatter()',
-                    mark_as_covered=mark_as_covered,
-                )
-        elif config_snippet_label == 'TLDR-dictConfig':
-            # case 'TLDR-dictConfig':
-                config_snippet = snippet_finder.lookup(
-                    substring='logging.config.dictConfig({',
                     mark_as_covered=mark_as_covered,
                 )
         else:
@@ -5047,8 +5515,8 @@ class TestSnippetsInDocumentation:
     ) -> Callable[[], contextlib.AbstractContextManager[str]]:
 
         if config_snippet_label in ('dictConfig', 'fileConfig'):
-            # ^ Both refer to a serializer using this *importable dotted
-            # name*: 'some_package.faster_replacement_for_json_dumps'.
+            # ^ Both refer to a serializer using the *dotted path*:
+            #   'some_package.faster_replacement_for_json_dumps'.
             some_package = Module('some_package')
             some_package.faster_replacement_for_json_dumps = json.dumps
             monkeypatch.setitem(sys.modules, 'some_package', some_package)
@@ -5163,6 +5631,32 @@ class TestSnippetsInDocumentation:
         timestamp_ns = 10**3 * int(10**6 * timestamp)
         monkeypatch.setattr(logging, 'time', TimeModuleFakingProxy(timestamp_ns))
         monkeypatch.setattr(dt, 'date', self._DateClassFakingProxy(timestamp))
+
+
+    def test_user_guide_tldr_imperative_conf_snippet(
+        self,
+        monkeypatch,
+        snippet_finder,
+        get_actual_output_list,
+        expected_utc_formatted_timestamp,
+    ):
+        config_snippet = snippet_finder.lookup(
+            substring='some_handler = logging.StreamHandler()',
+        )
+        pytest.skip('...test not implemented yet...')
+
+
+    def test_user_guide_tldr_dict_conf_snippet(
+        self,
+        monkeypatch,
+        snippet_finder,
+        get_actual_output_list,
+        expected_utc_formatted_timestamp,
+    ):
+        config_snippet = snippet_finder.lookup(
+            substring='{"fmt": {"()": "certlib.log.StructuredLogsFormatter"}}',
+        )
+        pytest.skip('...test not implemented yet...')
 
 
     def test_user_guide_formatter_old_fashioned_usage_snippet(
@@ -5283,6 +5777,38 @@ class TestSnippetsInDocumentation:
         )
 
 
+    def test_user_guide_formatter_simple_subclass_snippet(
+        self,
+        monkeypatch,
+        snippet_finder,
+        get_actual_output_list,
+        expected_utc_formatted_timestamp,
+    ):
+        config_snippet = snippet_finder.lookup(
+            substring='class MyDreamFormatter(',
+        )
+        pytest.skip('...test not implemented yet...')
+
+
+    def test_user_guide_conf_corrector_snippets(
+        self,
+        monkeypatch,
+        snippet_finder,
+        get_actual_output_list,
+        expected_utc_formatted_timestamp,
+    ):
+        for substring, no_substring in [
+            ('def my_conf_corrector', 'extra_required_keys ='),
+            ('conf_corrector=my', '"platform.architecture"'),
+            ('"conf_corrector": "my', '"platform.architecture"'),
+            ('"platform.architecture"', '"conf_corrector_params":'),
+            ('"platform.architecture"', 'conf_corrector_params='),
+            ('extra_required_keys =', None),
+        ]:
+            snippet_finder.lookup(substring, no_substring=no_substring)
+        pytest.skip('...test not implemented yet...')
+
+
     def test_user_guide_xm_pure_data_snippet(
         self,
         snippet_finder,
@@ -5325,12 +5851,15 @@ class TestSnippetsInDocumentation:
         extract_and_adjust_json_snippet_items,
     ):
         joint_snippet = '\n'.join(
-            snippet_finder.lookup(substring)
-            for substring in [
-                '"Note: {} is {!r} (in {:%Y-%m})"',
-                '"Note: {0} is {1!r} (in {2:%Y-%m})"',
-                'today=dt.date.today,  # (<- function/method',
-                'today=dt.date.today,          # (<- function/method',
+            snippet_finder.lookup(
+                substring=substring,
+                no_substring=no_substring,
+            )
+            for substring, no_substring in [
+                ('"Note: {} is {!r} (in {:%Y-%m})"', None),
+                ('"Note: {0} is {1!r} (in {2:%Y-%m})"', None),
+                ('"Note: {} is {val!r} (in {today:%Y-%m})"', 'something_more=(1,'),
+                ('something_more=(1,', None),
             ]
         )
 
@@ -5396,7 +5925,7 @@ class TestSnippetsInDocumentation:
             )
         ],
     )
-    def test_formatter_format_timestamp_snippet(
+    def test_reference_formatter_format_timestamp_snippet(
         self,
         monkeypatch,
         snippet_finder,
@@ -5418,7 +5947,7 @@ class TestSnippetsInDocumentation:
             {
                 **get_output_base(level='CRITICAL'),
                 **commonly_expected_output_items,
-                'func': 'test_formatter_format_timestamp_snippet',
+                'func': 'test_reference_formatter_format_timestamp_snippet',
                 'timestamp': '2026-02-20 18:14:47.019574 EST',
             },
         ]
@@ -5434,7 +5963,7 @@ class TestSnippetsInDocumentation:
             )
         ],
     )
-    def test_formatter_prepare_value_snippet(
+    def test_reference_formatter_prepare_value_snippet(
         self,
         monkeypatch,
         snippet_finder,
@@ -5473,7 +6002,7 @@ class TestSnippetsInDocumentation:
             {
                 **get_output_base(level='INFO'),
                 **commonly_expected_output_items,
-                'func': 'test_formatter_prepare_value_snippet',
+                'func': 'test_reference_formatter_prepare_value_snippet',
                 'message': (
                     "* sentinel.EXAMPLE * "
                     "{'sub': [{'1': sentinel.spam, 24: sentinel.Bar}]} *"
@@ -5501,7 +6030,7 @@ class TestSnippetsInDocumentation:
         ]
 
 
-    def test_xm_constructor_snippets(
+    def test_reference_xm_constructor_snippets(
         self,
         snippet_finder,
         logging_configured_from_config_snippet,
@@ -5574,7 +6103,7 @@ class TestSnippetsInDocumentation:
                 {
                     **get_output_base(level='INFO'),
                     **commonly_expected_output_items,
-                    'func': 'test_xm_constructor_snippets',  # [sic!]
+                    'func': 'test_reference_xm_constructor_snippets',  # [sic!]
                     'logger': EXAMPLE_LOGGER_NAME,
                     'message': 'Foo',
                     'message_base': {
@@ -5584,7 +6113,7 @@ class TestSnippetsInDocumentation:
                 {
                     **get_output_base(level='INFO'),
                     **commonly_expected_output_items,
-                    'func': 'test_xm_constructor_snippets',  # [sic!]
+                    'func': 'test_reference_xm_constructor_snippets',  # [sic!]
                     'logger': EXAMPLE_LOGGER_NAME,
                     'message': 'Foo',
                     'message_base': {
@@ -5621,6 +6150,21 @@ class TestSnippetsInDocumentation:
                 },
             },
         ]
+
+
+    def test_reference_typed_dict_snippets(
+        self,
+        monkeypatch,
+        snippet_finder,
+        get_actual_output_list,
+        expected_utc_formatted_timestamp,
+    ):
+        for substring in [
+            '"ConfDict", {',
+            '"CorrectedConfDict", {',
+        ]:
+            snippet_finder.lookup(substring)
+        pytest.skip('...test not implemented yet...')
 
 
     readme_path = project_root_path / 'README.md'
@@ -5685,6 +6229,15 @@ class TestSnippetsInDocumentation:
                 pressure=1018,
                 debug_data_dict=deepcopy(EXAMPLE_CUSTOM_ITEMS),
             )
+
+        # Let's separately test the *minimal setup* snippet
+        # (that placed in README as the first one):
+        sub = 'some_handler = logging.StreamHandler()'
+        sub_upd = f'{sub}; some_handler.name = "stderr"'  # <- Just to ease cleanup
+        simple_snippet = snippet_finder.lookup(substring=sub).replace(sub, sub_upd)
+        with self._finally_undoing_our_tweaks_to_root_logger():
+            exec(simple_snippet, {})
+            logging.getLogger('some').warning('Here!')
 
         snippet_finder.assert_all_snippets_covered()
         readme_specific_expected_output_items = {
@@ -5793,4 +6346,26 @@ class TestSnippetsInDocumentation:
                 'logger': 'myexample.lib',
                 **EXAMPLE_PREPARED_CUSTOM_OUTPUT_ITEMS,
             },
+            {
+                # (Part of testing the *minimal setup* snippet)
+                **get_output_base(level='WARNING'),
+                'func': 'test_readme_snippets',
+                'logger': 'some',
+                'message': 'Here!',
+                'message_base': 'Here!',
+                'timestamp': expected_utc_formatted_timestamp,
+            },
         ]
+
+
+    def test_extra_non_public_opinionated_conf_corrector(
+        self,
+        monkeypatch,
+        snippet_finder,
+        get_actual_output_list,
+        expected_utc_formatted_timestamp,
+    ):
+        config_snippet = snippet_finder.lookup(
+            substring='"extra_auto_makers_from": [',
+        )
+        pytest.skip('...test not implemented yet...')
