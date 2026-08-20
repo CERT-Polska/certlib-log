@@ -1690,7 +1690,7 @@ class TestStructuredLogsFormatter:
                     serializer=CallableImportableWrapper(json.dumps),
                     conf_corrector=SimpleConfCorrector(
                         defaults={
-                            'component_type': 'Ni!',
+                            'component_type': 'with a... herring!',
                             'component': 123.456,
                             'vege': ['🥕', '🥒', '🍅'],
                             'void_value_that_will_be_omitted': {},
@@ -1728,7 +1728,7 @@ class TestStructuredLogsFormatter:
                 dict(
                     defaults={
                         'system': EXAMPLE_SYSTEM,
-                        'component_type': 'Ni!',
+                        'component_type': 'with a... herring!',
                         'component': '123.456',
                         'późno ⏰': '23:59:00',
                         'vege': ['🥕', '🥒', '🍅'],
@@ -3422,6 +3422,142 @@ class TestStructuredLogsFormatter:
             (
                 make_StructuredLogsFormatter_subclass(
                     base_defaults={
+                        'message_base': '...NOT-used...',  # (to be shadowed by *void* default)
+                        'msg': 'Ni!',
+                        'Sir Galahad': '',  # (*void* value)
+                        'system': EXAMPLE_SYSTEM,
+                    },
+                    base_auto_makers={
+                        'message_base': ConstantValueAutoMaker(''),  # (*void* value)
+                        'Sir Galahad': ConstantValueAutoMaker(()),  # (*void* value)
+                        'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT),
+                    },
+                    base_record_attr_to_output_key={
+                        **STANDARD_RECORD_ATTR_TO_OUTPUT_KEY,
+                        'Sir Galahad': 'message_base',
+                        'Sir Lancelot': 'message_base',
+                        'message_base_from_extra_dict': 'message_base',
+                    },
+                ),
+                dict(
+                    defaults={
+                        'message_base': '',  # (*void* value, shadowing that from `base_defaults`)
+                        'Sir Lancelot': None,  # (*void* value)
+                    },
+                    auto_makers={
+                        'message': ConstantValueAutoMaker(''),  # (*void* value)
+                        'Sir Lancelot': ConstantValueAutoMaker(''),  # (*void* value)
+                        'component_type': ConstantValueAutoMaker(EXAMPLE_COMPONENT_TYPE),
+                    },
+                ),
+                SpecificLogCase(
+                    lambda logger: (
+                        register_log_record_attr_auto_maker(   # noqa
+                            rec_attr='message_base',
+                            auto_maker=ConstantValueAutoMaker(None),  # (*void* value)
+                        ) or
+                        register_log_record_attr_auto_maker(   # noqa
+                            rec_attr='Sir Lancelot',
+                            auto_maker=ConstantValueAutoMaker(()),  # (*void* value)
+                        ) or
+                        register_log_record_attr_auto_maker(   # noqa
+                            rec_attr='Sir Galahad',
+                            auto_maker=ConstantValueAutoMaker(''),  # (*void* value)
+                        ) or
+                        logger.warning(   # noqa
+                            xm(
+                                'actual msg passed, {}',
+                                42,
+                                message_base='',  # (*void* value)
+                                msg=None,  # (*void* value)
+                            ),
+                            extra={
+                                'message_base_from_extra_dict': (),  # (*void* value)
+                            },
+                        )
+                    ),
+                    expected_output={
+                        **get_output_base(level='WARNING'),
+                        'message': 'actual msg passed, 42',
+                        'message_base': {
+                            'pattern': 'actual msg passed, {}',
+                        },
+                        'msg': 'Ni!',
+                        'system': EXAMPLE_SYSTEM,
+                        'component': EXAMPLE_COMPONENT,
+                        'component_type': EXAMPLE_COMPONENT_TYPE,
+                    },
+                ),
+            ),
+            (
+                make_StructuredLogsFormatter_subclass(
+                    base_defaults={
+                        'message_base': '...NOT-used...',  # (to be shadowed by *void* default)
+                        'msg': '',  # (*void* value)
+                        'Sir Galahad': '',  # (*void* value)
+                        'system': EXAMPLE_SYSTEM,
+                    },
+                    base_auto_makers={
+                        'message_base': ConstantValueAutoMaker(''),  # (*void* value)
+                        'Sir Galahad': ConstantValueAutoMaker(()),  # (*void* value)
+                        'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT),
+                    },
+                    base_record_attr_to_output_key={
+                        **STANDARD_RECORD_ATTR_TO_OUTPUT_KEY,
+                        'Sir Galahad': 'message_base',
+                        'Sir Lancelot': 'message_base',
+                        'message_base_from_extra_dict': 'message_base',
+                    },
+                ),
+                dict(
+                    defaults={
+                        'message_base': '',  # (*void* value, shadowing that from `base_defaults`)
+                        'Sir Lancelot': None,  # (*void* value)
+                    },
+                    auto_makers={
+                        'message': ConstantValueAutoMaker(''),  # (*void* value)
+                        'Sir Lancelot': ConstantValueAutoMaker(''),  # (*void* value)
+                        'component_type': ConstantValueAutoMaker(EXAMPLE_COMPONENT_TYPE),
+                    },
+                ),
+                SpecificLogCase(
+                    lambda logger: (
+                        register_log_record_attr_auto_maker(   # noqa
+                            rec_attr='message_base',
+                            auto_maker=ConstantValueAutoMaker(None),  # (*void* value)
+                        ) or
+                        register_log_record_attr_auto_maker(   # noqa
+                            rec_attr='Sir Lancelot',
+                            auto_maker=ConstantValueAutoMaker(()),  # (*void* value)
+                        ) or
+                        register_log_record_attr_auto_maker(   # noqa
+                            rec_attr='Sir Galahad',
+                            auto_maker=ConstantValueAutoMaker(''),  # (*void* value)
+                        ) or
+                        logger.warning(   # noqa
+                            xm(
+                                message_base='',  # (*void* value)
+                                msg=None,  # (*void* value)
+                            ),
+                            extra={
+                                'message_base_from_extra_dict': (
+                                    'Ekke Ekke Ekke Ekke Ptang Zoo Boing!'
+                                ),
+                            },
+                        )
+                    ),
+                    expected_output={
+                        **get_output_base(level='WARNING'),
+                        'message_base': 'Ekke Ekke Ekke Ekke Ptang Zoo Boing!',
+                        'system': EXAMPLE_SYSTEM,
+                        'component': EXAMPLE_COMPONENT,
+                        'component_type': EXAMPLE_COMPONENT_TYPE,
+                    },
+                ),
+            ),
+            (
+                make_StructuredLogsFormatter_subclass(
+                    base_defaults={
                         'exc_info': 'Ha! (from base defaults!)',
                     },
                     base_auto_makers={
@@ -3438,7 +3574,7 @@ class TestStructuredLogsFormatter:
                 ),
                 dict(
                     defaults={
-                        'system': '...to-be-overridden-by-void-values...',
+                        'system': 'Default System',
                         'exc_text': (
                             'Not-Appearing-in-this-Film, because '
                             'kwarg to xm() will override this...'
@@ -3505,7 +3641,7 @@ class TestStructuredLogsFormatter:
                         'exc_info': 'Ha! (from base defaults!)',
                         'exc_text': 'from `exc_text` kwarg to xm(): override the default',
 
-                        # (Note: no 'system'...)
+                        'system': 'Default System',
                         'component': EXAMPLE_COMPONENT,
                         'component_': {
                             "Gimli's line": 'Stick an arrow in his gob!',
@@ -4078,7 +4214,7 @@ class TestStructuredLogsFormatter:
                 StructuredLogsFormatter,
                 dict(
                     defaults={
-                        'blah_blah_blah': 2222,
+                        'blah_blah_blah': None,  # (*void* value)
                         'component_type': 'a default TO BE OVERRIDDEN...',
                         'system': EXAMPLE_SYSTEM,
                         'zero': 0,
@@ -4088,8 +4224,9 @@ class TestStructuredLogsFormatter:
                             ConstantValueAutoMaker(EXAMPLE_COMPONENT).importable_dotted_name
                         ),
                         'component_type': ConstantValueAutoMaker(EXAMPLE_COMPONENT_TYPE),
-                        'blah_blah_blah': (
-                            # (A *void* value masks the default...)
+                        'foo': ConstantValueAutoMaker(None),
+                        'system': (
+                            # (A *void* value does *not* mask the default...)
                             ConstantValueAutoMaker(None).importable_dotted_name
                         ),
                         'xyz': ConstantValueAutoMaker(dt.date(2026, 4, 27)),
@@ -4690,6 +4827,7 @@ class TestStructuredLogsFormatter:
                             'Example message - {}, {!r}, {baz:04}, {{}}',
                             'Foo', 'spam',
                             baz=42,
+                            blah_blah_blah='ut-re-mi-fa-sol-la-si',
                             something_else=[{42: 42}],
                             system='',
                         ),
@@ -4750,10 +4888,11 @@ class TestStructuredLogsFormatter:
                             'pattern': 'Example message - {}, {!r}, {baz:04}, {{}}',
                         },
                         'baz': 42,
+                        'blah_blah_blah': 'ut-re-mi-fa-sol-la-si',
                         'component': EXAMPLE_COMPONENT,
                         'component_type': EXAMPLE_COMPONENT_TYPE,
                         'something_else': [{'42': 42}],
-                        # No 'system' [sic!] (the default has been masked by a *void* value)
+                        'system': EXAMPLE_SYSTEM,  # (*not* masked by a *void* value)
                         'xyz': '2026-04-27',
                         'zero': 0,
                     },
@@ -4786,7 +4925,7 @@ class TestStructuredLogsFormatter:
                         'component': EXAMPLE_COMPONENT,   # [sic!]
                         'component_type': EXAMPLE_COMPONENT_TYPE,
                         'something_else': [{'42': 42}],
-                        # No 'system' [sic!] (the default has been masked by a *void* value)
+                        'system': EXAMPLE_SYSTEM,  # (*not* masked by a *void* value)
                         'xyz': '2026-04-27',
                         'zero': 0,
                     },

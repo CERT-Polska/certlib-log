@@ -1874,9 +1874,9 @@ class StructuredLogsFormatter(logging.Formatter):
         to it. Furthermore, whenever the result of this transformation is
         a *void* value (by which we mean any *falsy* value *not equal* to
         `0`, for example: [`None`][], `""`, `[]` or `{}` -- but _**not**_
-        [`False`][], `0`, `0.0`, etc.), then the respective key will *not*
-        be included in the *output data* dict (*even* if a *default value*
-        is defined for that key!).
+        [`False`][], `0`, `0.0`, etc.), it will *not* be included in the
+        *output data* dict (instead, the corresponding value from the
+        [`defaults`][] mapping will be included, if present in that mapping).
 
         The default implementation of this method returns an empty mapping.
 
@@ -2189,13 +2189,11 @@ class StructuredLogsFormatter(logging.Formatter):
           this transformation turns out to be a *void* value (by which
           we mean any *falsy* value *not equal* to `0`, for example:
           [`None`][], `""`, `[]` or `{}` -- but _**not:**_ [`False`][],
-          `0`, `0.0`, etc.), then the respective **key** is *excluded*
-          (*even* if it should be included according to any other rule
-          described above; and *even* if some *default value* is defined
-          for that key!); note that *nested* values, even if *void*, are
-          *never* subject to such an *exclusion* (at least if the default
-          implementations of `prepare_value` and `prepare_submapping_key`
-          are used);
+          `0`, `0.0`, etc.), then it is *excluded* (*even* if it should
+          be included according to any other rule described above); note
+          that *nested* values, even if *void*, are *never* subject to
+          such an *exclusion* (at least if the default implementations
+          of `prepare_value` and `prepare_submapping_key` are used);
 
         * potential *item collisions* (which might occur, for example,
           when some **key** is present *both* in the `ExtendedMessage`'s
@@ -2205,7 +2203,7 @@ class StructuredLogsFormatter(logging.Formatter):
           sources of information is checked) -- are avoided by suffixing
           problematic keys with one or more underscore character(s), as
           needed to prevent key duplication; such cases are expected to
-          be rare.
+          be rare;
 
             ??? info "Edge case"
 
@@ -2214,14 +2212,24 @@ class StructuredLogsFormatter(logging.Formatter):
                 in practice, that appending underscore(s) to certain keys
                 (as described above) will result in some keys ending up
                 a little longer than 200 characters.
+
+        * finally, every **key** present in the formatter's [`defaults`][]
+          mapping which is still missing from the *output data* dict is
+          being *included* in it -- with the **value** it has in `defaults`.
+
+            ??? note "Reminder"
+
+                All values in the **[`defaults`][]** mapping are already
+                in a **[`prepare_value`][]**-made form, and there are no
+                *void* values among them (see the *Related interfaces*
+                note in the description of the **[`make_base_defaults`][]**
+                method).
         """
         output_data: dict[str, OutputValue] = {}
-        actual_defaults = dict(self.defaults)
         handle_output_item = functools.partial(
             self._handle_output_item,
             self._DESIRED_MAX_KEY_LENGTH,
             self.prepare_value,
-            actual_defaults,
             output_data,
         )
 
@@ -2233,7 +2241,7 @@ class StructuredLogsFormatter(logging.Formatter):
 
         self._extract_output_from_record(record, xm_instance, handle_output_item)
 
-        for key, value_prepared in actual_defaults.items():
+        for key, value_prepared in self.defaults.items():
             output_data.setdefault(key, value_prepared)
 
         return output_data
@@ -2889,7 +2897,6 @@ class StructuredLogsFormatter(logging.Formatter):
         # Shared (output-data-dict-wide) arguments:
         desired_max_key_length: int,
         prepare_value: Callable[[object], OutputValue],
-        actual_defaults: dict[str, OutputValue],
         output_data: dict[str, OutputValue],
 
         # Individual (per-output-data-item) arguments:
@@ -2910,9 +2917,7 @@ class StructuredLogsFormatter(logging.Formatter):
             # is *falsy* (i.e., is an object which is considered *false*
             # in a boolean context) => we skip it as a *void* value (that
             # is, a value assumed to carry *no sufficiently significant*
-            # information); then, however, we also prevent the respective
-            # *default value* (if any) from being set.
-            actual_defaults.pop(key, None)
+            # information).
             return False
 
         # Finally, set the prepared item.
