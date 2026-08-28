@@ -328,7 +328,7 @@ class ExampleSubclassOfStructuredLogsFormatter(StructuredLogsFormatter):
             'system': EXAMPLE_SYSTEM,
             'component_type': EXAMPLE_COMPONENT_TYPE,
             'xyz': dt.date(2026, 4, 27),
-            'zero': ['a default TO BE OVERRIDDEN...'],
+            'zero': ['default value of `zero` item...'],
         }
 
     def make_base_auto_makers(self) -> Mapping[str, str | Callable[[], object]]:
@@ -543,7 +543,7 @@ class CallableImportableWrapper(ImportableWrapper):
         return self.wrapped_object(*args, **kwargs)
 
 
-class SimpleConfCorrector(CallableImportableWrapper):
+class ExampleConfCorrector(CallableImportableWrapper):
 
     def __new__(
         cls,
@@ -789,7 +789,7 @@ class TestStructuredLogsFormatter:
                 # the `conf_corrector`-provided serializer (see below).
                 'time.time'
             ),
-            conf_corrector=SimpleConfCorrector(
+            conf_corrector=ExampleConfCorrector(
                 defaults={
                     'system': EXAMPLE_SYSTEM,
                 },
@@ -1064,7 +1064,7 @@ class TestStructuredLogsFormatter:
                     defaults={},
                     auto_makers={},
                     serializer=example_serializer,
-                    conf_corrector=SimpleConfCorrector(),
+                    conf_corrector=ExampleConfCorrector(),
                     conf_corrector_params={},
                 ),
                 # * Expected public attributes:
@@ -1130,13 +1130,14 @@ class TestStructuredLogsFormatter:
                         'vege': ['mar', 'chew', 'ka'],
                         'void_value_that_will_be_omitted': [],
                         'xyz': {('pom', 'i', 'dor'): 1111},
+                        'zero': 0,
                         'D' * 200: {'L' * 10000: ['L' * 10000]},
                     },
                     auto_makers=types.MappingProxyType({
                         # (Example of non-dict mapping)
                         'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT),
                         'foo': ConstantValueAutoMaker(None),
-                        'zero': ConstantValueAutoMaker(0).importable_dotted_name,
+                        'zero': ConstantValueAutoMaker('ZER0').importable_dotted_name,
                     }),
                     serializer=example_serializer,
                 ),
@@ -1147,12 +1148,13 @@ class TestStructuredLogsFormatter:
                         'component_type': EXAMPLE_COMPONENT_TYPE,
                         'vege': ['mar', 'chew', 'ka'],
                         'xyz': {"('pom', 'i', 'dor')": 1111},
+                        'zero': 0,
                         'D' * 200: {'L' * 200: ['L' * 10000]},
                     },
                     auto_makers={
                         'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT),
                         'foo': ConstantValueAutoMaker(None),
-                        'zero': ConstantValueAutoMaker(0),
+                        'zero': ConstantValueAutoMaker('ZER0'),
                     },
                     auto_made_record_attr_prefix=AnyOfType(str),
                     record_attr_to_output_key={
@@ -1169,20 +1171,21 @@ class TestStructuredLogsFormatter:
                 StructuredLogsFormatter,
                 # * Arguments:
                 dict(
-                    conf_corrector=SimpleConfCorrector(
+                    conf_corrector=ExampleConfCorrector(
                         defaults={
                             'system': EXAMPLE_SYSTEM,
                             'component_type': EXAMPLE_COMPONENT_TYPE,
                             'vege': ['mar', 'chew', 'ka'],
                             'void_value_that_will_be_omitted': [],
                             'xyz': {('pom', 'i', 'dor'): 1111},
+                            'zero': 0,
                             'D' * 200: {'L' * 10000: ['L' * 10000]},
                         },
                         auto_makers=types.MappingProxyType({
                             # (Example of non-dict mapping)
                             'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT),
                             'foo': ConstantValueAutoMaker(None),
-                            'zero': ConstantValueAutoMaker(0).importable_dotted_name,
+                            'zero': ConstantValueAutoMaker('ZER0').importable_dotted_name,
                         }),
                         serializer=example_serializer,
                     ),
@@ -1194,12 +1197,13 @@ class TestStructuredLogsFormatter:
                         'component_type': EXAMPLE_COMPONENT_TYPE,
                         'vege': ['mar', 'chew', 'ka'],
                         'xyz': {"('pom', 'i', 'dor')": 1111},
+                        'zero': 0,
                         'D' * 200: {'L' * 200: ['L' * 10000]},
                     },
                     auto_makers={
                         'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT),
                         'foo': ConstantValueAutoMaker(None),
-                        'zero': ConstantValueAutoMaker(0),
+                        'zero': ConstantValueAutoMaker('ZER0'),
                     },
                     auto_made_record_attr_prefix=AnyOfType(str),
                     record_attr_to_output_key={
@@ -1222,16 +1226,17 @@ class TestStructuredLogsFormatter:
                         'vege': ['mar', 'chew', 'ka'],
                         'void_value_that_will_be_omitted': [],
                         'xyz': {('pom', 'i', 'dor'): 1111},
+                        'zero': 0,
                         'D' * 200: {'L' * 10000: ['L' * 10000]},
                     },
                     auto_makers=types.MappingProxyType({
                         # (Example of non-dict mapping)
                         'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT),
                         'foo': ConstantValueAutoMaker(None),
-                        'zero': ConstantValueAutoMaker(0).importable_dotted_name,
+                        'zero': ConstantValueAutoMaker('ZER0').importable_dotted_name,
                     }),
                     serializer=example_serializer,
-                    conf_corrector=SimpleConfCorrector(
+                    conf_corrector=ExampleConfCorrector(
                         defaults=sentinel.DELETE_ALL,
                         auto_makers=sentinel.DELETE_ALL,
                         base_record_attr_to_output_key=sentinel.DELETE_ALL,
@@ -1259,7 +1264,7 @@ class TestStructuredLogsFormatter:
                         'A' * 200: ConstantValueAutoMaker('L' * 10000),
                     },
                     serializer='json.dumps',
-                    conf_corrector=SimpleConfCorrector(
+                    conf_corrector=ExampleConfCorrector(
                         auto_makers={
                             'py_ver': (
                                 ConstantValueAutoMaker(EXAMPLE_PY_VER).importable_dotted_name
@@ -1303,7 +1308,7 @@ class TestStructuredLogsFormatter:
                         'component_type': EXAMPLE_COMPONENT_TYPE,
                         'system': EXAMPLE_SYSTEM,
                         'xyz': '2026-04-27',
-                        'zero': ['a default TO BE OVERRIDDEN...'],
+                        'zero': ['default value of `zero` item...'],
                     },
                     auto_makers={
                         'component': AnyOfType(Function),
@@ -1325,7 +1330,7 @@ class TestStructuredLogsFormatter:
                 ExampleSubclassOfStructuredLogsFormatter,
                 # * Arguments:
                 dict(
-                    conf_corrector=SimpleConfCorrector(
+                    conf_corrector=ExampleConfCorrector(
                         base_record_attr_to_output_key=sentinel.DELETE_ALL,
                     ),
                 ),
@@ -1335,7 +1340,7 @@ class TestStructuredLogsFormatter:
                         'component_type': EXAMPLE_COMPONENT_TYPE,
                         'system': EXAMPLE_SYSTEM,
                         'xyz': '2026-04-27',
-                        'zero': ['a default TO BE OVERRIDDEN...'],
+                        'zero': ['default value of `zero` item...'],
                     },
                     auto_makers={
                         'component': AnyOfType(Function),
@@ -1379,7 +1384,7 @@ class TestStructuredLogsFormatter:
                         'time.time'
                     ),
                     conf_corrector=(
-                        SimpleConfCorrector(
+                        ExampleConfCorrector(
                             required_keys={'component', 'vege', 'zero'},
                             serializer=example_serializer.importable_dotted_name,
                         ).importable_dotted_name
@@ -1517,7 +1522,7 @@ class TestStructuredLogsFormatter:
                     foo=["FOO"],
                     bar={"BAR": 42},
                     serializer='json.dumps',
-                    conf_corrector=SimpleConfCorrector(
+                    conf_corrector=ExampleConfCorrector(
                         defaults={
                             'a': 999999.42,
                             'abcdefgh': sentinel.DELETE,
@@ -1616,7 +1621,7 @@ class TestStructuredLogsFormatter:
                         'b': ConstantValueAutoMaker('bbb'),
                         'napa': ConstantValueAutoMaker('N'),
                     }),
-                    conf_corrector=SimpleConfCorrector().importable_dotted_name,
+                    conf_corrector=ExampleConfCorrector().importable_dotted_name,
                     conf_corrector_params={
                         'extra_required_keys': {
                             'a',
@@ -1688,7 +1693,7 @@ class TestStructuredLogsFormatter:
                         'zero': ConstantValueAutoMaker('𝋠'),
                     }),
                     serializer=CallableImportableWrapper(json.dumps),
-                    conf_corrector=SimpleConfCorrector(
+                    conf_corrector=ExampleConfCorrector(
                         defaults={
                             'component_type': 'with a... herring!',
                             'component': 123.456,
@@ -1828,7 +1833,7 @@ class TestStructuredLogsFormatter:
                         'zero': ConstantValueAutoMaker(0).importable_dotted_name,
                     },
                     serializer=example_serializer,
-                    conf_corrector=SimpleConfCorrector().importable_dotted_name,
+                    conf_corrector=ExampleConfCorrector().importable_dotted_name,
                     conf_corrector_params={
                         'extra_required_keys': {
                             'system',
@@ -2115,7 +2120,7 @@ class TestStructuredLogsFormatter:
                         'zero': ConstantValueAutoMaker(0).importable_dotted_name,
                     },
                     serializer=example_serializer,
-                    conf_corrector=SimpleConfCorrector(
+                    conf_corrector=ExampleConfCorrector(
                         required_keys={
                             'system',
                             'component_type',
@@ -2140,7 +2145,7 @@ class TestStructuredLogsFormatter:
                         'zero': ConstantValueAutoMaker(0).importable_dotted_name,
                     },
                     serializer=example_serializer,
-                    conf_corrector=SimpleConfCorrector(
+                    conf_corrector=ExampleConfCorrector(
                         required_keys={
                             'system',
                             'component_type',
@@ -2603,7 +2608,7 @@ class TestStructuredLogsFormatter:
                         'component_type': ConstantValueAutoMaker(EXAMPLE_COMPONENT_TYPE),
                     },
                     serializer=example_serializer,
-                    conf_corrector=SimpleConfCorrector(
+                    conf_corrector=ExampleConfCorrector(
                         required_keys={
                             'system',
                             'component_type',
@@ -2621,7 +2626,7 @@ class TestStructuredLogsFormatter:
                         'component_type': EXAMPLE_COMPONENT_TYPE,
                     },
                     conf_corrector=(
-                        SimpleConfCorrector(
+                        ExampleConfCorrector(
                             required_keys={
                                 'system',      # <- missing
                                 'component_type',
@@ -2637,7 +2642,7 @@ class TestStructuredLogsFormatter:
                     auto_makers={
                         'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT),
                     },
-                    conf_corrector=SimpleConfCorrector(
+                    conf_corrector=ExampleConfCorrector(
                         auto_makers={
                             'system': ConstantValueAutoMaker(EXAMPLE_SYSTEM),
                         },
@@ -2670,7 +2675,7 @@ class TestStructuredLogsFormatter:
                     auto_makers={
                         'c': ConstantValueAutoMaker('ccc'),
                     },
-                    conf_corrector=SimpleConfCorrector(
+                    conf_corrector=ExampleConfCorrector(
                         required_keys={
                             'a',
                             'b',
