@@ -573,8 +573,8 @@ format = {
 
 ### Configuration Validation and Adjustments
 
-Regardless of the configuration style you choose, you may need
-to perform customized *validation* and/or *adjustments* on your
+Regardless of the configuration style you choose, you may need to
+perform customized *validation* and/or *adjustments* concerning your
 [`StructuredLogsFormatter`][] configuration while the formatter is
 initialized. If so, define your custom *configuration corrector*
 function and specify it as yet another argument to the
@@ -582,23 +582,23 @@ function and specify it as yet another argument to the
 
 Since the technical details are discussed in the [reference documentation
 for the constructor][StructuredLogsFormatter], here we will focus on a
-practical example...
+practical example.
 
 Let us implement a simple *configuration corrector*:
 
 ```python
-# `/opt/MyOwn/py/myown/log_helpers.py`
+# Let's place it, e.g., in a module importable as `myown.log_helpers`.
 
 def my_conf_corrector(conf: dict) -> dict:
-    # The given dict always contains the following items:
-    # * "defaults" (a dict: *output data* keys to default values...)
-    # * "auto_makers" (a dict: *output data* keys to callables...)
-    # * "serializer" (a callable)
-    # * "base_record_attr_to_output_key" (a dict: log record attribute
-    #   names to *output data* keys or None values)
-    # * "conf_corrector_params" (a dict of custom parameters for the
-    #   corrector -- useful when you need to provide the corrector with
-    #   some extra information; by default, just like here, it is empty)
+    # The given dict always contains:
+    # * "defaults" -- dict: *output data* keys to default values
+    # * "auto_makers" -- dict: *output data* keys to *auto-maker* callables
+    # * "serializer" -- callable
+    # * "base_record_attr_to_output_key" -- dict: log record attribute
+    #   names (str) to *output data* keys (str) or None values
+    # * "conf_corrector_params" -- dict of custom parameters for the
+    #   corrector, useful when you need to provide your corrector with
+    #   some extra information (by default, just like here, it is empty)
 
     # *** Validation ***
     # Requiring certain keys to always be present in
@@ -653,7 +653,7 @@ structured_logs_formatter = StructuredLogsFormatter(
 
 !!! note
 
-    Of course, those updates can be applied to a
+    Of course, the above update can be applied to a
     **[`dictConfig`-style](#loggingconfigdictconfig-style-configuration-example)** or
     **[`fileConfig`-style](#loggingconfigfileconfig-style-configuration-example)**
     configuration as well:
@@ -735,7 +735,7 @@ structured_logs_formatter = StructuredLogsFormatter(
 Then, the enhanced implementation of our *corrector* might look like this:
 
 ```python
-# `/opt/MyOwn/py/myown/log_helpers.py`
+# ...in a module importable as `myown.log_helpers`.
 
 def my_conf_corrector(conf: dict) -> dict:
     # [...all comments omitted for brevity...]
@@ -1122,6 +1122,7 @@ import math
 import os.path
 import reprlib
 import sys
+import textwrap
 import threading
 import traceback
 import types
@@ -1133,11 +1134,11 @@ from collections.abc import (
     Iterator,
     Mapping,
     Sequence,
-    Set,
 )
 from copy import deepcopy
 from inspect import (
     Parameter,
+    getdoc,
     signature,
 )
 from types import ModuleType
@@ -1371,16 +1372,13 @@ class StructuredLogsFormatter(logging.Formatter):
               via **`conf_corrector_params`** (see below...),
               converted to a [`dict`][] and [deep-copied][copy.deepcopy].
 
-            !!! note
-
-                The structure of the *returned* dict is generally similar,
-                but fewer restrictions apply (compare **[`ConfDict`][]**
-                vs. **[`CorrectedConfDict`][]**). In particular, the
-                *returned* dict is allowed to include a subset of the
-                keys listed above, instead of including all of them (this
-                explicitly indicates that the *corrector* decided to
-                leave some items intact, i.e., to refrain from adjusting
-                them).
+            The required structure of the *returned* dict is generally
+            similar, but fewer restrictions apply to it (compare
+            **[`ConfDict`][]** vs. **[`CorrectedConfDict`][]**). In
+            particular, the *returned* dict is allowed to include a
+            subset of the keys listed above, instead of including all of
+            them (the absence of an item is equivalent to including it
+            unchanged from its initial form the *given* dict included).
 
             !!! warning "Forward compatibility requirement"
 
@@ -1389,7 +1387,7 @@ class StructuredLogsFormatter(logging.Formatter):
                 addition to the five items listed above). Therefore, every
                 *corrector* should ignore any unrecognized keys in the
                 *given* dict. Also, it should *not* add to the *returned*
-                dict any items that were not present in the *given* dict.
+                dict any keys that were not present in the *given* dict.
 
             As you can see, the *given* dict's items are automatically
             processed (converted/deep-copied/verified/resolved, as
@@ -1640,7 +1638,9 @@ class StructuredLogsFormatter(logging.Formatter):
                 'base_record_attr_to_output_key': base_attr_to_key,
                 'conf_corrector_params': conf_corrector_params,
             }
+
             corrected: CorrectedConfDict = conf_corrector(conf)
+
             if 'defaults' in corrected:
                 raw_defaults = self._as_ready_raw_defaults(corrected['defaults'])
             if 'auto_makers' in corrected:
@@ -1706,10 +1706,10 @@ class StructuredLogsFormatter(logging.Formatter):
           of *this* method (so this method *never* appends to that string
           any *formatted traceback* or *formatted stack information*, and
           it does *not* invoke [`formatStack`][logging.Formatter.formatStack]
-          either); that string is supposed to represent the *output data*
-          dict after serialization (therefore, it should already include,
-          among others, any exception/stack information, if such stuff was
-          requested and obtained);
+          either); the returned string is supposed to represent the *output
+          data* dict after serialization -- therefore, it should already
+          include, among others, any exception/stack information, if such
+          stuff was requested and obtained;
 
         * regarding how the target value of the log record's `message`
           attribute is determined: if the `msg` attribute of the given
@@ -1871,12 +1871,12 @@ class StructuredLogsFormatter(logging.Formatter):
         [`get_prepared_output_data`][] method works, that every candidate for
         an *output data* value -- including those produced by *auto-makers*
         -- will be transformed by applying the [`prepare_value`][] method
-        to it. Furthermore, whenever the result of this transformation is
+        to it. Furthermore, whenever the result of that transformation is
         a *void* value (by which we mean any *falsy* value *not equal* to
         `0`, for example: [`None`][], `""`, `[]` or `{}` -- but _**not**_
         [`False`][], `0`, `0.0`, etc.), it will *not* be included in the
         *output data* dict (instead, the corresponding value from the
-        [`defaults`][] mapping will be included, if present in that mapping).
+        [`defaults`][] mapping will be included, if available).
 
         The default implementation of this method returns an empty mapping.
 
@@ -1981,7 +1981,7 @@ class StructuredLogsFormatter(logging.Formatter):
     # so at runtime we are safe regardless of Python version).
     COMMON_AUTO_PREFIX: ClassVar[Final[str]] = '_auto-made-for#'   # type: ignore[valid-type]
     """
-    An arbitrary constant marker that every [`auto_made_record_attr_prefix`][]
+    An arbitrary marker that every [`auto_made_record_attr_prefix`][]
     string starts with.
     """
 
@@ -2270,11 +2270,11 @@ class StructuredLogsFormatter(logging.Formatter):
         how every *value* in an *output data* dict is prepared before the
         actual data serialization.
 
-        ??? warning "Customization restriction"
+        ??? warning "Mutability restriction"
 
-            Whenever you customize the behavior of this method (whether
+            If you ever customize the behavior of this method (whether
             by extending/overriding it in a subclass, or perhaps just
-            by providing it with non-default values of some keyword
+            by providing it with some non-default values of keyword
             arguments), you need to ensure that it does *not* mutate its
             argument or anything inside it (regardless of the level of
             nesting, if any nested data is present). If some data needs
@@ -3158,17 +3158,16 @@ class ExtendedMessage:
 
         Also, generally, those attributes are *not* protected against
         concurrent access -- and in this context you need to take into
-        account not only the obvious fact that the logging machinery
-        needs to reach for their values (at various points during its
-        operation), but also that an important part of the *deferred
-        value creation* mechanism described above is *replacing/mutating*
-        some of them.
+        account not only the obvious fact that the logging machinery needs
+        to reach for their values (at various points during its operation),
+        but also that an important part of the *deferred value creation*
+        mechanism (described below) is to *replace/mutate* some of them.
 
         Moreover:
 
-        * *after* **`message`** formatting is triggered, further changes
-          to the relevant attributes may not be reflected in the text
-          message;
+        * *after* the **`message`** formatting is triggered, further
+          changes to the relevant attributes may not be reflected in
+          the text message;
         * placing any callables matching
           **[`recognized_deferred_value_creator_types`][]** in the
           relevant collections *after* the aforementioned *deferred
@@ -3186,7 +3185,7 @@ class ExtendedMessage:
     in [`args`][] and/or [`data`][]: if you pass a *function*
     or *method* object (precisely: an instance of any type included
     in [`ExtendedMessage.recognized_deferred_value_creator_types`][])
-    as an *extra positional or keyword argument* to the [constructor][ExtendedMessage]
+    as any *extra positional or keyword argument* to the [constructor][ExtendedMessage]
     (except for **`exc_info`**, **`stack_info`** and **`stacklevel`**)
     or as a value in the *extra data* mapping -- then that function
     or method will be *called* just after the log record owning the
@@ -3212,8 +3211,8 @@ class ExtendedMessage:
         description...).
 
     Thanks to this mechanism, if the creation of some value is
-    expected to be costly, you can wrap it in a function/method
-    (in particular, in an argumentless `lambda`) to defer the costly
+    expected to be costly, you can wrap it in a function/method (in
+    particular, in an argumentless `lambda`) to defer that costly
     operation until the value becomes actually needed (which may
     never happen if -- based on the [actually configured filtering
     rules](https://docs.python.org/3/howto/logging.html#logging-flow)
@@ -4021,7 +4020,7 @@ class CorrectedConfDict(TypedDict, total=False):
     It is similar to [`ConfDict`][], but wider -- i.e., more forgiving
     -- as it *also* allows for:
 
-    * lack of some (or even all) of the keys (see the `total=False` flag
+    * lack of some (or even all) of the keys (note the `total=False` flag
       in the definition);
     * **`"auto_makers"`** including values being *dotted path* strings
       (not yet resolved; expected to point to [`ValueProvider`][]-compliant
@@ -4031,10 +4030,11 @@ class CorrectedConfDict(TypedDict, total=False):
 
     !!! warning "Forward compatibility requirement"
 
-        In future versions of the library, including *non-major* ones,
-        other items may be defined in addition to the five items defined
-        here. Any code that deals with a **`CorrectedConfDict`** needs
-        to take this possibility into account.
+        In future versions of the library, including *non-major*
+        ones, other *optional* items may be defined in addition
+        to the five items defined here. Any code that deals with
+        a **`CorrectedConfDict`** needs to take this possibility
+        into account.
     """
     defaults: dict[str, object]
     auto_makers: dict[str, ValueProvider[object] | DottedPath]
@@ -4239,7 +4239,7 @@ def _resolve_dotted_path(dotted_path: str) -> Any:
 
 
 #
-# Unofficial extra stuff, likely to change (*not* part of the public API)
+# Unofficial extra stuff (*not* part of the public API)
 #
 
 
@@ -4364,8 +4364,15 @@ class _BaseWebAutoMakersSubmodule(_BaseAutoMakersSubmodule):
     @classmethod
     @abc.abstractmethod
     def remote_addr(cls) -> str | None:
-        # TODO: Verify/decide whether it is *OK* to
-        #       fallback to the direct TCP peer IP!
+        # TODO: ^ Decide - 'remote_addr' or perhaps 'client_ip'/`remote_ip`/???
+        # TODO: Decide whether it is *OK* to fallback to the direct TCP peer IP!
+        #       And determine the ultimate content of the docstring:
+        #       - the current one?
+        #       - or perhaps something like this:
+        #           The *real* IP of the peer (client) that sent the request.
+        #           Note that for this information to be reliable, the way
+        #           it is obtained needs to rely on trustworthy data (see:
+        #           https://httptoolkit.com/blog/what-is-x-forwarded-for/).
         """
         The real IP address of the client that sent the current HTTP
         request (actually, this is just the address of the TCP peer,
@@ -4425,6 +4432,8 @@ class _CommonAutoMakers(_BaseAutoMakersSubmodule):
         '.'.join(map(str, (sys.version_info or ())))
     )
     script_args = make_constant_value_provider(
+        # TODO: decide whether it is needed, and (if so) whether
+        #       its size should be hard-limited in some way...
         tuple(sys.argv or ())
     )
     tid = threading.get_native_id
@@ -4522,7 +4531,7 @@ class _FlaskAutoMakers(_BaseWebAutoMakersSubmodule):
 
 class _OpinionatedConfCorrectorImpl:
 
-    """
+    r"""
     An opinionated *configuration corrector* implementation.
 
     Example use:
@@ -4562,6 +4571,93 @@ class _OpinionatedConfCorrectorImpl:
         "version": 1,
     })
     ```
+
+    Optional params (i.e., recognized items in `conf_corrector_params`):
+
+    * `extra_auto_makers_from` -- a list of objects (e.g., modules), or
+      *dotted paths* pointing to objects, each of which is expected to
+      provide a `get_auto_makers` member being a callable that takes no
+      arguments and returns a mapping that maps *output data* keys to
+      *auto-maker* callables (or *dotted paths* pointing to *auto-maker*
+      callables). At most one *extra auto-maker* can be specified per
+      *output data* key (i.e., any key conflicts between the mappings
+      got from `get_auto_makers()` calls will cause an error). Moreover,
+      only those of the *extra auto-makers* whose *output data* keys are
+      *not* already present in the `auto_makers` dict obtained by the
+      corrector are added to that dict. The rest (if any) are ignored.
+
+    * `base_record_attr_to_output_key_overrides` -- a mapping to be used
+      to update the `base_record_attr_to_output_key` dict received by
+      the corrector (after updating the latter with some common stuff --
+      see the `_BASE_RECORD_ATTR_TO_OUTPUT_KEY_COMMON_OVERRIDES` class
+      attribute).
+
+    * `simple_format` -- if specified (and not `None`), it should be
+      *either* a [`str.format_map`][]-compatible *format string* (e.g.,
+      `"{level}: {message}"`) *or* a boolean-flag-like value (`True`,
+      `"true"`, `"t"`, `"1"`, `"yes"` or `"y"` -- representing *logical
+      truth*; or `False`, `"false"`, `"f"`, `"0"`, `"no"`, `"n"` or empty
+      string -- representing *logical falsehood*; a flag-like string is
+      always examined in its `.lower()`-ed and `.strip()`-ed form). In
+      the latter case, if the flag-like value represents *logical truth*,
+      the default *format string* (see the `_SIMPLE_FORMAT_DEFAULT` class
+      attribute) is used; on the other hand, any flag-like value that
+      represents *logical falsehood* disables the feature explicitly. If
+      the feature is enabled, a [`str.format_map`][]-based *serializer*
+      is created. It will form log entries according to the determined
+      *format string*, always substituting any missing *output data*
+      values with empty strings, and automatically adding `stack_info`
+      and/or `exc_text` *output data* values if available. The *simple
+      format* feature is intended to be used in developers' environments
+      (where real structured logs might be inconvenient).
+
+    * `level_colors` -- if specified (and not `None`), it should be
+      *either* a mapping (or an `ast.literal_eval()`-evaluable string
+      representing a mapping) that maps `.lower()`-ed log level names
+      (such as `"info"`, `"warning"`, `"error"`...) to ANSI color codes
+      (such as `"\x1b[34m"`, `"\x1b[1;33m"`, `"\x1b[43m"`...) *or* a
+      boolean-flag-like value (`True`, `"true"`, `"t"`, `"1"`, `"yes"`
+      or `"y"` -- representing *logical truth*; or `False`, `"false"`,
+      `"f"`, `"0"`, `"no"`, `"n"` or empty string -- representing
+      *logical falsehood*; a flag-like string is always examined in its
+      `.lower()`-ed and `.strip()`-ed form). In the latter case, if the
+      flag-like value represents *logical truth*, the default *level
+      colors* mapping (see the `_LEVEL_COLORS_DEFAULT` class attribute)
+      is used; on the other hand, any flag-like value that represents
+      *logical falsehood* disables the feature explicitly. If the feature
+      is enabled, so that some *level colors* mapping is determined, then
+      any *serializer* that was supposed to be used is being wrapped --
+      to colorize every serialized output by prefixing it with the ANSI
+      code corresponding (according to that mapping) to the level of the
+      log entry. The param can also be set to a string that, after being
+      `.lower()`-ed and `.strip()`-ed, is equal to `"auto"` -- then the
+      effect depends on whether the *simple format* feature is enabled:
+      if it is, the default *level colors* mapping is used; if not, the
+      colorizing feature is disabled.
+
+    Supported environment variables:
+
+    * `CERT_LOG_SIMPLE_FORMAT` -- same as the `simple_format` param,
+      but with lower priority (i.e., not used at all if the param is
+      specified and not `None`).
+
+    * `CERT_LOG_LEVEL_COLORS` -- same as the `level_colors` param,
+      but with lower priority (i.e., not used at all if the param is
+      specified and not `None`).
+
+    Default behaviors:
+
+    * Not specifying the `simple_format` param (or setting it to `None`)
+      *and also* not specifying the `CERT_LOG_SIMPLE_FORMAT` environment
+      variable -- is equivalent to the **`false`** setting. In other
+      words, the *simple format* feature is *not* used *by default*.
+
+    * Not specifying the `level_colors` param (or setting it to `None`)
+      *and also* not specifying the `CERT_LOG_LEVEL_COLORS` environment
+      variable -- is equivalent to the **`auto`** setting (!). In other
+      words, the *default* behavior is that whether the *level colors*
+      feature is used depends on whether the *simple format* feature
+      is used.
     """
 
     #
@@ -4579,54 +4675,60 @@ class _OpinionatedConfCorrectorImpl:
 
     # * Constants:
 
-    _OUTPUT_KEYS_ALWAYS_REQUIRED_IN_CONF: Final[
-        Mapping[str, str]
-    ] = {
-        'system': (
-            'The name of the *entire system* or *project* your script/'
-            'application is part of; e.g.: "My System", "MWDB", "n6"...'
-        ),
-        'component': (
-            'The name of a particular *script* or *application* being '
-            'executed. For a CLI script it should be its basename.'
-        ),
-        'component_type': (
-            'A conventional label of the *type* of the script/application '
-            'being executed, agreed upon in your organization; e.g.: "web", '
-            '"parser", "collector"...'
-        ),
-        # TODO: decide whether more stuff should be added here...
+    _OUTPUT_KEYS_ALWAYS_REQUIRED_IN_CONF: Final[Mapping[str, str]] = {
+        'system': '''
+            The name of the *entire system* or *project* your script/application
+            is part of (e.g.: "My System", "MWDB", "n6"...).
+        ''',
+        'component': '''
+            The name of a particular *script* or *application* being executed.
+            For a CLI script it should be its basename.
+        ''',
+        'component_type': '''
+            A conventional label of the *type* of the script/application being
+            executed, agreed upon in your organization (e.g.: "web", "worker",
+            "collector", "parser"...).
+        ''',
     }
 
-    _COMPONENT_TYPE_TO_OUTPUT_KEYS_REQUIRED_IN_CONF: Final[
-        Mapping[str, Mapping[str, str]]
-    ] = {
+    _COMPONENT_TYPE_TO_OUTPUT_KEYS_REQUIRED_IN_CONF: Final[Mapping[
+        str, Mapping[str, str]
+    ]] = {
         'web': {
-            'remote_addr': (
-                'The *real* IP of the peer (client) that sent the request.'
-                'Note that for this information to be reliable, the way '
-                'it is obtained needs to rely on trustworthy data (see: '
-                'https://httptoolkit.com/blog/what-is-x-forwarded-for/).'
-            ),
-            # TODO: decide ^ 'remote_addr' or perhaps 'client_ip'/`remote_ip`/???
-            # TODO: decide whether more stuff should be added here...
-            #       (probably the same as in `_WebAutoMakersSubmodule`?)
+            key: (getdoc(obj) or '<not documented yet>')
+            for key, obj in _BaseWebAutoMakersSubmodule.get_auto_makers().items()
         },
         'worker': {
-            'worker_id': (
-                'TBD...'  # <- TODO: description
-            ),
+            # TODO: description:
+            'worker_id': '''
+                TBD...
+            '''
             # TODO: decide whether more stuff should be added here...
         },
     }
 
     #_VALID_COMPONENT_TYPES: Set[str] = TODO: decide whether worth defining...
 
-    _BASE_RECORD_ATTR_TO_OUTPUT_KEY_OVERRIDES: Final[
+    _BASE_RECORD_ATTR_TO_OUTPUT_KEY_COMMON_OVERRIDES: Final[
         Mapping[str, str | None]
     ] = {
-        #'processName': None,  # <- TODO: decide whether it is universally/sometimes useful
+        'thread': None,  # (let's use `tid` instead; see `_CommonAutoMakers.tid`...)
+        #'processName': None,
+        # ^ TODO: decide whether `processName` is useful... (universally? in some cases?)
     }
+
+    _SIMPLE_FORMAT_ENV_VAR = 'CERT_LOG_SIMPLE_FORMAT'
+    _SIMPLE_FORMAT_DEFAULT = '{level}:{func:.20}:{lineno} - {message}'
+
+    _LEVEL_COLORS_ENV_VAR = 'CERT_LOG_LEVEL_COLORS'
+    _LEVEL_COLORS_DEFAULT: Final[Mapping[str, str]] = {
+        'debug': '\x1b[90m',               # grey
+        'info': '\x1b[34m',                # blue
+        'warning': '\x1b[1;33m',           # bold yellow
+        'error': '\x1b[1;31m',             # bold red
+        'critical': '\x1b[1;31m\x1b[43m',  # bold red with yellow background
+    }
+    _COLOR_RESET = '\x1b[0m'
 
     # * Initialization:
 
@@ -4655,13 +4757,6 @@ class _OpinionatedConfCorrectorImpl:
         params: dict[str, Any],
     ) -> None:
         key = 'component_type'
-        if key in corr_conf['auto_makers']:
-            raise ValueError(
-                f'for {self!a} as `conf_corrector`, `{key}` '
-                f'should be provided as a {key!a} item in '
-                f'`defaults` or `conf_corrector_params`, '
-                f'*not* in `auto_makers`'
-            )
         defaults = corr_conf['defaults']
         assert isinstance(defaults, dict)
         if key in defaults:
@@ -4699,19 +4794,26 @@ class _OpinionatedConfCorrectorImpl:
             return f'<the `{__name__}._opinionated_conf_corrector` object>'
         return super().__repr__()
 
-    # * Actual implementation of adjustment/verification:
+    # * Formatter configuration adjustment:
 
     def adjust(self) -> None:
         for key, auto_maker in self._iter_auto_maker_items():
             self._corr_conf['auto_makers'].setdefault(key, auto_maker)
         self._corr_conf['base_record_attr_to_output_key'].update({
-            **self._BASE_RECORD_ATTR_TO_OUTPUT_KEY_OVERRIDES,
+            **self._BASE_RECORD_ATTR_TO_OUTPUT_KEY_COMMON_OVERRIDES,
             **self._params.get('base_record_attr_to_output_key_overrides', {}),
         })
+        if sf_serializer := self._make_simple_format_serializer():
+            self._corr_conf['serializer'] = sf_serializer
+        if sc_wrapper := self._make_serializer_colorizing_wrapper(
+            simple_format_in_use=bool(sf_serializer),
+        ):
+            self._corr_conf['serializer'] = sc_wrapper
 
     def _iter_auto_maker_items(self) -> Iterator[tuple[str, ValueProvider[object]]]:
         err_messages: list[str] = []
         key_to_source_seq = collections.defaultdict[str, list[object]](list)
+
         for source in self._auto_maker_sources:
             if isinstance(source, str):
                 try:
@@ -4747,12 +4849,137 @@ class _OpinionatedConfCorrectorImpl:
                 f'\n\n{listing}'
             )
 
+    def _make_simple_format_serializer(self) -> OutputSerializer | None:
+        simple_format = self._determine_simple_format()
+        if simple_format is None:
+            return None
+
+        si_attr = 'stack_info'
+        et_attr = 'exc_text'
+        attr_to_key = self._corr_conf['base_record_attr_to_output_key']
+
+        def _yield_extra_parts_for(
+            attr_name: str,
+            output_data: dict[str, OutputValue],
+        ) -> Iterator[str]:
+            key = attr_to_key.get(attr_name, attr_name)
+            if key is not None and (value := output_data.get(key)):
+                yield '^'
+                yield str(value).rstrip()
+
+        def simple_format_serializer(
+            output_data: dict[str, OutputValue],
+        ) -> str:
+            data_mapping = collections.defaultdict(str, output_data)
+            main_part = simple_format.format_map(data_mapping)
+            if extra_parts := [
+                *_yield_extra_parts_for(si_attr, output_data),
+                *_yield_extra_parts_for(et_attr, output_data),
+            ]:
+                return '\n'.join((main_part.rstrip(), *extra_parts, ''))
+            return main_part
+
+        return simple_format_serializer
+
+    def _make_serializer_colorizing_wrapper(
+        self,
+        *,
+        simple_format_in_use: bool,
+    ) -> OutputSerializer | None:
+        level_colors = self._determine_level_colors(simple_format_in_use)
+        if level_colors is None:
+            return None
+
+        color_reset = self._COLOR_RESET
+        level_attr = 'levelname'
+        attr_to_key = self._corr_conf['base_record_attr_to_output_key']
+        serializer_raw = self._corr_conf['serializer']
+        serializer: OutputSerializer = (
+            _resolve_dotted_path(serializer_raw)
+            if isinstance(serializer_raw, str)
+            else serializer_raw
+        )
+
+        def _get_color_if_any(
+            output_data: dict[str, OutputValue],
+        ) -> str | None:
+            level_key = attr_to_key.get(level_attr, level_attr)
+            if level_key is None:
+                return None
+            level = output_data.get(level_key)
+            if not isinstance(level, str):
+                return None
+            return level_colors.get(level.lower())
+
+        def serializer_colorizing_wrapper(
+            output_data: dict[str, OutputValue],
+        ) -> str:
+            color = _get_color_if_any(output_data)
+            serialized_output = serializer(output_data)
+            if color is None:
+                return serialized_output
+            return f'{color}{serialized_output}{color_reset}'
+
+        return serializer_colorizing_wrapper
+
+    def _determine_simple_format(self) -> str | None:
+        simple_format = self._params.get('simple_format')
+        if simple_format is None:
+            simple_format = os.environ.get(self._SIMPLE_FORMAT_ENV_VAR)
+            if simple_format is None:
+                return None
+        if isinstance(simple_format, bool):
+            simple_format = str(simple_format)
+        if isinstance(simple_format, str):
+            flag_str = simple_format.lower().strip()
+            if flag_str in ('false', 'f', '0', 'no', 'n', ''):
+                return None
+            if flag_str in ('true', 't', '1', 'yes', 'y'):
+                simple_format = self._SIMPLE_FORMAT_DEFAULT
+            assert simple_format
+            return simple_format
+        raise TypeError(
+            f'wrong type of {simple_format=!a}: '
+            f'{type(simple_format).__qualname__}'
+        )
+
+    def _determine_level_colors(
+        self,
+        simple_format_in_use: bool,
+    ) -> Mapping[str, str] | None:
+        level_colors = self._params.get('level_colors')
+        if level_colors is None:
+            level_colors = os.environ.get(self._LEVEL_COLORS_ENV_VAR, 'auto')
+        if isinstance(level_colors, bool):
+            level_colors = str(level_colors)
+        if isinstance(level_colors, str):
+            flag_str = level_colors.lower().strip()
+            if flag_str in ('false', 'f', '0', 'no', 'n', ''):
+                return None
+            if flag_str in ('true', 't', '1', 'yes', 'y'):
+                return self._LEVEL_COLORS_DEFAULT
+            if flag_str == 'auto':
+                if simple_format_in_use:
+                    return self._LEVEL_COLORS_DEFAULT
+                return None
+            level_colors = ast.literal_eval(level_colors)
+        if isinstance(level_colors, Mapping):
+            if level_colors:
+                return level_colors
+            return None
+        raise TypeError(
+            f'wrong type of {level_colors=!a}: '
+            f'{type(level_colors).__qualname__}'
+        )
+
+    # * Formatter configuration verification:
+
     def verify(self) -> None:
         if err_messages := list(self._iter_err_messages()):
-            listing = '\n\n'.join(sorted(err_messages))
+            listing = '\n\n'.join(err_messages)
             raise ValueError(
                 f'According to {self!a}, some formatter '
-                f'configuration elements are not valid!'
+                f'configuration elements are not valid...'
                 f'\n\n{listing}'
             )
 
@@ -4774,20 +5001,30 @@ class _OpinionatedConfCorrectorImpl:
                 f'be included in `defaults` and/or `auto_makers`):'
             ),
         )
+        ct_key = 'component_type'
+        if ct_key in self._corr_conf['auto_makers']:
+            yield (
+                f'The {ct_key!a} key should be included in `defaults` '
+                f'or `conf_corrector_params`, *not* in `auto_makers`!'
+            )
 
     def _iter_err_messages_for_missing_output_keys(
         self, required: Mapping[str, str], header_message: str
     ) -> Iterator[str]:
-        if missing := sorted(required.keys() - self._get_current_keys()):
+        if missing := sorted(
+            required.keys()
+            - self._corr_conf['defaults'].keys()
+            - self._corr_conf['auto_makers'].keys()
+        ):
             yield header_message
             for key in missing:
-                yield f'{key!a}: {required[key]}'
+                description = self._get_indented_text(required[key])
+                yield f'* {key!a}:\n{description}'.rstrip()
 
-    def _get_current_keys(self) -> Set[str]:
-        return (
-            self._corr_conf['defaults'].keys()
-            | self._corr_conf['auto_makers'].keys()
-        )
+    def _get_indented_text(self, text: str, *, indent: int = 4) -> str:
+        dedented = textwrap.dedent(text).removeprefix('\n')
+        indented = textwrap.indent(dedented, indent * ' ')
+        return indented
 
     def _get_component_type(self) -> str:
         ct = self._corr_conf['defaults']['component_type']
