@@ -3404,8 +3404,22 @@ class TestStructuredLogsFormatter:
                     ),
                     expected_output={
                         **get_output_base(level='WARNING'),
-                        'message': 'message from auto-maker',
-                        'message_': 'actual msg passed, 42',
+                        **(
+                            {
+                                # Under PyPy, the order of keys in a log record's
+                                # `__dict__` may be different from insertion order
+                                # (see: https://github.com/pypy/pypy/issues/5436).
+                                # In some cases, this affects the order in which
+                                # *output data* keys are inserted and deduplicated
+                                # with `_` suffixes...
+                                'message': AnyOfType(str),
+                                'message_': AnyOfType(str),
+                            } if sys.implementation.name == 'pypy'
+                            else {
+                                'message': 'message from auto-maker',
+                                'message_': 'actual msg passed, 42',
+                            }
+                        ),
                         'message_base': {
                             'pattern': 'actual msg passed, {}',
                         },
@@ -4493,24 +4507,25 @@ class TestStructuredLogsFormatter:
                         'system': 'Śmystem',
                         'xyz': '2026-04-27',
                         'zero': 0,
-                    } | (
-                        {
-                            # Under PyPy, the order of keys in a log record's
-                            # `__dict__` may be different from insertion order
-                            # (see: https://github.com/pypy/pypy/issues/5436).
-                            # In some cases, this affects the order in which
-                            # *output data* keys are inserted and deduplicated
-                            # with `_` suffixes...
-                            'timestamp': 'Śmajstamp',
-                            'timestamp_': AnyOfType(str),
-                            'timestamp__': AnyOfType(str),
-                        } if sys.implementation.name == 'pypy'
-                        else {
-                            'timestamp': 'Śmajstamp',
-                            'timestamp_': 'And now for something completely different!',
-                            'timestamp__': EXAMPLE_TIMESTAMP_FORMATTED,
-                        }
-                    ),
+                        **(
+                            {
+                                # Under PyPy, the order of keys in a log record's
+                                # `__dict__` may be different from insertion order
+                                # (see: https://github.com/pypy/pypy/issues/5436).
+                                # In some cases, this affects the order in which
+                                # *output data* keys are inserted and deduplicated
+                                # with `_` suffixes...
+                                'timestamp': 'Śmajstamp',
+                                'timestamp_': AnyOfType(str),
+                                'timestamp__': AnyOfType(str),
+                            } if sys.implementation.name == 'pypy'
+                            else {
+                                'timestamp': 'Śmajstamp',
+                                'timestamp_': 'And now for something completely different!',
+                                'timestamp__': EXAMPLE_TIMESTAMP_FORMATTED,
+                            }
+                        ),
+                    },
                     {
                         **get_output_base(level='DEBUG'),
                         'func': '<lambda>',
