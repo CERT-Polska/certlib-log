@@ -1348,12 +1348,12 @@ class StructuredLogsFormatter(logging.Formatter):
 
             * `"auto_makers"`: a **[`make_base_auto_makers`][]**-produced
               mapping merged with the constructor's **`auto_makers`**
-              argument (described earlier), then converted to a [`dict`][]
-              and [deep-copied][copy.deepcopy] -- ready to be set as the
-              **[`auto_makers`][]** formatter attribute (i.e., with all
-              keys already verified as valid *output data* keys, all
-              *dotted path* values already resolved, and *all* values
-              already verified as being callable objects);
+              argument (described earlier) and copied by applying [`dict`][]
+              to it -- ready to be set as the **[`auto_makers`][]**
+              formatter attribute (i.e., with all keys already verified
+              as valid *output data* keys, all *dotted path* values
+              already resolved, and *all* values already verified as
+              being callable objects);
 
             * `"serializer"`: the callable specified as the constructor's
               **`serializer`** argument (described earlier) -- ready to be
@@ -1362,15 +1362,15 @@ class StructuredLogsFormatter(logging.Formatter):
               as being a callable object);
 
             * `"base_record_attr_to_output_key"`: a
-              **[`make_base_record_attr_to_output_key`][]**-produced mapping,
-              converted to a [`dict`][] and [deep-copied][copy.deepcopy],
-              with all values already verified as valid *output data* keys
-              or [`None`][];
+              **[`make_base_record_attr_to_output_key`][]**-produced
+              mapping, copied by applying [`dict`][] to it, with all
+              values already verified as valid *output data* keys or
+              [`None`][];
 
             * `"conf_corrector_params"`: a mapping received
-              by the `StructuredLogsFormatter` constructor
-              via **`conf_corrector_params`** (see below...),
-              converted to a [`dict`][] and [deep-copied][copy.deepcopy].
+              by the `StructuredLogsFormatter` constructor via
+              **`conf_corrector_params`** (see below...), copied by
+              applying [`dict`][] to it.
 
             The required structure of the *returned* dict is generally
             similar, but fewer restrictions apply to it (compare
@@ -1390,13 +1390,13 @@ class StructuredLogsFormatter(logging.Formatter):
                 dict any keys that were not present in the *given* dict.
 
             As you can see, the *given* dict's items are automatically
-            processed (converted/deep-copied/verified/resolved, as
-            described above) -- before the *corrector* is executed. It
-            should be added here that the *returned* dict's items are
-            processed in the same way -- after the *corrector* is
-            executed (yet still before using them in the main part of
-            the formatter initialization). One exception: the *returned*
-            dict's `"conf_corrector_params"` item (if present at all) is
+            processed (converted/copied/verified/resolved, as described
+            above) -- before the *corrector* is executed. It should be
+            added here that the *returned* dict's items are processed
+            in the same way -- after the *corrector* is executed (yet
+            still before using them in the main part of the formatter
+            initialization). One exception: the *returned* dict's
+            `"conf_corrector_params"` item (if present at all) is
             ignored.
 
     * **`conf_corrector_params`** (a [`dict`][] or other mapping; default: `{}`):
@@ -1442,14 +1442,16 @@ class StructuredLogsFormatter(logging.Formatter):
         [configuration example](guide.md#certlib.log--loggingconfigfileconfig-style-configuration-example)
         in the *User's Guide*.
 
-    !!! warning "Deep-copyable mapping items"
+    ??? warning "Deep-copyable *defaults* requirement"
 
-        Regardles of the constructor call variant, every mapping/dict
-        involved in the formatter initialization (whether it has been
-        passed to the constructor; or obtained by resolving a *dotted
-        path*; or returned by any customized **`make_base_*`** hook
-        method -- see below; or returned by a *configuration corrector*)
-        needs to contain only items that can be passed to the
+        Regardles of the constructor call variant, every mapping that is:
+
+        * specified as **`defaults`**, or
+        * returned by **[`make_base_defaults`][]**, or
+        * present in a *configuration-corrector*-returned dict as its
+          `defaults` item
+
+        -- needs to contain only items that can be passed to the
         **[`copy.deepcopy`][]** function.
 
         !!! tip
@@ -1459,16 +1461,11 @@ class StructuredLogsFormatter(logging.Formatter):
             *out-of-the-box*. Usually, you will not need to worry
             about it at all.
 
-        ??? note
+        !!! note
 
-            It is also worth emphasizing that when the **`deepcopy`**
-            operation's input is a non-collection object (or, generally,
-            any object whose entire content -- at all levels of nesting
-            when it comes to nested data structures -- is considered
-            immutable), then it is perfectly OK if that operation returns
-            the exact same object (without actually copying anything).
-            For example, this is the case for function and method
-            objects...
+            Regarding _**any other**_ mappings that are copied while
+            being processed by the **`StructuredLogsFormatter`**
+            constructor, only _**shallow**_ copies are made.
 
     This class defines the following *hook methods* that can be
     extended/overridden in subclasses:
@@ -1628,15 +1625,12 @@ class StructuredLogsFormatter(logging.Formatter):
 
         if given_conf_corrector is not None:
             conf_corrector = self._resolve_conf_corrector(given_conf_corrector)
-            conf_corrector_params = self._sorted_dict_deepcopy(
-                given_conf_corrector_params,
-            )
             conf: ConfDict = {
                 'defaults': raw_defaults,
                 'auto_makers': auto_makers,
                 'serializer': serializer,
                 'base_record_attr_to_output_key': base_attr_to_key,
-                'conf_corrector_params': conf_corrector_params,
+                'conf_corrector_params': dict(given_conf_corrector_params),
             }
 
             corrected: CorrectedConfDict = conf_corrector(conf)
@@ -1885,12 +1879,11 @@ class StructuredLogsFormatter(logging.Formatter):
             For every instance, the mapping assigned to the instance's
             **[`auto_makers`][]** attribute (supposed to specify all
             *auto-makers* related to the instance) is based on this
-            method's result, first converted to a [`dict`][], updated
-            with all items from the **`auto_makers`** argument to the
-            [constructor][StructuredLogsFormatter] (if given), and
-            [deep-copied][copy.deepcopy]; then -- adjusted by resolving
-            any values that are *dotted paths* (*importable dotted
-            names*) to actual *auto-maker* callables.
+            method's result, first copied by applying [`dict`][] to it,
+            and updated with all items from the **`auto_makers`** argument
+            to the [constructor][StructuredLogsFormatter] (if given);
+            then -- adjusted by resolving any *dotted paths* (*importable
+            dotted names*) to actual *auto-maker* callables.
 
             Finally, the **`StructuredLogsFormatter`** constructor
             automatically registers each of the *auto-makers* by calling
@@ -1940,17 +1933,18 @@ class StructuredLogsFormatter(logging.Formatter):
             **[`record_attr_to_output_key`][]** attribute (supposed to
             specify the ultimate mapping of names of log record object
             attributes to actual *output data* keys) is based on this
-            method's result, first converted to a [`dict`][] (and also
-            [deep-copied][copy.deepcopy], even though it is not very
-            important in this case), then updated with keys derived from
-            all the keys the instance's **[`auto_makers`][]** mapping
-            contains -- each modified by *prefixing* it with the value of
-            the **[`auto_made_record_attr_prefix`][]** attribute, and each
-            mapped to the same key, but *without* that prefix. The prefix
-            itself is an auto-generated string, guaranteed to be *unique*
-            (different for each instance of **`StructuredLogsFormatter`**)
-            within a Python interpreter run; it always starts with the
-            **[`StructuredLogsFormatter.COMMON_AUTO_PREFIX`][]**'s value.
+            method's result -- copied by applying [`dict`][] to it,
+            and then updated with keys derived from all the keys
+            the instance's **[`auto_makers`][]** mapping contains:
+            each modified by *prefixing* it with the value of the
+            **[`auto_made_record_attr_prefix`][]** attribute, and
+            each mapped to the same key, but *without* that prefix.
+
+            The prefix itself is an auto-generated string, guaranteed to
+            be *unique* (different for each **`StructuredLogsFormatter`**
+            instance) within a Python interpreter run. It always starts
+            with the **[`StructuredLogsFormatter.COMMON_AUTO_PREFIX`][]**
+            constant's value.
 
             ??? note "Details"
 
@@ -2619,7 +2613,7 @@ class StructuredLogsFormatter(logging.Formatter):
         self,
         unready_raw_defaults: Mapping[str, object],
     ) -> dict[str, object]:
-        raw_defaults = self._sorted_dict_deepcopy(unready_raw_defaults)
+        raw_defaults = deepcopy(self._as_sorted_dict(unready_raw_defaults))
         self._validate_mapping_keys_as_output_keys(raw_defaults)
         return raw_defaults
 
@@ -2627,7 +2621,7 @@ class StructuredLogsFormatter(logging.Formatter):
         self,
         unready_auto_makers: Mapping[str, ValueProvider[object] | DottedPath],
     ) -> dict[str, ValueProvider[object]]:
-        auto_makers = self._sorted_dict_deepcopy(unready_auto_makers)
+        auto_makers = self._as_sorted_dict(unready_auto_makers)
         self._validate_mapping_keys_as_output_keys(auto_makers)
         return self._resolve_auto_makers(auto_makers)
 
@@ -2635,18 +2629,18 @@ class StructuredLogsFormatter(logging.Formatter):
         self,
         unready_base_attr_to_key: Mapping[str, str | None],
     ) -> dict[str, str | None]:
-        base_attr_to_key = self._sorted_dict_deepcopy(unready_base_attr_to_key)
+        base_attr_to_key = self._as_sorted_dict(unready_base_attr_to_key)
         self._validate_base_attr_to_key(base_attr_to_key)
         return base_attr_to_key
 
-    def _sorted_dict_deepcopy(
+    def _as_sorted_dict(
         self,
         mapping: Mapping[HashableT, T],
     ) -> dict[HashableT, T]:
-        return deepcopy({
+        return {
             key: mapping[key]
             for key in sorted(mapping.keys(), key=str)
-        })
+        }
 
     def _validate_mapping_keys_as_output_keys(
         self,
