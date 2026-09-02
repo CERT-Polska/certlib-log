@@ -22,6 +22,7 @@ theme:
   features:
     - navigation.indexes
     - navigation.sections
+    - content.code.copy
 
 plugins:
   - search
@@ -67,8 +68,13 @@ markdown_extensions:
   - footnotes
   - meta
   - pymdownx.superfences
+  - pymdownx.details
   - smarty
   - toc:
       title: "Document Contents"
       permalink: true
       toc_depth: 6
+
+watch:
+  - ../src
+  - ../tests

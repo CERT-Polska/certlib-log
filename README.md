@@ -36,14 +36,14 @@ mechanisms (rather than introducing alternative machinery).
 
 This approach **makes it possible to**:
 
-- just start using the library in existing projects (especially, to
-  enable [*structured logging*](https://certlib-log.readthedocs.io/page/guide/#certlib.log--tldr-how-to-quickly-enable-structured-logging))
-  -- usually without changing a single line of code;
+- just start using the library in existing projects -- especially, to
+  enable [*structured logging*](https://certlib-log.readthedocs.io/page/guide/#certlib.log--tldr-how-to-quickly-enable-structured-logging)
+  (often without changing a single line of code);
 
-- depending on the needs, gradually introduce selected features provided
+- depending on the needs, gradually introduce other features provided
   by the library (such as [*`{}`-style*](https://certlib-log.readthedocs.io/page/guide/#certlib.log--modern-formatting-style)
   message formatting, data-only [*message-less*](https://certlib-log.readthedocs.io/page/guide/#certlib.log--dealing-with-pure-data)
-  log records, or [*auto-making*](https://certlib-log.readthedocs.io/page/reference/#certlib.log.register_log_record_attr_auto_maker)
+  log records, [*auto-making*](https://certlib-log.readthedocs.io/page/reference/#certlib.log.register_log_record_attr_auto_maker)
   of log record fields, e.g., from [context variables](https://docs.python.org/3/library/contextvars.html)...);
 
 - retain existing logging configuration methods (whether
@@ -53,7 +53,19 @@ This approach **makes it possible to**:
 
 ## Examples
 
-### Configuring *Structured Logging* and *Auto-Makers*
+### Minimal *Structured Logging* Setup
+
+```python
+import logging, certlib.log
+
+some_handler = logging.StreamHandler()
+some_handler.setFormatter(
+    certlib.log.StructuredLogsFormatter()
+)
+logging.getLogger().addHandler(some_handler)
+```
+
+### More Elaborate Variant, with *Auto-Makers* and *Defaults*
 
 ```python
 import logging.config
@@ -63,16 +75,16 @@ logging.config.dictConfig({
         "structured": {
             "()": "certlib.log.StructuredLogsFormatter",
             "defaults": {
-                # Each key in this dict should be an *output data* key.
-                # Each value should specify the respective *default value*.
+                # * Each key in this dict should be an *output data* key.
+                # * Each value should specify the respective *default value*.
                 "system": "MyExample",
                 "component": "MyAPI",
                 "component_type": "web"
             },
             "auto_makers": {
-                # Each key in this dict should be an *output data* key.
-                # Each value should specify an *argumentless callable*
-                # (for example, the `get()` method of some `ContextVar`).
+                # * Each key in this dict should be an *output data* key.
+                # * Each value should specify an *argumentless callable*
+                #   (for example, the `get()` method of some `ContextVar`).
                 "client_ip": "myexample.myapi.client_ip_context_var.get",
                 "nano_time": "time.time_ns"
             }
@@ -94,7 +106,7 @@ logging.config.dictConfig({
 })
 ```
 
-### Logging Stuff With *`{}`-Formatted Text Message* or *No Text Message*
+### Logging with *`{}`-Formatted Text Message* or *No Text Message*
 
 ```python
 import datetime as dt
@@ -152,7 +164,7 @@ def example_with_no_text(temperature, pressure, debug_data_dict, calm=True):
             stacklevel=2,
         ))
 
-    # Single dict providing data is also OK:
+    # Providing data by passing a single dict is also OK:
     logger.debug(xm(debug_data_dict))
 ```
 

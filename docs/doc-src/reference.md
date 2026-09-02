@@ -13,14 +13,6 @@
 The `certlib.log` library is compatible with Python 3.10 and all newer
 versions of Python.
 
-**Important definition**: whenever this document refers to _**undefined
-behavior**_, this should be understood to mean: *the API makes no
-guarantees about what will happen -- an exception or a malfunction
-is likely.*
-
-Unless otherwise specified, using the library in a way that contravenes
-the documented API will result in *undefined behavior*.
-
 !!! exclusion "Interface exclusion"
 
     The following elements/features are _**not**_ part of the API (so,
@@ -40,9 +32,16 @@ the documented API will result in *undefined behavior*.
 
     * specific behaviors in cases where -- according to the
       documentation -- *undefined behavior* is expected (see
-      the definition above);
+      the definition below);
 
     * *unofficial* support for Python 3.9.
+
+**Important**: whenever this document refers to _**undefined behavior**_,
+this should be understood to mean: *the API makes no guarantees about
+what will happen -- an exception or a malfunction is likely.*
+
+In particular, unless otherwise specified, using the library in a way
+that contravenes the documented API will result in *undefined behavior*.
 
 ***
 
@@ -70,7 +69,7 @@ the documented API will result in *undefined behavior*.
         - "!^_"
         - "^__str__$"
         - "^__repr__$"
-        - "^_ensure_callable_args_and_data_items_resolved$"
+        - "^_ensure_deferred_values_created$"
       show_attribute_values: false
 
 ***
@@ -96,13 +95,6 @@ the documented API will result in *undefined behavior*.
 
 ***
 
-::: certlib.log.COMMONLY_EXPECTED_NON_STANDARD_OUTPUT_KEYS
-    handler: python
-    options:
-      heading_level: 2
-
-***
-
 ::: certlib.log.STANDARD_RECORD_ATTR_TO_OUTPUT_KEY
     handler: python
     options:
@@ -115,7 +107,7 @@ the documented API will result in *undefined behavior*.
 !!! note
 
     In your day-to-day work with the `certlib.log` library, you do not
-    need to delve into this stuff.
+    need to delve too deeply into this stuff.
 
 !!! exclusion "Interface exclusion"
 
@@ -158,3 +150,24 @@ the documented API will result in *undefined behavior*.
       heading: 'KwargsMappingAsLiteralEvaluableString'
       heading_level: 3
       show_signature_annotations: false
+
+::: certlib.log.ConfCorrector
+    handler: python
+    options:
+      heading: 'ConfCorrector'
+      heading_level: 3
+      members: false
+
+::: certlib.log.ConfDict
+    handler: python
+    options:
+      heading: 'ConfDict'
+      heading_level: 3
+      members: false
+
+::: certlib.log.CorrectedConfDict
+    handler: python
+    options:
+      heading: 'CorrectedConfDict'
+      heading_level: 3
+      members: false
