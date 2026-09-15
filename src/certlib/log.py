@@ -215,7 +215,7 @@ or system, while also helping to maintain consistency.
 
 Referring to the *auto-makers* specified in the example above:
 
-* `just_local_counter` is a callable (precisely: an interator's *bound
+* `just_local_counter` is a callable (precisely: an iterator's *bound
   method*) -- which will provide each log entry with its sequential
   number;
 
@@ -225,7 +225,7 @@ Referring to the *auto-makers* specified in the example above:
 
 * `client_ip` points (via a *dotted path*) to a custom callable --
   presumably, the [`get`][contextvars.ContextVar.get] method of a
-  *context variable* (suppossed to be already populated, which could
+  *context variable* (supposed to be already populated, which could
   have been done, e.g., by an HTTP request handler) -- the current
   value of which will be included in each (relevant) log entry.
 
@@ -238,11 +238,11 @@ Referring to the *auto-makers* specified in the example above:
     from *output data*.
 
     For a context variable's **[`get`][contextvars.ContextVar.get]**,
-    this can be achieved just by defining the variable's default value
+    this can be achieved simply by defining the variable's default value
     as **`None`**, like so:
 
     ```python
-    client_ip_context_var = contextvars.ContextVar('client_ip_context_var', default=None)
+    client_ip_context_var = contextvars.ContextVar('client_ip', default=None)
     ```
 
 Now that we have our [`StructuredLogsFormatter`][] instance created, the
@@ -391,7 +391,7 @@ sorted by key, and with extra newlines/indentation):
     (*before* the actual data serialization).
 
     All *output data* values are subject to preparation by that method
-    (which processes them differenttly depending on their types...). By
+    (which processes them differently depending on their types...). By
     extending/overriding it in your **[`StructuredLogsFormatter`][]**
     subclass you can gain full control over that preparation.
 
@@ -1091,7 +1091,7 @@ Future ideas under consideration include:
 * [`xm`][]: add dedicated suport for [`pattern`][ExtendedMessage.pattern]
   of type [`string.templatelib.Template`][] (instances of which can be
   created by evaluating [*t-strings*](https://docs.python.org/3/library/stdtypes.html#stdtypes-tstrings)
-  -- available in Python 3.14 and newer). Additionaly, to support passing
+  -- available in Python 3.14 and newer). Additionally, to support passing
   such *t-string*-made *template* objects directly to logger methods, add
   an opt-in mechanism that will automatically wrap such *templates* in
   [`xm`][] objects -- so that, e.g., you could just do:
@@ -1303,16 +1303,16 @@ class StructuredLogsFormatter(logging.Formatter):
             original one(s). Doing otherwise will result in undefined
             behavior.
 
-    * **`conf_corrector`** (a function or other callable, or [`None`][]
-      -- which is the default): a custom callable that is automatically
-      invoked for extra validation and/or adjustments regarding the
-      instance configuration (including also the arguments described
-      above); it can also be a *dotted path* string (*importable
-      dotted name*) that points to such a callable. In the rest of
-      the documentation, a callable specified via this argument is
-      referred to as a *configuration corrector* (or just *corrector*).
-      The `StructuredLogsFormatter` constructor executes the *corrector*
-      just once -- before the main part of the formatter initialization.
+    * **`conf_corrector`** (a function or other callable; none by default):
+      a custom callable that is automatically invoked for extra validation
+      and/or adjustments regarding the instance configuration (including
+      also the arguments described above); it can also be a *dotted path*
+      string (*importable dotted name*) that points to such a callable.
+      In the rest of the documentation, a callable specified via
+      **`conf_corrector`** is referred to as a *configuration corrector*
+      (or just *corrector*). The `StructuredLogsFormatter` constructor
+      executes the *corrector* just once -- before the main part of the
+      formatter initialization.
 
         ??? info "Corrector interface"
 
@@ -1357,7 +1357,7 @@ class StructuredLogsFormatter(logging.Formatter):
 
             * `"serializer"`: the callable specified as the constructor's
               **`serializer`** argument (described earlier) -- ready to be
-              set as the **[`serializer`][]** formatter attribute (i.e.,,
+              set as the **[`serializer`][]** formatter attribute (i.e.,
               already resolved if given as a *dotted path*, and verified
               as being a callable object);
 
@@ -1368,7 +1368,7 @@ class StructuredLogsFormatter(logging.Formatter):
               [`None`][];
 
             * `"conf_corrector_params"`: a mapping received
-              by the `StructuredLogsFormatter` constructor via
+              by the `StructuredLogsFormatter` constructor as
               **`conf_corrector_params`** (see below...), copied by
               applying [`dict`][] to it.
 
@@ -1405,7 +1405,7 @@ class StructuredLogsFormatter(logging.Formatter):
 
     **Alternatively**, a mapping (especially a [`dict`][]) of keyword
     arguments compatible with the main signature described above, or an
-    [`ast.literal_eval`][]-evaluable string representing such a dict,
+    [`ast.literal_eval`][]-evaluable string representing such a mapping,
     can be passed to the [`StructuredLogsFormatter`][] constructor as
     the *first positional argument*.
 
@@ -1444,7 +1444,7 @@ class StructuredLogsFormatter(logging.Formatter):
 
     ??? warning "Deep-copyable *defaults* requirement"
 
-        Regardles of the constructor call variant, every mapping that is:
+        Regardless of the constructor call variant, every mapping that is:
 
         * specified as **`defaults`**, or
         * returned by **[`make_base_defaults`][]**, or
@@ -1492,7 +1492,7 @@ class StructuredLogsFormatter(logging.Formatter):
     !!! warning "Mutability restriction"
 
         Modifying any nested mutable data within any of the aforementioned
-        atributes (in particular, any mutable values in **[`defaults`][]**)
+        attributes (in particular, any mutable values in **[`defaults`][]**)
         is forbidden. Doing so will result in undefined behavior.
 
     When it comes to customizing the format of log entry *timestamps*, the
@@ -1948,9 +1948,9 @@ class StructuredLogsFormatter(logging.Formatter):
 
             ??? note "Details"
 
-                The effect is that -- narrowing the discussion just to
-                *auto-maker*-provided attributes of log records -- the
-                respective *output data* items will always be obtained
+                The effect is -- narrowing the discussion just to
+                *auto-maker*-provided attributes of log records -- that
+                the respective *output data* items will always be obtained
                 by picking only those log record attributes whose names
                 are prefixed with the particular formatter instance's
                 **[`auto_made_record_attr_prefix`][]** -- using those
@@ -3730,8 +3730,8 @@ def register_log_record_attr_auto_maker(
 
     The _**auto-maker**_ needs to be an argumentless function or
     any other object that can be called with no arguments (see:
-    [`ValueProvider`][]). A call to it will be made *at most once*
-    for each newly created log record (*only* if the logger [is
+    [`ValueProvider`][]). A call to it will be made *once* for
+    *each* newly created log record (*only* if the logger [is
     enabled](https://docs.python.org/3/library/logging.html#logging.Logger.isEnabledFor)
     for the respective log level), in the thread in which the current
     logger method call is being executed (shortly *after* the log record
@@ -4661,7 +4661,7 @@ class _OpinionatedConfCorrectorImpl:
       *either* a mapping (or an `ast.literal_eval()`-evaluable string
       representing a mapping) that maps `.lower()`-ed log level names
       (such as `"info"`, `"warning"`, `"error"`...) to ANSI color codes
-      (such as `"\x1b[34m"`, `"\x1b[1;33m"`, `"\x1b[43m"`...) *or* a
+      (such as `"\x1b[34m"`, `"\x1b[1;33m"`, `"\x1b[43m"`...), *or* a
       boolean-flag-like value (`True`, `"true"`, `"t"`, `"1"`, `"yes"`
       or `"y"` -- representing *logical truth*; or `False`, `"false"`,
       `"f"`, `"0"`, `"no"`, `"n"` or empty string -- representing
@@ -4679,7 +4679,7 @@ class _OpinionatedConfCorrectorImpl:
       `.lower()`-ed and `.strip()`-ed, is equal to `"auto"` -- then the
       effect depends on whether the *simple format* feature is enabled:
       if it is, the default *level colors* mapping is used; if not, the
-      colorizing feature is disabled.
+      *colorizing* feature is disabled.
 
     Supported environment variables:
 
@@ -4695,15 +4695,16 @@ class _OpinionatedConfCorrectorImpl:
 
     * Not specifying the `simple_format` param (or setting it to `None`)
       *and also* not specifying the `CERT_LOG_SIMPLE_FORMAT` environment
-      variable -- is equivalent to the **`false`** setting. In other
-      words, the *simple format* feature is *not* used *by default*.
+      variable -- is equivalent to setting the param to `"false"`. In
+      other words, by *default*, the *simple format* feature is *not*
+      enabled.
 
     * Not specifying the `level_colors` param (or setting it to `None`)
       *and also* not specifying the `CERT_LOG_LEVEL_COLORS` environment
-      variable -- is equivalent to the **`auto`** setting (!). In other
-      words, the *default* behavior is that whether the *level colors*
-      feature is used depends on whether the *simple format* feature
-      is used.
+      variable -- is equivalent to setting the param to `"auto"` (!). In
+      other words, the *default* behavior is that whether the *colorizing*
+      feature is enabled depends on whether the *simple format* feature
+      is enabled.
     """
 
     #
@@ -4732,8 +4733,7 @@ class _OpinionatedConfCorrectorImpl:
         ''',
         'component_type': '''
             A conventional label of the *type* of the script/application being
-            executed, agreed upon in your organization (e.g.: "web", "worker",
-            "collector", "parser"...).
+            executed, agreed upon in your organization (e.g.: "web", "worker"...).
         ''',
     }
 
@@ -4745,12 +4745,12 @@ class _OpinionatedConfCorrectorImpl:
             for key, obj in _BaseWebAutoMakersSubmodule.get_auto_makers().items()
         },
         'worker': {
-            # TODO: description:
             'worker_id': '''
                 TBD...
-            '''
-            # TODO: decide whether more stuff should be added here...
+            '''  # ^ TODO: description
+            # TODO: decide whether more items should be added here...
         },
+        # TODO: more component types here?...
     }
 
     #_VALID_COMPONENT_TYPES: Set[str] = TODO: decide whether worth defining...
@@ -5077,8 +5077,8 @@ class _OpinionatedConfCorrectorImpl:
         assert isinstance(ct, str)
         return ct
 
-
-# Our *configuration corrector* callable exposed at module level
-# (note: you can refer to it within your formatter configuration
-# with the "certlib.log._opinionated_conf_corrector" dotted path).
+# The *opinionated configuration corrector* callable, compliant with
+# the `ConfCorrector` protocol, exposed at module level (note: you
+# can refer to it within your formatter configuration by using the
+# "certlib.log._opinionated_conf_corrector" dotted path).
 _opinionated_conf_corrector = _OpinionatedConfCorrectorImpl._perform_conf_correction

@@ -43,7 +43,7 @@ Homepage = "https://github.com/CERT-Polska/certlib-log"
 Documentation = "https://certlib-log.readthedocs.io/"
 Repository = "https://github.com/CERT-Polska/certlib-log.git"
 Issues = "https://github.com/CERT-Polska/certlib-log/issues"
-Changelog = "https://github.com/CERT-Polska/certlib-log/blob/main/CHANGELOG.md"
+Changelog = "https://certlib-log.readthedocs.io/page/changelog/"
 
 
 #
