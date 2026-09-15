@@ -4232,6 +4232,58 @@ def _resolve_dotted_path(dotted_path: str) -> Any:
     return obj
 
 
+def _are_the_same(first: object, second: object) -> bool:
+    """
+    Check whether the given arguments are the same object (as if the
+    `is` test was applied to them, except that the answer is negative
+    in the case of `None`) -- but first unwrap each of them *if* it is
+    wrapped in a `types.MethodType` instance (which is the case when
+    dealing with an ordinary method accessed via a class instance, or
+    a class method accessed via a class or instance).
+
+    >>> a = b = []
+    >>> other = []
+    >>> _are_the_same(a, b)
+    True
+    >>> not _are_the_same(a, other)
+    True
+    >>> not _are_the_same(1, 1.0)
+    True
+    >>> class C:
+    ...     def method(self):
+    ...         pass
+    ...     def another_method(self):
+    ...         pass
+    ...     @classmethod
+    ...     def cls_method(cls):
+    ...         pass
+    ...     @classmethod
+    ...     def another_cls_method(cls):
+    ...         pass
+    ...
+    >>> inst = C()
+    >>> _are_the_same(inst.method, inst.method)
+    True
+    >>> _are_the_same(C.cls_method, C.cls_method)
+    True
+    >>> _are_the_same(inst.cls_method, inst.cls_method)
+    True
+    >>> _are_the_same(C.cls_method, inst.cls_method)
+    True
+    >>> _are_the_same(inst.cls_method, C.cls_method)
+    True
+    >>> not _are_the_same(inst.method, inst.another_method)
+    True
+    >>> not _are_the_same(C.cls_method, C. another_cls_method)
+    True
+    """
+    if isinstance(first, types.MethodType):
+        first = first.__func__
+    if isinstance(second, types.MethodType):
+        second = second.__func__
+    return first is second is not None
+
+
 #
 # Unofficial extra stuff (*not* part of the public API)
 #
