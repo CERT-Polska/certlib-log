@@ -6525,6 +6525,6 @@ class TestSnippetsInDocumentation:
         expected_utc_formatted_timestamp,
     ):
         config_snippet = snippet_finder.lookup(
-            substring='"extra_auto_makers_from": [',
+            substring='"flask_app": "myown.portal.app"',
         )
         pytest.skip('...test not implemented yet...')
