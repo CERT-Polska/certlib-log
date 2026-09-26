@@ -62,6 +62,8 @@ from typing import (
     NamedTuple,
     TypeVar,
 )
+if TYPE_CHECKING:
+    from typing import Self   # <- Availability at runtime: Python 3.11+ only
 from unittest.mock import (
     Mock,
     call,
@@ -81,11 +83,6 @@ from certlib.log import (
     register_log_record_attr_auto_maker,
     xm,
 )
-
-if TYPE_CHECKING:
-    # Note: In practice, it is not a problem that the Python 3.10
-    # version of the `typing` module does *not* include this tool:
-    from typing import Self
 
 
 #
@@ -134,7 +131,7 @@ class ExampleNonDictMutableMapping(MutableMapping[Any, Any]):
     def __setitem__(self, key, val): self._d[key] = val
     def __delitem__(self, key): del self._d[key]
 
-class ExampleClassWithCustomStrAndRepr:
+class ExampleSomethingWithCustomStrAndRepr:
     def __str__(self): return '-> STR <-'
     def __repr__(self): return '-> REPR <-'
 
@@ -155,12 +152,12 @@ class ExampleDataClass:
 EXAMPLE_CUSTOM_ITEMS = {
     'foo': 'bar',
     'π': lambda: math.pi,  # `xm`-specific feature: a function/method to be called to get the value
-    'SomeSpam': ExampleClassWithCustomStrAndRepr(),
+    'SomeSpam': ExampleSomethingWithCustomStrAndRepr(),
     'my enum member...': ExampleEnum.FOO,
     'IPv4 address': ipaddress.IPv4Address('10.20.30.40'),
     'my_subdict': {
         (1, 2): (1, (1, (1, {1: 0.0, float('inf'): float('inf')}))),
-        ExampleClassWithCustomStrAndRepr(): ExampleClassWithCustomStrAndRepr(),
+        ExampleSomethingWithCustomStrAndRepr(): ExampleSomethingWithCustomStrAndRepr(),
         42: ExampleNamedTuple(
             'Forty two! 🍀',
             b'Do you know it?',
@@ -332,7 +329,7 @@ class ListLogHandler(logging.Handler):
     def last_output(self) -> dict[str, Any]:
         if self.output_list:
             return self.output_list[-1]
-        raise AssertionError(f'no log entry emitted by {self!a}')
+        raise AssertionError(f'no log entry emitted by {self!r}')
 
 
 class ExampleSubclassOfStructuredLogsFormatter(StructuredLogsFormatter):
@@ -742,7 +739,7 @@ class TestStructuredLogsFormatter:
         make_StructuredLogsFormatter_subclass(
             extra_accepted_kwarg_names={'some_unused'},
             # (Examples of non-dict mappings)
-            base_defaults=collections.ChainMap({
+            base_defaults=ExampleNonDictMutableMapping({
                 # (See `formatter_init_kwargs` fixture's params...)
                 'system': ['...to-be-overridden...'],
             }),
@@ -750,10 +747,10 @@ class TestStructuredLogsFormatter:
                 **StructuredLogsFormatter.make_base_auto_makers(sentinel.self),
                 'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT),
             }),
-            base_record_attr_to_output_key=collections.ChainMap({
-                **STANDARD_RECORD_ATTR_TO_OUTPUT_KEY,
-                'some_unused_rec_attr': 'respective_unused_output_key',
-            }),
+            base_record_attr_to_output_key=collections.ChainMap(
+                {'some_unused_rec_attr': 'respective_unused_output_key'},
+                dict(STANDARD_RECORD_ATTR_TO_OUTPUT_KEY),
+            ),
         ),
     ])
     def formatter_factory(
@@ -784,7 +781,7 @@ class TestStructuredLogsFormatter:
             }),
         ),
         dict(
-            auto_makers=collections.ChainMap({
+            auto_makers=ExampleNonDictMutableMapping({
                 # (Example of non-dict mapping)
                 'system': ConstantValueAutoMaker(EXAMPLE_SYSTEM),
                 'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT),
@@ -1115,8 +1112,7 @@ class TestStructuredLogsFormatter:
                 StructuredLogsFormatter,
                 # * Arguments:
                 dict(
-                    defaults=collections.ChainMap({
-                        # (Example of non-dict mapping)
+                    defaults=ExampleNonDictMutableMapping({
                         'system': None,          # (*void* value)
                         'component': None,       # (*void* value)
                         'component_type': None,  # (*void* value)
@@ -1386,7 +1382,7 @@ class TestStructuredLogsFormatter:
                         'vege': ['mar', 'chew', 'ka'],
                         'zero': 0,
                     }),
-                    auto_makers=collections.ChainMap({
+                    auto_makers=ExampleNonDictMutableMapping({
                         # (Example of non-dict mapping)
                         'component': ConstantValueAutoMaker('coś tam').importable_dotted_name,
                         'component_type': ConstantValueAutoMaker('czegoś tam'),
@@ -1603,7 +1599,7 @@ class TestStructuredLogsFormatter:
                         'zebra-2': {},  # (*void* value)
                         'zebra-3': ['Three shall be the number thou shalt count'],
                     }),
-                    base_auto_makers=collections.ChainMap({
+                    base_auto_makers=ExampleNonDictMutableMapping({
                         # (Example of non-dict mapping)
                         'napa': ConstantValueAutoMaker(3333333333),
                         'tyku': ConstantValueAutoMaker('T'),
@@ -1619,7 +1615,7 @@ class TestStructuredLogsFormatter:
                 ),
                 # * Arguments:
                 dict(
-                    defaults=collections.ChainMap({
+                    defaults=ExampleNonDictMutableMapping({
                         # (Example of non-dict mapping)
                         'd': {'ddd': 'DDD'},
                         'qq': None,  # (*void* value)
@@ -1681,7 +1677,7 @@ class TestStructuredLogsFormatter:
                         'xyz': {('pom', 'i', 'dor'): 1111},
                         'D' * 200: 'Macarron?',
                     },
-                    base_auto_makers=collections.ChainMap({
+                    base_auto_makers=ExampleNonDictMutableMapping({
                         # (Example of non-dict mapping)
                         'component_type': ConstantValueAutoMaker(EXAMPLE_COMPONENT_TYPE),
                         'zero': ConstantValueAutoMaker(777777777).importable_dotted_name,
@@ -1722,7 +1718,7 @@ class TestStructuredLogsFormatter:
                             'późno ⏰': ConstantValueAutoMaker(dt.time(22, 22)),
                             'zero': ConstantValueAutoMaker(0).importable_dotted_name,
                         }),
-                        base_record_attr_to_output_key=collections.ChainMap({
+                        base_record_attr_to_output_key=ExampleNonDictMutableMapping({
                             # (Example of non-dict mapping)
                             'cucumbers': '🥒🥒🥒🥒',
                             'strawberries': '🍓🍓🍓🍓🍓',
@@ -1788,7 +1784,7 @@ class TestStructuredLogsFormatter:
         [
             (FormatterInitKwargsPassingVariant.DIRECT, sentinel.UNUSED),
             (FormatterInitKwargsPassingVariant.MAPPING, dict),
-            (FormatterInitKwargsPassingVariant.MAPPING, collections.ChainMap),
+            (FormatterInitKwargsPassingVariant.MAPPING, ExampleNonDictMutableMapping),
             (FormatterInitKwargsPassingVariant.MAPPING, types.MappingProxyType),
             (FormatterInitKwargsPassingVariant.STRING, sentinel.UNUSED),
         ],
@@ -4207,7 +4203,7 @@ class TestStructuredLogsFormatter:
 
 
     @pytest.mark.skip('...test not implemented yet...')
-    def test_log_with_formatTime_obtaining_non_none_datefmt_causes_printing_type_error_to_stderr(  # noqa
+    def test_log_with_formatTime_obtaining_non_none_datefmt_causes_printing_type_error_to_stderr(   # noqa
         self,
     ):
         TODO   # type: ignore[name-defined]
@@ -4282,7 +4278,7 @@ class TestStructuredLogsFormatter:
         [
             (FormatterInitKwargsPassingVariant.DIRECT, sentinel.UNUSED),
             (FormatterInitKwargsPassingVariant.MAPPING, dict),
-            (FormatterInitKwargsPassingVariant.MAPPING, collections.ChainMap),
+            (FormatterInitKwargsPassingVariant.MAPPING, ExampleNonDictMutableMapping),
             (FormatterInitKwargsPassingVariant.MAPPING, types.MappingProxyType),
             (FormatterInitKwargsPassingVariant.STRING, sentinel.UNUSED),
         ],
@@ -5351,6 +5347,8 @@ class TestStructuredLogsFormatter:
 
 @pytest.mark.skip('...tests not implemented yet...')
 class TestExtendedMessage:
+    def xm_is_alias_of_ExtendedMessage(self):  # noqa
+        TODO   # type: ignore[name-defined]
     def test_TODO(self):
         TODO   # type: ignore[name-defined]
 

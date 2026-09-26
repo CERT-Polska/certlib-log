@@ -876,12 +876,13 @@ modern and convenient [`{}`-based style of message formatting](https://docs.pyth
 
     What we are discussing here concerns the formatting of *text
     messages* themselves (i.e., the contents of log records’ `message`),
-    rather than the formatting of *entire log entries* (where `message`
-    is just one field). Note that the latter is completely orthogonal
-    to the former. Whereas the standard tools provided by the `logging`
-    module [*do* support](https://docs.python.org/3/library/logging.html#formatter-objects)
+    rather than *entire log entries* (where `message` is just one
+    field). Note that the latter is completely orthogonal to the former.
+    Whereas the standard tools provided by the `logging` module [*do*
+    support](https://docs.python.org/3/library/logging.html#formatter-objects)
     the `{}`-based formatting style for the latter, they do *not* support
-    it for the former.
+    it for the former -- and this is where the `certlib.log`'s feature in
+    question comes into play.
 
 ```python
 import datetime as dt
@@ -1048,8 +1049,8 @@ If you have not read the *reference documentation* for the
 do so. Among other things, you will find there a list of hook methods
 that can be extended/overridden in your subclasses. Apart from that,
 the documentation in question includes (especially, in the individual
-descriptions of those hook methods) valuable information about other
-elements of the `StructuredLogsFormatter`'s interface and behavior.
+descriptions of those hook methods) quite detailed information about
+other elements of the `StructuredLogsFormatter`'s interface and behavior.
 
 ***
 
@@ -1162,8 +1163,8 @@ from typing import (
 )
 if TYPE_CHECKING:
     from typing import (   # type: ignore[attr-defined]
-        Self,              # <- Python 3.11+ only
-        TypeAlias,         # <- Python 3.10+ only
+        Self,              # <- Availability at runtime: Python 3.11+ only
+        TypeAlias,         # <- Availability at runtime: Python 3.10+ only
     )
 
 
