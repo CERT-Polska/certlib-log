@@ -41,6 +41,7 @@ from collections.abc import (
     Hashable,
     Iterable,
     Mapping,
+    MutableMapping,
     Sequence,
     Set,
 )
@@ -52,6 +53,7 @@ from enum import (
 from types import (
     FunctionType as Function,
     ModuleType as Module,
+    SimpleNamespace,
 )
 from typing import (
     TYPE_CHECKING,
@@ -60,7 +62,11 @@ from typing import (
     NamedTuple,
     TypeVar,
 )
-from unittest.mock import sentinel
+from unittest.mock import (
+    Mock,
+    call,
+    sentinel,
+)
 
 import pytest
 
@@ -120,6 +126,14 @@ assert EXAMPLE_TIMESTAMP_DT.strftime('%Y-%m-%d %H:%M:%S.%f') + 'Z' == (
 )
 
 
+class ExampleNonDictMutableMapping(MutableMapping[Any, Any]):
+    def __init__(self, items=(), /, **kw): self._d = dict(items, **kw)
+    def __len__(self): return len(self._d)
+    def __iter__(self): return iter(self._d)
+    def __getitem__(self, key): return self._d[key]
+    def __setitem__(self, key, val): self._d[key] = val
+    def __delitem__(self, key): del self._d[key]
+
 class ExampleClassWithCustomStrAndRepr:
     def __str__(self): return '-> STR <-'
     def __repr__(self): return '-> REPR <-'
@@ -178,7 +192,7 @@ EXAMPLE_CUSTOM_ITEMS = {
             ValueError,
             ipaddress.AddressValueError,
         ],
-        'other stuff': {
+        'other stuff': ExampleNonDictMutableMapping({
             'my other enum member': ExampleEnum.BAR,
             'ipv4address': ipaddress.IPv4Address('192.168.0.1'),
             'ipv4iface': ipaddress.IPv4Interface('192.168.0.1/24'),
@@ -187,7 +201,7 @@ EXAMPLE_CUSTOM_ITEMS = {
             'ipv6iface': ipaddress.IPv6Interface('2001:0db8:85a3:0000:0000:8a2e:0370:7334/124'),
             'ipv6network': ipaddress.IPv6Network('2001:0db8:85a3:0000:0000:8a2e:0370:7330/124'),
             'uuid': str(uuid.UUID('12345678-1234-5678-1234-567812345678')),
-        },
+        }),
         # (Below: very long key...)
         (' b r r R R r r R' * 1000): ExampleDataClass(
             my_data=(1, '2', bytearray(b'three'), ''),
@@ -5322,8 +5336,8 @@ class TestStructuredLogsFormatter:
         log_handler,
         expected_output_list,
     ):
-        for call in logger_method_calls:
-            call(logger)
+        for log_call in logger_method_calls:
+            log_call(logger)
 
         assert log_handler.output_list == expected_output_list
 
@@ -6340,7 +6354,7 @@ class TestSnippetsInDocumentation:
         expected_utc_formatted_timestamp,
     ):
         snippet_finder = self._SnippetFinder(self.readme_path)
-        # Prepare the necessary modules:
+        # Prepare necessary modules:
         myexample = Module('myexample')
         myexample.lib = Module('myexample.lib')
         myexample.myapi = Module('myexample.myapi')
@@ -6517,7 +6531,11 @@ class TestSnippetsInDocumentation:
         ]
 
 
-    def test_extra_non_public_opinionated_conf_corrector(
+    #
+    # Tests related to snippets in unofficial extra stuff docstrings
+
+
+    def test_extra_non_public_opinionated_conf_corrector_snippets(
         self,
         monkeypatch,
         snippet_finder,
@@ -6525,6 +6543,688 @@ class TestSnippetsInDocumentation:
         expected_utc_formatted_timestamp,
     ):
         config_snippet = snippet_finder.lookup(
-            substring='"flask_app": "myown.portal.app"',
+            substring='"keyword": "flask_app",',
         )
-        pytest.skip('...test not implemented yet...')
+        ext_setup_completion_snippet = snippet_finder.lookup(
+            substring='_complete_ext_setup(flask_app=app)'
+        )
+
+        # * Prepare necessary fakes:
+
+        class FakeFlaskApp:
+            def __init__(self, name):
+                assert name == 'my_flask_based_app'
+                assert 'on_start' not in vars(fake_request_lifecycle)
+            def before_request(self, callback, /):
+                fake_request_lifecycle.on_start = callback
+            def after_request(self, callback, /):
+                fake_request_lifecycle.on_finish = callback
+            def teardown_request(self, callback, /):
+                fake_request_lifecycle.on_cleanup = callback
+
+        class FakeRequestLifecycle:
+            def __init__(self):
+                self._handling = False
+            def is_being_handled(self):
+                return self._handling
+            def start(self):
+                self._handling = True
+                self.on_start()
+            def finish(self):
+                resp = self.on_finish(fake_response)
+                self._handling = False
+                assert resp is fake_response
+            def cleanup(self):
+                self.on_cleanup(None)
+            on_start: Callable[[], None]
+            on_finish: Callable[[Any], Any]
+            on_cleanup: Callable[[Any], None]
+
+        fake_request_lifecycle = FakeRequestLifecycle()
+        fake_request = SimpleNamespace(
+            headers=Mock(
+                getlist=Mock(return_value=['1.2.3.4']),
+                get=Mock(return_value='some-request-id'),
+            ),
+            remote_addr='10.11.12.13',
+            host='camelot.example.org',
+            method='GET',
+            path='/sir/Lancelot',
+            query_string=b'question=What\xaais\xbbyour\xccquest',
+            user_agent=ExampleSomethingWithCustomStrAndRepr(),
+        )
+        fake_response = SimpleNamespace(
+            status_code=404,
+        )
+
+        # * Prepare necessary modules and environment:
+
+        flask = Module('flask')
+        flask.Flask = FakeFlaskApp
+        flask.request = fake_request
+        flask.has_request_context = fake_request_lifecycle.is_being_handled
+
+        my_flask_based_app = Module('my_flask_based_app')
+
+        monkeypatch.setitem(sys.modules, 'flask', flask)
+        monkeypatch.setitem(sys.modules, 'my_flask_based_app', my_flask_based_app)
+        monkeypatch.setenv('CERT_LOG_TRUSTED_PROXIES', '10.9.8.7 10.11.12.13 10.3.2.1')
+
+        # * Prepare expected output elements:
+
+        expected_request_specific_output_items = {
+            'remote_ip': '1.2.3.4',
+            'remote_direct_ip': '10.11.12.13',
+            'remote_x_forwarded_for': '1.2.3.4',
+            'request_id': 'some-request-id',
+            'request_host': 'camelot.example.org',
+            'request_method': 'GET',
+            'request_path': '/sir/Lancelot',
+            'query_string': 'question=What\ufffdis\ufffdyour\ufffdquest',
+            'user_agent': '-> STR <-',
+        }
+        def get_expected_output_base(**kw):
+            output_base = get_output_base(**kw)
+            output_base |= {
+                'timestamp': expected_utc_formatted_timestamp,
+                # From `defaults` in config snippet:
+                'system': 'MyOwn',
+                'component': 'Portal',
+                'component_type': 'web',
+                # From `_DefaultExtension`:
+                'py_ver': '.'.join(map(str, sys.version_info[:3])),
+                'tid': AnyOfType(int),
+            }
+            # From `_DefaultExtension`:
+            del output_base['thread_id']
+            # From `base_record_attr_to_output_key_overrides` in config snippet:
+            del output_base['thread_name']
+            output_base['process_name_according_to_python_stdlib'] = (
+                output_base.pop('process_name')
+            )
+            return output_base
+
+        # * Actual test:
+
+        with self._finally_undoing_our_tweaks_to_root_logger():
+            exec(config_snippet, {})
+            exec(ext_setup_completion_snippet, my_flask_based_app.__dict__)
+
+            logger = logging.getLogger('my_flask_based_app.views')
+            logger.warning('Outside request handler')
+
+            fake_request_lifecycle.start()
+            logger.warning('Inside request handler')
+            fake_request_lifecycle.finish()
+
+            logger.warning('Outside request handler #2')
+            fake_request_lifecycle.cleanup()
+            logger.warning('Outside request handler #3')
+
+        assert get_actual_output_list() == [
+            {
+                **get_expected_output_base(level='WARNING'),
+                'func': 'test_extra_non_public_opinionated_conf_corrector_snippets',
+                'logger': 'my_flask_based_app.views',
+                'message': 'Outside request handler',
+            },
+            {
+                **get_expected_output_base(level='WARNING'),
+                **expected_request_specific_output_items,    # <- Notice this.
+                'func': 'test_extra_non_public_opinionated_conf_corrector_snippets',
+                'logger': 'my_flask_based_app.views',
+                'message': 'Inside request handler',
+            },
+            {
+                # *** Automatically emitted *access log* entry ***
+                **get_expected_output_base(level='INFO'),
+                **expected_request_specific_output_items,    # <- Notice this.
+                'func': 'on_request_finish',
+                'logger': 'certlib.log.WEB_ACCESS',
+                'response_status': 404,                      # <- Notice this.
+                'request_duration_ms': AnyOfType(float),     # <- Notice this.
+            },
+            {
+                **get_expected_output_base(level='WARNING'),
+                'func': 'test_extra_non_public_opinionated_conf_corrector_snippets',
+                'logger': 'my_flask_based_app.views',
+                'message': 'Outside request handler #2',
+            },
+            {
+                **get_expected_output_base(level='WARNING'),
+                'func': 'test_extra_non_public_opinionated_conf_corrector_snippets',
+                'logger': 'my_flask_based_app.views',
+                'message': 'Outside request handler #3',
+            },
+        ]
+        assert fake_request.headers.mock_calls == [
+            call.getlist('X-Forwarded-For'),
+            call.get('X-CERT-Request-ID'),
+        ]
+
+
+#
+# Tests related to unofficial extra stuff
+
+
+class TestContextBoundProperty:
+
+    @pytest.fixture
+    def doc(self):
+        return 'some docstring'
+
+    @pytest.fixture
+    def prop_owner_cls(self, doc):
+        class PropOwner:
+            some = certlib.log._ContextBoundProperty(doc)      # type: ignore[var-annotated]
+            another = certlib.log._ContextBoundProperty(doc)   # type: ignore[var-annotated]
+        return PropOwner
+
+    @pytest.fixture
+    def prop_owner_subclass(self, prop_owner_cls):
+        class PropOwnerSub(prop_owner_cls):   # type: ignore[valid-type,misc]
+            pass
+        return PropOwnerSub
+
+    @pytest.fixture(params=[True, False])
+    def target_cls(self, request, prop_owner_cls, prop_owner_subclass):
+        return (
+            prop_owner_subclass if request.param
+            else prop_owner_cls
+        )
+
+    @pytest.fixture(params=[True, False])
+    def second_target_cls(self, request, prop_owner_cls, prop_owner_subclass):
+        return (
+            prop_owner_subclass if request.param
+            else prop_owner_cls
+        )
+
+    @pytest.fixture(params=[
+        sentinel.VALUE,
+        [123],
+        None,
+        float('nan'),
+    ])
+    def value(self, request):
+        return request.param
+
+
+    @pytest.mark.parametrize('doc', ['some docstring', None])
+    def test_basics(self, target_cls, prop_owner_cls, doc):
+        assert isinstance(target_cls.some, certlib.log._ContextBoundProperty)
+        assert target_cls.some is vars(prop_owner_cls)['some']
+        assert target_cls.some.__doc__ == doc
+        assert target_cls.some.__name__ == 'some'
+        assert target_cls.some.__module__ == __name__
+        assert target_cls.some.__qualname__ == f'{prop_owner_cls.__qualname__}.some'
+        assert repr(target_cls.some) == f'{__name__}.{prop_owner_cls.__qualname__}.some'
+
+
+    @pytest.mark.parametrize('doc', ['some docstring', None])
+    def test_basics_before_set_name(self, doc):
+        # No call to `__set_name__()` has been made.
+        some = certlib.log._ContextBoundProperty(doc)   # type: ignore[var-annotated]
+        assert isinstance(some, certlib.log._ContextBoundProperty)
+        assert some.__doc__ == doc
+        assert repr(some) == object.__repr__(some)
+
+
+    def test_attr_operations__same_target_instance__same_context__same_ctx_property(
+        self, target_cls, value,
+    ):
+        # => operating on same value slot
+
+        target = target_cls()
+        assert not hasattr(target, 'some')
+
+        target.some = value
+        assert target.some is value
+
+        del target.some
+        assert not hasattr(target, 'some')
+
+
+    def test_attr_operations__different_target_instances__same_context__same_ctx_property(
+        self, target_cls, second_target_cls, value,
+    ):
+        # => operating on separate value slots independently
+
+        target = target_cls()
+        second_target = second_target_cls()
+
+        target.some = value
+        assert target.some is value
+        assert not hasattr(second_target, 'some')
+
+        second_target.some = 42
+        assert target.some is value
+        assert second_target.some == 42
+        assert value != 42, "test's internal assumption"
+
+        del target.some
+        assert not hasattr(target, 'some')
+        assert second_target.some == 42
+
+        target.some = 42
+        assert target.some == second_target.some == 42
+
+        second_target.some += 1000
+        assert target.some == 42
+        assert second_target.some == 1042
+
+        del second_target.some
+        assert target.some == 42
+        assert not hasattr(second_target, 'some')
+
+        del target.some
+        assert not hasattr(target, 'some')
+        assert not hasattr(second_target, 'some')
+
+
+    def test_attr_operations__same_target_instance__different_contexts__same_ctx_property(
+        self, target_cls, value,
+    ):
+        # => operating on separate value slots independently
+
+        target = target_cls()
+
+        alt_context = contextvars.Context()
+        def hasattr_within_alt_context():
+            return alt_context.run(lambda: hasattr(target, 'some'))
+        def getattr_within_alt_context():
+            return alt_context.run(lambda: target.some)
+        def setattr_within_alt_context(val):
+            @alt_context.run
+            def _(): target.some = val
+        def delattr_within_alt_context():
+            @alt_context.run
+            def _(): del target.some
+
+        target.some = value
+        assert target.some is value
+        assert not hasattr_within_alt_context()
+
+        setattr_within_alt_context(42)
+        assert target.some is value
+        assert getattr_within_alt_context() == 42
+        assert value != 42, "test's internal assumption"
+
+        del target.some
+        assert not hasattr(target, 'some')
+        assert getattr_within_alt_context() == 42
+
+        target.some = 42
+        assert target.some == getattr_within_alt_context() == 42
+
+        setattr_within_alt_context(getattr_within_alt_context() + 1000)
+        assert target.some == 42
+        assert getattr_within_alt_context() == 1042
+
+        delattr_within_alt_context()
+        assert target.some == 42
+        assert not hasattr_within_alt_context()
+
+        del target.some
+        assert not hasattr(target, 'some')
+        assert not hasattr_within_alt_context()
+
+
+    def test_attr_operations__same_target_instance__same_context__different_ctx_properties(
+        self, target_cls, value,
+    ):
+        # => operating on separate value slots independently
+
+        target = target_cls()
+
+        target.some = value
+        assert target.some is value
+        assert not hasattr(target, 'another')
+
+        target.another = 42
+        assert target.some is value
+        assert target.another == 42
+        assert value != 42, "test's internal assumption"
+
+        del target.some
+        assert not hasattr(target, 'some')
+        assert target.another == 42
+
+        target.some = 42
+        assert target.some == target.another == 42
+
+        target.another += 1000
+        assert target.some == 42
+        assert target.another == 1042
+
+        del target.another
+        assert target.some == 42
+        assert not hasattr(target, 'another')
+
+        del target.some
+        assert not hasattr(target, 'some')
+        assert not hasattr(target, 'another')
+
+
+    def test_get_raises_attribute_error_if_value_is_missing(
+        self, target_cls, value,
+    ):
+        target = target_cls()
+        with pytest.raises(AttributeError):
+            target.some  # noqa
+
+        target.some = value
+        assert target.some is value
+
+        del target.some
+        with pytest.raises(AttributeError):
+            target.some  # noqa
+
+
+    def test_delete_never_raises_attribute_error(
+        self, target_cls, value,
+    ):
+        target = target_cls()
+        assert not hasattr(target, 'some')
+        for _ in range(3):
+            del target.some
+            assert not hasattr(target, 'some')
+
+        target.some = value
+        assert target.some is value
+
+        for _ in range(3):
+            del target.some
+            assert not hasattr(target, 'some')
+
+
+class TestCtxCachedDecorator:
+
+    class PropOwnerSuper:
+        pass
+
+    class PropOwner(PropOwnerSuper):
+        ctx_namespace = certlib.log._ContextBoundProperty()   # type: ignore[var-annotated]
+
+    class PropOwnerSub(PropOwner):
+        pass
+
+    @pytest.fixture(params=[
+        SimpleNamespace,
+        dict,
+        ExampleNonDictMutableMapping,
+    ])
+    def namespace_type(self, request):
+        return request.param
+
+    @pytest.fixture
+    def provide_prop_owner_with_ctx_namespace_init_and_drop_methods(
+        self,
+        monkeypatch,
+        namespace_type,
+    ):
+        def init_namespace(self):
+            self.ctx_namespace = namespace_type(n=0)
+
+        def remove_namespace(self, alt_context: contextvars.Context | None = None):
+            del self.ctx_namespace
+
+        monkeypatch.setattr(
+            self.PropOwner, 'init_namespace', init_namespace, raising=False,
+        )
+        monkeypatch.setattr(
+            self.PropOwner, 'remove_namespace', remove_namespace, raising=False,
+        )
+
+    @pytest.fixture
+    def add_decorated_method(
+        self,
+        monkeypatch,
+        namespace_type,
+        provide_prop_owner_with_ctx_namespace_init_and_drop_methods,
+    ):
+
+        def add_decorated_method_impl(cls, method_name):
+            if issubclass(namespace_type, SimpleNamespace):
+
+                def method(self):  # noqa
+                    """Net effect: increment `n` and return its value."""
+                    assert isinstance(self.ctx_namespace, namespace_type)
+                    n = self.ctx_namespace.n                     # get n
+                    del self.ctx_namespace.n                     # delete n
+                    assert not hasattr(self.ctx_namespace, 'n')  # get n
+                    self.ctx_namespace.n = n + 1                 # set n
+                    return self.ctx_namespace.n                  # get n
+
+            elif issubclass(namespace_type, MutableMapping):
+
+                def method(self):  # noqa
+                    """Net effect: increment `n` and return its value."""
+                    assert isinstance(self.ctx_namespace, namespace_type)
+                    n = self.ctx_namespace['n']                  # get n
+                    del self.ctx_namespace['n']                  # delete n
+                    assert 'n' not in self.ctx_namespace         # contains n
+                    self.ctx_namespace['n'] = n + 1              # set n
+                    return self.ctx_namespace['n']               # get n
+
+            else:
+                raise AssertionError(f'unsupported type of {namespace_type=!r}')
+
+            method.__module__ = cls.__module__
+            method.__qualname__ = f'{cls.__qualname__}.{method_name}'
+            method.__name__ = method_name
+
+            decorator = certlib.log._ctx_cached(
+                'ctx_namespace',
+                fallback_result=sentinel.FALLBACK,
+            )
+            decorated_method = decorator(method)
+
+            assert isinstance(decorated_method, Function)
+            assert decorated_method.__module__ == cls.__module__
+            assert decorated_method.__qualname__ == f'{cls.__qualname__}.{method_name}'
+            assert decorated_method.__name__ == method_name
+            assert decorated_method.__doc__ == method.__doc__
+
+            monkeypatch.setattr(cls, method_name, decorated_method, raising=False)
+
+        return add_decorated_method_impl
+
+    @pytest.fixture(params=[
+        # (<`method_1` owner>, <`method_2` owner>, <call target>)
+        (PropOwnerSuper, PropOwnerSuper, PropOwner),
+        (PropOwnerSuper, PropOwnerSuper, PropOwnerSub),
+        (PropOwnerSuper, PropOwner, PropOwner),
+        (PropOwnerSuper, PropOwner, PropOwnerSub),
+        (PropOwnerSuper, PropOwnerSub, PropOwnerSub),
+        (PropOwner, PropOwnerSuper, PropOwner),
+        (PropOwner, PropOwnerSuper, PropOwnerSub),
+        (PropOwner, PropOwner, PropOwner),
+        (PropOwner, PropOwner, PropOwnerSub),
+        (PropOwner, PropOwnerSub, PropOwnerSub),
+        (PropOwnerSub, PropOwnerSuper, PropOwnerSub),
+        (PropOwnerSub, PropOwner, PropOwnerSub),
+        (PropOwnerSub, PropOwnerSub, PropOwnerSub),
+    ])
+    def call_target_cls(self, request, add_decorated_method):
+        method_1_owner_cls, method_2_owner_cls, call_target_cls = request.param
+        add_decorated_method(method_1_owner_cls, 'method_1')
+        add_decorated_method(method_2_owner_cls, 'method_2')
+        return call_target_cls
+
+
+    def test__same_target_instance__same_context(
+        self,
+        call_target_cls,
+    ):
+        # => modifying same namespace
+
+        target = call_target_cls()
+        assert target.method_1() is sentinel.FALLBACK
+        assert target.method_1() is sentinel.FALLBACK
+        assert target.method_2() is sentinel.FALLBACK
+        assert target.method_2() is sentinel.FALLBACK
+        assert target.method_1() is sentinel.FALLBACK
+        assert target.method_2() is sentinel.FALLBACK
+
+        target.init_namespace()
+        assert target.method_1() == 1
+        assert target.method_1() == 1  # (same namespace, same cache key)
+        assert target.method_2() == 2  # (same namespace, separate cache key)
+        assert target.method_2() == 2
+        assert target.method_1() == 1
+        assert target.method_2() == 2
+
+        target.remove_namespace()
+        assert target.method_1() is sentinel.FALLBACK
+        assert target.method_1() is sentinel.FALLBACK
+        assert target.method_2() is sentinel.FALLBACK
+        assert target.method_2() is sentinel.FALLBACK
+        assert target.method_1() is sentinel.FALLBACK
+        assert target.method_2() is sentinel.FALLBACK
+
+        target.init_namespace()
+        assert target.method_1() == 1
+        assert target.method_1() == 1
+        assert target.method_2() == 2
+        assert target.method_2() == 2
+        assert target.method_1() == 1
+        assert target.method_2() == 2
+
+
+    def test__different_target_instances__same_context(
+        self,
+        call_target_cls,
+    ):
+        # => modifying separate namespaces independently
+
+        target_a = call_target_cls()
+        target_b = call_target_cls()
+        assert target_a.method_1() is sentinel.FALLBACK
+        assert target_a.method_1() is sentinel.FALLBACK
+        assert target_a.method_2() is sentinel.FALLBACK
+        assert target_a.method_2() is sentinel.FALLBACK
+        assert target_b.method_2() is sentinel.FALLBACK
+        assert target_b.method_2() is sentinel.FALLBACK
+        assert target_b.method_1() is sentinel.FALLBACK
+        assert target_b.method_1() is sentinel.FALLBACK
+        assert target_a.method_1() is sentinel.FALLBACK
+        assert target_b.method_2() is sentinel.FALLBACK
+
+        target_a.init_namespace()
+        assert target_a.method_1() == 1
+        assert target_a.method_1() == 1  # (same namespace, same cache key)
+        assert target_a.method_2() == 2  # (same namespace, separate cache key)
+        assert target_a.method_2() == 2
+        assert target_b.method_2() is sentinel.FALLBACK  # (separate namespace)
+        assert target_b.method_2() is sentinel.FALLBACK
+        assert target_b.method_1() is sentinel.FALLBACK
+        assert target_b.method_1() is sentinel.FALLBACK
+        assert target_a.method_1() == 1
+        assert target_b.method_2() is sentinel.FALLBACK
+
+        target_b.init_namespace()
+        assert target_a.method_1() == 1
+        assert target_a.method_1() == 1
+        assert target_a.method_2() == 2
+        assert target_a.method_2() == 2
+        assert target_b.method_2() == 1
+        assert target_b.method_2() == 1
+        assert target_b.method_1() == 2
+        assert target_b.method_1() == 2
+        assert target_a.method_1() == 1
+        assert target_b.method_2() == 1
+
+        target_a.remove_namespace()
+        assert target_a.method_1() is sentinel.FALLBACK
+        assert target_a.method_1() is sentinel.FALLBACK
+        assert target_a.method_2() is sentinel.FALLBACK
+        assert target_a.method_2() is sentinel.FALLBACK
+        assert target_b.method_2() == 1
+        assert target_b.method_2() == 1
+        assert target_b.method_1() == 2
+        assert target_b.method_1() == 2
+        assert target_a.method_1() is sentinel.FALLBACK
+        assert target_b.method_2() == 1
+
+
+    def test__same_target_instance__different_contexts(
+        self,
+        call_target_cls,
+    ):
+        # => modifying separate namespaces independently
+
+        target = call_target_cls()
+        alt_context = contextvars.Context()
+
+        target.init_namespace()
+        alt_context.run(target.init_namespace)
+        assert target.method_1() == 1
+        assert target.method_1() == 1  # (same namespace, same cache key)
+        assert alt_context.run(target.method_2) == 1  # (separate namespace)
+        assert alt_context.run(target.method_1) == 2  # (separate cache key)
+        assert target.method_1() == 1
+        assert target.method_2() == 2
+        assert alt_context.run(target.method_2) == 1
+        assert alt_context.run(target.method_2) == 1
+        assert alt_context.run(target.method_1) == 2
+        assert target.method_1() == 1
+        assert target.method_2() == 2
+        assert target.method_2() == 2
+
+        target.remove_namespace()
+        alt_context.run(target.remove_namespace)
+        assert target.method_1() is sentinel.FALLBACK
+        assert target.method_1() is sentinel.FALLBACK
+        assert alt_context.run(target.method_2) is sentinel.FALLBACK
+        assert alt_context.run(target.method_1) is sentinel.FALLBACK
+        assert target.method_1() is sentinel.FALLBACK
+        assert target.method_2() is sentinel.FALLBACK
+        assert alt_context.run(target.method_2) is sentinel.FALLBACK
+        assert alt_context.run(target.method_2) is sentinel.FALLBACK
+        assert alt_context.run(target.method_1) is sentinel.FALLBACK
+        assert target.method_1() is sentinel.FALLBACK
+        assert target.method_2() is sentinel.FALLBACK
+        assert target.method_2() is sentinel.FALLBACK
+
+        target.init_namespace()
+        assert target.method_1() == 1
+        assert target.method_1() == 1
+        assert alt_context.run(target.method_2) is sentinel.FALLBACK
+        assert alt_context.run(target.method_1) is sentinel.FALLBACK
+        assert target.method_1() == 1
+        assert target.method_2() == 2
+        assert alt_context.run(target.method_2) is sentinel.FALLBACK
+        assert alt_context.run(target.method_2) is sentinel.FALLBACK
+        assert alt_context.run(target.method_1) is sentinel.FALLBACK
+        assert target.method_1() == 1
+        assert target.method_2() == 2
+        assert target.method_2() == 2
+
+        alt_context.run(target.init_namespace)
+        assert target.method_1() == 1
+        assert target.method_1() == 1
+        assert alt_context.run(target.method_2) == 1
+        assert alt_context.run(target.method_1) == 2
+        assert target.method_1() == 1
+        assert target.method_2() == 2
+        assert alt_context.run(target.method_2) == 1
+        assert alt_context.run(target.method_2) == 1
+        assert alt_context.run(target.method_1) == 2
+        assert target.method_1() == 1
+        assert target.method_2() == 2
+        assert target.method_2() == 2
+
+        target.remove_namespace()
+        assert target.method_1() is sentinel.FALLBACK
+        assert target.method_1() is sentinel.FALLBACK
+        assert alt_context.run(target.method_2) == 1
+        assert alt_context.run(target.method_1) == 2
+        assert target.method_1() is sentinel.FALLBACK
+        assert target.method_2() is sentinel.FALLBACK
+        assert alt_context.run(target.method_2) == 1
+        assert alt_context.run(target.method_2) == 1
+        assert alt_context.run(target.method_1) == 2
+        assert target.method_1() is sentinel.FALLBACK
+        assert target.method_2() is sentinel.FALLBACK
+        assert target.method_2() is sentinel.FALLBACK
