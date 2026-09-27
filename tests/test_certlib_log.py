@@ -5747,6 +5747,15 @@ class TestSnippetsInDocumentation:
         return '2026-02-20 23:14:47.019574Z'
 
     @pytest.fixture
+    def expected_posix_timestamp(self, expected_utc_formatted_timestamp):
+        without_tz = expected_utc_formatted_timestamp.removesuffix('Z')
+        return dt.datetime.fromisoformat(f'{without_tz}+00:00').timestamp()
+
+    @pytest.fixture
+    def expected_posix_timestamp_ns(self, expected_posix_timestamp):
+        return 10**3 * int(10**6 * expected_posix_timestamp)
+
+    @pytest.fixture
     def commonly_expected_output_items(
         self,
         config_snippet_label,
@@ -5795,13 +5804,15 @@ class TestSnippetsInDocumentation:
     def monkeypatch_relevant_time_functions(
         self,
         monkeypatch,
-        expected_utc_formatted_timestamp,
+        expected_posix_timestamp_ns,
+        expected_posix_timestamp,
     ):
-        without_tz = expected_utc_formatted_timestamp.removesuffix('Z')
-        timestamp = dt.datetime.fromisoformat(f'{without_tz}+00:00').timestamp()
-        timestamp_ns = 10**3 * int(10**6 * timestamp)
-        monkeypatch.setattr(logging, 'time', TimeModuleFakingProxy(timestamp_ns))
-        monkeypatch.setattr(dt, 'date', self._DateClassFakingProxy(timestamp))
+        monkeypatch.setattr(
+            logging, 'time', TimeModuleFakingProxy(expected_posix_timestamp_ns),
+        )
+        monkeypatch.setattr(
+            dt, 'date', self._DateClassFakingProxy(expected_posix_timestamp),
+        )
 
 
     def test_user_guide_tldr_imperative_conf_snippet(
@@ -6539,6 +6550,7 @@ class TestSnippetsInDocumentation:
         snippet_finder,
         get_actual_output_list,
         expected_utc_formatted_timestamp,
+        expected_posix_timestamp_ns,
     ):
         config_snippet = snippet_finder.lookup(
             substring='"keyword": "flask_app",',
@@ -6594,6 +6606,10 @@ class TestSnippetsInDocumentation:
         fake_response = SimpleNamespace(
             status_code=404,
         )
+        custom_auto_makers_source = SimpleNamespace(get_auto_makers=lambda: {
+            'Camelot!': lambda: "It's only a model.",
+            'time_ns': 'logging.time.time_ns',
+        })
 
         # * Prepare necessary modules and environment:
 
@@ -6603,6 +6619,7 @@ class TestSnippetsInDocumentation:
         flask.has_request_context = fake_request_lifecycle.is_being_handled
 
         my_flask_based_app = Module('my_flask_based_app')
+        my_flask_based_app.custom_auto_makers_source = custom_auto_makers_source
 
         monkeypatch.setitem(sys.modules, 'flask', flask)
         monkeypatch.setitem(sys.modules, 'my_flask_based_app', my_flask_based_app)
@@ -6632,6 +6649,10 @@ class TestSnippetsInDocumentation:
                 # From `_DefaultExtension`:
                 'py_ver': '.'.join(map(str, sys.version_info[:3])),
                 'tid': AnyOfType(int),
+                # From `custom_auto_makers_source` (see above...) resolved by
+                # `_ExtraAutoMakerSourcesExtension` (config-snipped-specified):
+                'Camelot!': "It's only a model.",
+                'time_ns': expected_posix_timestamp_ns,
             }
             # From `_DefaultExtension`:
             del output_base['thread_id']

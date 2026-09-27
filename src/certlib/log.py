@@ -1136,6 +1136,7 @@ import weakref
 from collections.abc import (
     Callable,
     Hashable,
+    Iterable,
     Iterator,
     Mapping,
     MutableMapping,
@@ -4891,6 +4892,94 @@ class _DefaultExtension(_Extension):
     _PY_VER = '.'.join(map(str, (sys.version_info[:3] or ())))
 
 
+class _ExtraAutoMakerSourcesExtension(_Extension):
+
+    """
+    An *extension* for including *auto-makers* from arbitrary sources.
+
+    The sources of *auto-makers* should be specified via an iterable
+    (e.g., a list) passed to `_ExtraAutoMakerSourcesExtension` as the
+    `extra_auto_makers_from` keyword argument. Each of its items should
+    be either a *source object* itself (of any type -- typically just an
+    importable module) or a *dotted path* pointing to it. Each *source
+    object* must expose a `get_auto_makers` member being an argumentless
+    callable. The callable should return a mapping (e.g., a dict) that
+    maps *output data* keys to *auto-maker* callables (or *dotted paths*
+    pointing to *auto-maker* callables).
+    """
+
+    def __init__(
+        self,
+        *,
+        extra_auto_makers_from: (
+            Iterable[object | DottedPath] | object | DottedPath
+        ) = (),
+        **kwargs: Any,
+    ):
+        super().__init__(**kwargs)
+        self._sources = self._get_seq_of_sources(extra_auto_makers_from)
+
+    #
+    # Hooks
+
+    def is_compatible_with(self, component_type: str, /) -> bool:
+        return True
+
+    def get_auto_makers(self) -> Mapping[str, ValueProvider[object] | DottedPath]:
+        return dict(self._iter_auto_maker_items())
+
+    #
+    # Auxiliary/internal stuff...
+
+    def _get_seq_of_sources(
+        self,
+        sources: Iterable[object | DottedPath] | object | DottedPath,
+    ) -> Sequence[object | DottedPath]:
+        if isinstance(sources, str) or not isinstance(sources, Iterable):
+            return [sources]
+        return list(sources)
+
+    def _iter_auto_maker_items(self) -> Iterator[
+        tuple[str, ValueProvider[object] | DottedPath]
+    ]:
+        err_messages: list[str] = []
+        key_to_source_seq = collections.defaultdict[str, list[object]](list)
+
+        for source in self._sources:
+            if isinstance(source, str):
+                try:
+                    source = _resolve_dotted_path(source)
+                except Exception as exc:
+                    err_messages.append(
+                        f'{source=!a} could not be resolved ({exc!a})'
+                    )
+                    continue
+            get_auto_makers = getattr(source, 'get_auto_makers', None)
+            if callable(get_auto_makers):
+                for key, auto_maker in get_auto_makers().items():
+                    key_to_source_seq[key].append(source)
+                    yield key, auto_maker
+            else:
+                err_messages.append(
+                    f'{source!a} does not expose callable `get_auto_makers()`'
+                )
+
+        err_messages += (
+            (
+                f'{key=!a} is claimed by more than one auto-maker '
+                f'(from: {", ".join(map(ascii, sources_seq))})'
+            )
+            for key, sources_seq in key_to_source_seq.items()
+            if len(sources_seq) > 1
+        )
+        if err_messages:
+            listing = '; '.join(sorted(err_messages))
+            raise RuntimeError(
+                f'{self} could not obtain some auto-makers '
+                f'because of the following problems: {listing}'
+            )
+
+
 class _FlaskWebExtension(_WebExtension):
 
     """
@@ -5178,6 +5267,11 @@ class _OpinionatedConfCorrectorImpl:
                             # to be called with the *Flask* application object as
                             # the `flask_app` keyword argument (see below...).
                             "keyword": "flask_app",
+                        },
+                        "certlib.log._ExtraAutoMakerSourcesExtension": {
+                            "extra_auto_makers_from": [
+                                "my_flask_based_app.custom_auto_makers_source",
+                            ],
                         },
                     },
                     "base_record_attr_to_output_key_overrides": {
