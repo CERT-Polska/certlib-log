@@ -1,6 +1,6 @@
 # certlib.log
 
-...is a library that extends the standard [logging](https://docs.python.org/3/library/logging.html)
+...is a library extending the standard [logging](https://docs.python.org/3/library/logging.html)
 toolset. It allows you to introduce _**structured logging**_ with minimal
 fuss, and/or leverage some other _**logging goodies**_ (e.g., `{}`-style
 message formatting).
@@ -104,6 +104,31 @@ logging.config.dictConfig({
     "disable_existing_loggers": False,
     "version": 1
 })
+```
+
+Example log entry:
+
+```json
+{
+    "client_ip": "10.20.30.40",
+    "component": "MyAPI",
+    "component_type": "web",
+    "func": "handle_request",
+    "level": "INFO",
+    "levelno": 20,
+    "lineno": 1670,
+    "logger": "my_api.some_module",
+    "message": "Request from '10.20.30.40'",
+    "message_base": "Request from %r",
+    "nano_time": 1790597103141592064,
+    "pid": 3297524,
+    "process_name": "MainProcess",
+    "src": "/opt/MyExample/my_api/some_module.py",
+    "system": "MyExample",
+    "thread_id": 274462836183740,
+    "thread_name": "MainThread",
+    "timestamp": "2026-09-28 12:05:03.141592Z"
+}
 ```
 
 ### Logging with *`{}`-Formatted Text Message* or *No Text Message*

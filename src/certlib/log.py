@@ -215,7 +215,7 @@ or system, while also helping to maintain consistency.
 
 Referring to the *auto-makers* specified in the example above:
 
-* `just_local_counter` is a callable (precisely: an interator's *bound
+* `just_local_counter` is a callable (precisely: an iterator's *bound
   method*) -- which will provide each log entry with its sequential
   number;
 
@@ -225,7 +225,7 @@ Referring to the *auto-makers* specified in the example above:
 
 * `client_ip` points (via a *dotted path*) to a custom callable --
   presumably, the [`get`][contextvars.ContextVar.get] method of a
-  *context variable* (suppossed to be already populated, which could
+  *context variable* (supposed to be already populated, which could
   have been done, e.g., by an HTTP request handler) -- the current
   value of which will be included in each (relevant) log entry.
 
@@ -238,11 +238,11 @@ Referring to the *auto-makers* specified in the example above:
     from *output data*.
 
     For a context variable's **[`get`][contextvars.ContextVar.get]**,
-    this can be achieved just by defining the variable's default value
+    this can be achieved simply by defining the variable's default value
     as **`None`**, like so:
 
     ```python
-    client_ip_context_var = contextvars.ContextVar('client_ip_context_var', default=None)
+    client_ip_context_var = contextvars.ContextVar('client_ip', default=None)
     ```
 
 Now that we have our [`StructuredLogsFormatter`][] instance created, the
@@ -391,7 +391,7 @@ sorted by key, and with extra newlines/indentation):
     (*before* the actual data serialization).
 
     All *output data* values are subject to preparation by that method
-    (which processes them differenttly depending on their types...). By
+    (which processes them differently depending on their types...). By
     extending/overriding it in your **[`StructuredLogsFormatter`][]**
     subclass you can gain full control over that preparation.
 
@@ -876,12 +876,13 @@ modern and convenient [`{}`-based style of message formatting](https://docs.pyth
 
     What we are discussing here concerns the formatting of *text
     messages* themselves (i.e., the contents of log records’ `message`),
-    rather than the formatting of *entire log entries* (where `message`
-    is just one field). Note that the latter is completely orthogonal
-    to the former. Whereas the standard tools provided by the `logging`
-    module [*do* support](https://docs.python.org/3/library/logging.html#formatter-objects)
+    rather than *entire log entries* (where `message` is just one
+    field). Note that the latter is completely orthogonal to the former.
+    Whereas the standard tools provided by the `logging` module [*do*
+    support](https://docs.python.org/3/library/logging.html#formatter-objects)
     the `{}`-based formatting style for the latter, they do *not* support
-    it for the former.
+    it for the former -- and this is where the `certlib.log`'s feature in
+    question comes into play.
 
 ```python
 import datetime as dt
@@ -1048,8 +1049,8 @@ If you have not read the *reference documentation* for the
 do so. Among other things, you will find there a list of hook methods
 that can be extended/overridden in your subclasses. Apart from that,
 the documentation in question includes (especially, in the individual
-descriptions of those hook methods) valuable information about other
-elements of the `StructuredLogsFormatter`'s interface and behavior.
+descriptions of those hook methods) quite detailed information about
+other elements of the `StructuredLogsFormatter`'s interface and behavior.
 
 ***
 
@@ -1091,7 +1092,7 @@ Future ideas under consideration include:
 * [`xm`][]: add dedicated suport for [`pattern`][ExtendedMessage.pattern]
   of type [`string.templatelib.Template`][] (instances of which can be
   created by evaluating [*t-strings*](https://docs.python.org/3/library/stdtypes.html#stdtypes-tstrings)
-  -- available in Python 3.14 and newer). Additionaly, to support passing
+  -- available in Python 3.14 and newer). Additionally, to support passing
   such *t-string*-made *template* objects directly to logger methods, add
   an opt-in mechanism that will automatically wrap such *templates* in
   [`xm`][] objects -- so that, e.g., you could just do:
@@ -1107,6 +1108,7 @@ from __future__ import annotations
 import abc
 import ast
 import collections
+import contextvars
 import dataclasses
 import datetime as dt
 import decimal
@@ -1119,21 +1121,27 @@ import itertools
 import json
 import logging
 import math
+import operator
 import os.path
 import reprlib
+import string
 import sys
 import textwrap
 import threading
+import time
 import traceback
 import types
 import uuid
+import weakref
 from collections.abc import (
     Callable,
     Hashable,
     Iterable,
     Iterator,
     Mapping,
+    MutableMapping,
     Sequence,
+    Set,
 )
 from copy import deepcopy
 from inspect import (
@@ -1141,12 +1149,12 @@ from inspect import (
     getdoc,
     signature,
 )
-from types import ModuleType
 from typing import (
     TYPE_CHECKING,
     Any,
     ClassVar,
     Final,
+    Generic,
     Literal,
     Protocol,
     TypeVar,
@@ -1155,7 +1163,10 @@ from typing import (
     overload,
 )
 if TYPE_CHECKING:
-    from typing import TypeAlias
+    from typing import (   # type: ignore[attr-defined]
+        Self,              # <- Availability at runtime: Python 3.11+ only
+        TypeAlias,         # <- Availability at runtime: Python 3.10+ only
+    )
 
 
 __all__ = (
@@ -1303,16 +1314,16 @@ class StructuredLogsFormatter(logging.Formatter):
             original one(s). Doing otherwise will result in undefined
             behavior.
 
-    * **`conf_corrector`** (a function or other callable, or [`None`][]
-      -- which is the default): a custom callable that is automatically
-      invoked for extra validation and/or adjustments regarding the
-      instance configuration (including also the arguments described
-      above); it can also be a *dotted path* string (*importable
-      dotted name*) that points to such a callable. In the rest of
-      the documentation, a callable specified via this argument is
-      referred to as a *configuration corrector* (or just *corrector*).
-      The `StructuredLogsFormatter` constructor executes the *corrector*
-      just once -- before the main part of the formatter initialization.
+    * **`conf_corrector`** (a function or other callable; none by default):
+      a custom callable that is automatically invoked for extra validation
+      and/or adjustments regarding the instance configuration (including
+      also the arguments described above); it can also be a *dotted path*
+      string (*importable dotted name*) that points to such a callable.
+      In the rest of the documentation, a callable specified via
+      **`conf_corrector`** is referred to as a *configuration corrector*
+      (or just *corrector*). The `StructuredLogsFormatter` constructor
+      executes the *corrector* just once -- before the main part of the
+      formatter initialization.
 
         ??? info "Corrector interface"
 
@@ -1357,7 +1368,7 @@ class StructuredLogsFormatter(logging.Formatter):
 
             * `"serializer"`: the callable specified as the constructor's
               **`serializer`** argument (described earlier) -- ready to be
-              set as the **[`serializer`][]** formatter attribute (i.e.,,
+              set as the **[`serializer`][]** formatter attribute (i.e.,
               already resolved if given as a *dotted path*, and verified
               as being a callable object);
 
@@ -1368,7 +1379,7 @@ class StructuredLogsFormatter(logging.Formatter):
               [`None`][];
 
             * `"conf_corrector_params"`: a mapping received
-              by the `StructuredLogsFormatter` constructor via
+              by the `StructuredLogsFormatter` constructor as
               **`conf_corrector_params`** (see below...), copied by
               applying [`dict`][] to it.
 
@@ -1405,7 +1416,7 @@ class StructuredLogsFormatter(logging.Formatter):
 
     **Alternatively**, a mapping (especially a [`dict`][]) of keyword
     arguments compatible with the main signature described above, or an
-    [`ast.literal_eval`][]-evaluable string representing such a dict,
+    [`ast.literal_eval`][]-evaluable string representing such a mapping,
     can be passed to the [`StructuredLogsFormatter`][] constructor as
     the *first positional argument*.
 
@@ -1444,7 +1455,7 @@ class StructuredLogsFormatter(logging.Formatter):
 
     ??? warning "Deep-copyable *defaults* requirement"
 
-        Regardles of the constructor call variant, every mapping that is:
+        Regardless of the constructor call variant, every mapping that is:
 
         * specified as **`defaults`**, or
         * returned by **[`make_base_defaults`][]**, or
@@ -1492,7 +1503,7 @@ class StructuredLogsFormatter(logging.Formatter):
     !!! warning "Mutability restriction"
 
         Modifying any nested mutable data within any of the aforementioned
-        atributes (in particular, any mutable values in **[`defaults`][]**)
+        attributes (in particular, any mutable values in **[`defaults`][]**)
         is forbidden. Doing so will result in undefined behavior.
 
     When it comes to customizing the format of log entry *timestamps*, the
@@ -1948,9 +1959,9 @@ class StructuredLogsFormatter(logging.Formatter):
 
             ??? note "Details"
 
-                The effect is that -- narrowing the discussion just to
-                *auto-maker*-provided attributes of log records -- the
-                respective *output data* items will always be obtained
+                The effect is -- narrowing the discussion just to
+                *auto-maker*-provided attributes of log records -- that
+                the respective *output data* items will always be obtained
                 by picking only those log record attributes whose names
                 are prefixed with the particular formatter instance's
                 **[`auto_made_record_attr_prefix`][]** -- using those
@@ -3730,8 +3741,8 @@ def register_log_record_attr_auto_maker(
 
     The _**auto-maker**_ needs to be an argumentless function or
     any other object that can be called with no arguments (see:
-    [`ValueProvider`][]). A call to it will be made *at most once*
-    for each newly created log record (*only* if the logger [is
+    [`ValueProvider`][]). A call to it will be made *once* for
+    *each* newly created log record (*only* if the logger [is
     enabled](https://docs.python.org/3/library/logging.html#logging.Logger.isEnabledFor)
     for the respective log level), in the thread in which the current
     logger method call is being executed (shortly *after* the log record
@@ -4233,302 +4244,1009 @@ def _resolve_dotted_path(dotted_path: str) -> Any:
 
 
 #
-# Unofficial extra stuff (*not* part of the public API)
+# Unofficial extras (*not* part of the public API!):
+# `_opinionated_conf_corrector` and related stuff...
 #
 
 
 #
-# Base stuff for submodules providing reusable *auto-makers*
+# Helpers for `_opinionated_conf_corrector`'s *extension* classes
 
 
-_AUTO_MAKERS_TOP_SUBMODULE_NAME = f'{__name__}._auto_makers'
+class _AutoCvDict(dict[object, contextvars.ContextVar[T]]):
 
-# To be set in `_BaseAutoMakersSubmodule._ensure_top_submodule()`
-_auto_makers: types.ModuleType
+    """An internal helper (customized `dict` subclass...)."""
+
+    def __init__(self, *, cv_name_base: str):
+        super().__init__()
+        self._rlock = threading.RLock()
+        self._cv_name_base = cv_name_base
+
+    def __missing__(self, key: object) -> contextvars.ContextVar[T]:
+        with self._rlock:
+            if key in self:
+                # Avoiding *race conditions* (in rare cases).
+                cv = self[key]
+            else:
+                cv_name = f'{self._cv_name_base}.{key!a}'
+                self[key] = cv = contextvars.ContextVar(cv_name)
+        return cv
+
+    def __repr__(self) -> str:
+        with self._rlock:
+            base_name = self._cv_name_base
+            keys_repr = ', '.join(map(repr, self))
+            return f'<{type(self).__qualname__}@{base_name!r}: {keys_repr}>'
 
 
-class _BaseAutoMakersSubmodule(abc.ABC):
+class _ContextBoundProperty(Generic[T]):
 
-    # Must be set *manually* in each *concrete* subclass:
-    _leaf_name_: ClassVar[str | None] = None
+    """
+    A descriptor class that can be used in definitions of classes -- in
+    particular, subclasses of `_Exception`. Such a descriptor provides,
+    separately per owner's instance, a `contextvars.ContextVar`-managed
+    property -- supporting all attribute operations: get, set and delete
+    (using a *per-instance* and *context-local* value storage). Note: if
+    no value is set, any attempt to get the value raises `AttributeError`.
+    On the other hand the delete operation never raises `AttributeError`
+    (i.e., is [idempotent](https://en.wikipedia.org/wiki/Idempotence)).
 
-    # Typically, besides *auto-makers* themselves, this
-    # will be the only public method of each subclass:
-    @classmethod
-    def get_auto_makers(cls) -> dict[str, ValueProvider[object]]:
-        """Get a dict with all *auto-makers* provided by this submodule."""
-        return {
-            key: obj
-            for key, obj in cls._iter_public_members()
-            if key != 'get_auto_makers' and callable(obj)
-        }
+    *Important:* this tool should only be used in definitions of classes
+    whose instances are *not* supposed to be very numerous throughout
+    the program's execution. The reason is that for every such *owner*
+    instance, a separate `ContextVar` object is created, and (generally)
+    such objects are *not* garbage-collected.
 
-    def __init_subclass__(cls, /, **kwargs: Any) -> None:
-        super().__init_subclass__(**kwargs)
-        if cls._leaf_name_ is not None:
-            # `cls` is a *concrete* subclass
-            if '_leaf_name_' not in vars(cls):
-                raise TypeError(
-                    f'{cls.__qualname__} needs to have its '
-                    f'own unique `_leaf_name_` attribute '
-                    f'(not inherited from a superclass)'
-                )
-            other_qualname = cls.__leaf_name_to_cls_qualname.get(cls._leaf_name_)
-            if other_qualname is not None:
-                raise ValueError(
-                    f'`{cls.__qualname__}._leaf_name_` should be unique, '
-                    f'while it duplicates `{other_qualname}._leaf_name_` '
-                    f'- both are equal to {cls._leaf_name_!a}'
-                )
-            submodule = cls._make_submodule()
-            cls.__leaf_name_to_cls_qualname[cls._leaf_name_] = cls.__qualname__
-            cls._expose_submodule(submodule)
+    For information about *context-locality* provided by the `ContextVar`
+    stuff, see the documentation for the Python standard library module
+    [`contextvars`](https://docs.python.org/3/library/contextvars.html).
+    """
 
-    __leaf_name_to_cls_qualname: ClassVar[dict[str, str]] = {}
+    def __init__(self, doc: str | None = None):
+        self.__doc__ = doc
 
-    @classmethod
-    def _make_submodule(cls) -> types.ModuleType:
-        submodule_name = f'{_AUTO_MAKERS_TOP_SUBMODULE_NAME}.{cls._leaf_name_}'
-        submodule_doc = cls.__doc__
-        submodule = types.ModuleType(submodule_name, submodule_doc)
-        public_members = dict(cls._iter_public_members())
-        vars(submodule).update(public_members)
-        vars(submodule)['__all__'] = list(public_members.keys())
-        vars(submodule)['__getattr__'] = lambda attr_name: getattr(cls, attr_name)
-        assert submodule.__name__ == submodule_name
-        assert submodule.__name__.startswith(f'{_AUTO_MAKERS_TOP_SUBMODULE_NAME}.')
-        assert submodule.__doc__ == submodule_doc
-        return submodule
+    def __set_name__(self, owner_cls: type, name: str) -> None:
+        self.__module__ = owner_cls.__module__
+        self.__qualname__ = f'{owner_cls.__qualname__}.{name}'
+        self.__name__ = name
+        self._inst_ref_to_cv: _AutoCvDict[tuple[T] | None] = _AutoCvDict(
+            cv_name_base=f'{self.__module__}.{self.__qualname__}'
+        )
 
-    @classmethod
-    def _iter_public_members(cls) -> Iterator[tuple[str, object]]:
-        for name in dir(cls):
-            if not name.startswith('_'):
-                yield name, getattr(cls, name)
-
-    @classmethod
-    def _expose_submodule(cls, submodule: ModuleType) -> None:
-        top_submodule = cls._ensure_top_submodule()
-        assert cls._leaf_name_ is not None
-        setattr(top_submodule, cls._leaf_name_, submodule)
-        sys.modules[submodule.__name__] = submodule
-
-    @classmethod
-    def _ensure_top_submodule(cls) -> types.ModuleType:
-        global _auto_makers
+    def __repr__(self) -> str:
         try:
-            top_submodule = sys.modules[_AUTO_MAKERS_TOP_SUBMODULE_NAME]
-        except KeyError:
-            top_submodule = types.ModuleType(_AUTO_MAKERS_TOP_SUBMODULE_NAME)
-            _auto_makers = top_submodule
-            sys.modules[_AUTO_MAKERS_TOP_SUBMODULE_NAME] = top_submodule
-        else:
-            if top_submodule is not _auto_makers:
-                raise RuntimeError(
-                    f'{top_submodule!a} is not the same module object as '
-                    f'`{_AUTO_MAKERS_TOP_SUBMODULE_NAME}` ({_auto_makers!a})'
+            return f'{self.__module__}.{self.__qualname__}'
+        except AttributeError:
+            return super().__repr__()
+
+    @overload
+    def __get__(self, inst: None, _: object = None) -> Self:
+        ...
+
+    @overload
+    def __get__(self, inst: object, _: object = None) -> T:
+        ...
+
+    def __get__(self, inst: object | None, _: object = None) -> T | Self:
+        if inst is None:
+            # Class attribute access => return the descriptor object itself.
+            return self
+
+        # Instance attribute access => use the descriptor's machinery.
+        cv = self._get_respective_cv(inst)
+        stored = cv.get(None)
+        if stored is None:
+            raise AttributeError(
+                f'{self!a} does not have any value for the '
+                f'instance {inst!a}, in the current context'
+            )
+        (attr_value,) = stored
+        return attr_value
+
+    def __set__(self, inst: object, attr_value: T) -> None:
+        cv = self._get_respective_cv(inst)
+        cv.set((attr_value,))
+
+    def __delete__(self, inst: object) -> None:
+        cv = self._get_respective_cv(inst)
+        cv.set(None)
+
+    def _get_respective_cv(
+        self,
+        inst: object,
+    ) -> contextvars.ContextVar[tuple[T] | None]:
+        return self._inst_ref_to_cv[weakref.ref(inst)]
+
+
+_SelfT = TypeVar('_SelfT')
+_ResultT = TypeVar('_ResultT')
+_FallbackT = TypeVar('_FallbackT')
+
+
+def _ctx_cached(
+    ctx_namespace_attr: str,
+    *,
+    fallback_result: _FallbackT,
+) -> Callable[
+    [Callable[[_SelfT], _ResultT]],
+    Callable[[_SelfT], _ResultT | _FallbackT],
+]:
+    """
+    A decorator to transform an instance method into such one that:
+
+    * (1) checks whether the `ctx_namespace_attr`-designated attribute
+      is available on the instance the method is invoked on (typically,
+      the attribute access should be backed by a `_ContextBoundProperty`
+      descriptor -- ensuring that lookups are not only *instance-local*
+      but also *context-local*; see the `_ContextBoundProperty` docs...);
+
+    * (2) if *no value* of the attribute is available, `fallback_result`
+      (whatever it is) is returned immediately;
+
+    * (3) if the attribute value *is* available, it should be either a
+      `types.SimpleNamespace` instance or a mutable mapping (e.g., a
+      `dict`) -- otherwise, `TypeError` is raised;
+
+    * (4) the `SimpleNamespace` instance or mutable mapping, hereinafter
+      referred to as the *namespace*, is checked for the presence of the
+      method's unique *cache key* (generated automatically -- in a manner
+      that makes conflicts with other items in the *namespace* unlikely);
+
+    * (5) if the *cache key* is already present in the *namespace*, the
+      value stored under it is immediately returned;
+
+    * (6) if the *cache key* is *not* present in the *namespace*, the
+      underlying method (the original method wrapped by the decorator)
+      is invoked; then the result of that invocation is stored in the
+      *namespace* under the *cache key*, and immediately returned.
+
+    The method being decorated must be an instance method that does not
+    take any arguments (i.e., that has only one parameter: `self`).
+
+    *Note:* inside the body of the underlying method the *namespace*
+    (`ctx_namespace_attr`-designated attribute) is always available
+    on the instance (if it was not, the underlying method would not
+    be invoked at all).
+    """
+
+    def decorator(
+        func: Callable[[_SelfT], _ResultT],
+    ) -> Callable[[_SelfT], _ResultT | _FallbackT]:
+
+        non_existent = object()
+
+        @functools.wraps(func)
+        def wrapper(self: _SelfT) -> _ResultT | _FallbackT:
+            namespace = getattr(self, ctx_namespace_attr, non_existent)
+            if namespace is non_existent:
+                return fallback_result
+
+            mapping: MutableMapping[str, _ResultT]
+            if isinstance(namespace, types.SimpleNamespace):
+                mapping = vars(namespace)
+            elif isinstance(namespace, MutableMapping):
+                mapping = namespace
+            else:
+                raise TypeError(
+                    f'{namespace!a} cannot be used as a namespace, '
+                    f'as it is neither a mutable mapping nor an '
+                    f'instance of `types.SimpleNamespace`'
                 )
-        assert top_submodule is _auto_makers
-        assert top_submodule.__name__ == _AUTO_MAKERS_TOP_SUBMODULE_NAME
-        return top_submodule
+
+            value = mapping.get(cache_key, non_existent)
+            if value is non_existent:
+                mapping[cache_key] = value = func(self)
+            return cast(_ResultT, value)
+
+        cache_key = f'{wrapper.__qualname__}#{id(wrapper)}'
+
+        return wrapper
+
+    return decorator
 
 
-class _BaseWebAutoMakersSubmodule(_BaseAutoMakersSubmodule):
-    TRUSTED_PROXIES_ENV_VAR = 'CERT_LOG_TRUSTED_PROXIES'
-    REQUEST_ID_HEADER = 'X-CERT-Request-ID'
-
-    @classmethod
-    @abc.abstractmethod
-    def request_path(cls) -> str | None:
-        """The path the current request was sent to."""
-        return None
-
-    @classmethod
-    @abc.abstractmethod
-    def query_string(cls) -> str | None:
-        """The query string from the current request."""
-        return None
-
-    @classmethod
-    @abc.abstractmethod
-    def host(cls) -> str | None:
-        """The domain name or host requested by the client."""
-        return None
-
-    @classmethod
-    @abc.abstractmethod
-    def remote_addr(cls) -> str | None:
-        # TODO: ^ Decide - 'remote_addr' or perhaps 'client_ip'/`remote_ip`/???
-        # TODO: Decide whether it is *OK* to fallback to the direct TCP peer IP!
-        #       And determine the ultimate content of the docstring:
-        #       - the current one?
-        #       - or perhaps something like this:
-        #           The *real* IP of the peer (client) that sent the request.
-        #           Note that for this information to be reliable, the way
-        #           it is obtained needs to rely on trustworthy data (see:
-        #           https://httptoolkit.com/blog/what-is-x-forwarded-for/).
-        """
-        The real IP address of the client that sent the current HTTP
-        request (actually, this is just the address of the TCP peer,
-        unless the peer is one of the configured trusted proxies and
-        `X-Forwarded-For` header is set).
-        """
-        return None
-
-    @classmethod
-    @abc.abstractmethod
-    def direct_remote_addr(cls) -> str | None:
-        """IP address of the TCP peer (which may be a reverse proxy)."""
-        return None
-
-    @classmethod
-    @abc.abstractmethod
-    def method(cls) -> str | None:
-        """The current request's HTTP method ('GET', 'POST', etc.)"""
-        return None
-
-    @classmethod
-    @abc.abstractmethod
-    def user_agent(cls) -> str | None:
-        """The current request's User-Agent."""
-        return None
-
-    @classmethod
-    @abc.abstractmethod
-    def request_id(cls) -> str | None:
-        """Internal request ID used for correlation between systems."""
-        return None
+def _auto_maker(
+    func: Callable[[_SelfT], _ResultT],
+) -> Callable[[_SelfT], _ResultT]:
+    """A decorator to mark an *extension*'s method as an *auto-maker*."""
+    func.implements_auto_maker = True   # type: ignore[attr-defined]
+    return func
 
 
 #
-# Concrete submodules providing reusable *auto-makers*
+# Foundation for `_opinionated_conf_corrector`'s *extension* classes
 
 
-class _CommonAutoMakers(_BaseAutoMakersSubmodule):
+class _Extension(abc.ABC):
+
     """
-    Module `certlib.log._auto_makers.common`: general-use *auto-makers*.
+    The base class for `_opinionated_conf_corrector`'s *extensions*.
 
-    Any *auto-maker* defined here can be imported by executing:
+    The `certlib.log._opinionated_conf_corrector` callable, among other
+    `conf_corrector_params` mapping's items, may receive a mapping of
+    *extensions*. It maps *extension factories* (typically, concrete
+    subclasses of this class) or *dotted paths* pointing to them -- to
+    mappings of keyword arguments to be passed to those factories (see
+    the documentation for the `_OpinionatedConfCorrectorImpl` class).
+    Then `_opinionated_conf_corrector` instantiates all *extensions*
+    specified this way.
 
-        from certlib.log._auto_makers.common import <auto-maker key>
+    The implementation of `_Extension.__init__()` accepts one *optional*
+    keyword argument, named **`keyword`**, supposed to be a string or
+    `None` (the latter is the default); for more information, see the
+    description of the `complete_setup()` method... Concrete subclasses
+    of this class are allowed to extend `__init__()` to make it accept
+    any extra -- required and/or optional -- keyword arguments. The only
+    requirement is to pass the received `keyword` parameter's value to
+    the base implementation of `__init__()` (called with `super()`) as
+    a keyword argument also named `keyword`.
 
-    Within your formatter configuration, you can refer to it with
-    `"certlib.log._auto_makers.common.<auto-maker key>"`.
+    The interface of each instance includes the following hook methods
+    (see their individual descriptions...):
 
-    A dict of all those *auto-makers* can be gained by executing:
+    * `is_compatible_with()` (abstract method),
+    * `get_auto_makers()`,
+    * `get_base_record_attr_to_output_key_overrides()`,
+    * `complete_setup()`.
 
-        certlib.log._auto_makers.common import get_auto_makers
-        d = get_auto_makers()
+    The preferred way to define an *extension*'s *auto-makers* is to
+    use the `@_auto_maker` decorator (also provided by the `certlib.log`
+    module) -- so that the resultant *auto-makers* will be automatically
+    collected by the default implementation of the `get_auto_makers()`
+    method. Here is an example of using the decorator (in the body of a
+    concrete subclass of `_Extension`):
+
+        @_auto_maker
+        def http_request_host(self) -> str | None:
+            '''Domain name or host requested by the client.'''
+            # *Note*: because we implement this *auto-maker* just as an
+            # instance method, we have access to `self` (the instance of
+            # our *extension*), with any methods/attributes it provides.
+            request = self.get_cur_request()  # <- Let's assume it exists...
+            if request is not None:
+                return request.host
+            return None
     """
-    _leaf_name_ = 'common'
-
-    py_ver = make_constant_value_provider(
-        '.'.join(map(str, (sys.version_info or ())))
-    )
-    script_args = make_constant_value_provider(
-        # TODO: decide whether it is needed, and (if so) whether
-        #       its size should be hard-limited in some way...
-        tuple(sys.argv or ())
-    )
-    tid = threading.get_native_id
-
-
-class _FlaskAutoMakers(_BaseWebAutoMakersSubmodule):
-    """
-    Module `certlib.log._auto_makers.flask`: Flask-dedicated *auto-makers*.
-
-    Any *auto-maker* defined here can be imported by executing:
-
-        from certlib.log._auto_makers.flask import <auto-maker name>
-
-    Within your formatter configuration, you can refer to it with
-    `"certlib.log._auto_makers.flask.<auto-maker name>"`.
-
-    A dict of all those *auto-makers* can be gained by executing:
-
-        certlib.log._auto_makers.flask import get_auto_makers
-        d = get_auto_makers()
-    """
-    _leaf_name_ = 'flask'
-
-    @classmethod
-    def request_path(cls) -> str | None:
-        if request := cls._get_request():
-            return request.path                    # type: ignore[no-any-return]
-        return None
-
-    @classmethod
-    def query_string(cls) -> str | None:
-        if request := cls._get_request():
-            return request.query_string.decode()   # type: ignore[no-any-return]
-        return None
-
-    @classmethod
-    def host(cls) -> str | None:
-        if request := cls._get_request():
-            return request.host                    # type: ignore[no-any-return]
-        return None
-
-    @classmethod
-    def remote_addr(cls) -> str | None:
-        if request := cls._get_request():
-            trusted_proxies = os.environ.get(cls.TRUSTED_PROXIES_ENV_VAR, '').split(':')
-            forwarded_for = request.headers.get('X-Forwarded-For')
-            if forwarded_for and request.remote_addr in trusted_proxies:
-                return forwarded_for               # type: ignore[no-any-return]
-            # TODO: Verify/decide whether it is *OK* to
-            #       fallback to the direct TCP peer IP!
-            return request.remote_addr             # type: ignore[no-any-return]
-        return None
-
-    @classmethod
-    def direct_remote_addr(cls) -> str | None:
-        if request := cls._get_request():
-            return request.remote_addr             # type: ignore[no-any-return]
-        return None
-
-    @classmethod
-    def method(cls) -> str | None:
-        if request := cls._get_request():
-            return request.method                  # type: ignore[no-any-return]
-        return None
-
-    @classmethod
-    def user_agent(cls) -> str | None:
-        if request := cls._get_request():
-            return str(request.user_agent)
-        return None
-
-    @classmethod
-    def request_id(cls) -> str | None:
-        if request := cls._get_request():
-            return request.headers.get(cls.REQUEST_ID_HEADER)   # type: ignore[no-any-return]
-        return None
 
     #
-    # Internals
+    # Initialization/properties
 
-    @classmethod
-    def _get_request(cls) -> Any | None:
-        from flask import has_request_context, request   # type: ignore[import-not-found]
+    def __init__(self, *, keyword: str | None = None):
+        if keyword is not None:
+            callbacks = self._keyword_to_complete_setup_callbacks[keyword]
+            callbacks.append(self.complete_setup)
+        self._keyword = keyword
 
-        if has_request_context():
-            assert request
-            return request
+    @property
+    def keyword(self) -> str | None:
+        return self._keyword  # (see the `complete_setup()` method...)
 
+    #
+    # Instances' main interface (subclass-overridable/extendable hooks)
+
+    @abc.abstractmethod
+    def is_compatible_with(self, component_type: str, /) -> bool:
+        """
+        Returns `True` to indicate that this *extension* is compatible
+        with the given `component_type`, or `False` to indicate the lack
+        of compatibility (so that `_opinionated_conf_corrector` will
+        raise an exception).
+        """
+        raise NotImplementedError
+
+    def get_auto_makers(self) -> Mapping[str, ValueProvider[object] | DottedPath]:
+        """
+        Returns a mapping that maps *output data* keys to *auto-maker*
+        callables (or *dotted paths* pointing to such callables) --
+        to be added to the `auto_makers` dict being processed by
+        `_opinionated_conf_corrector` (regarding only the keys that
+        are *not* already included in that dict).
+
+        The default implementation of this method should be sufficient
+        in most cases. It automatically collects, as *auto-makers*, all
+        `@_auto_maker`-decorated methods of a particular *extension*.
+        """
+        return {
+            key: getattr(self, key)
+            for key in self._auto_maker_keys
+        }
+
+    def get_base_record_attr_to_output_key_overrides(self) -> Mapping[str, str | None]:
+        """
+        The returned mapping will be used by `_opinionated_conf_corrector`
+        to update the `base_record_attr_to_output_key` dict.
+
+        The default implementation of this method returns an empty mapping.
+        """
+        return {}
+
+    def complete_setup(self, positional_arg: Any, /) -> None:
+        """
+        Whenever an *extension* instance is created and its constructor
+        receives a *string* (rather than `None`) via the parameter named
+        **`keyword`**, this method is automatically set up as a callback
+        -- so that it will be invoked the next time the global function
+        `_complete_ext_setup()` is called with a *keyword argument* the
+        name of which matches the value of the said `keyword` parameter.
+        Then, the *value* of that *keyword argument* will be received by
+        this method -- as its sole *positional* parameter.
+
+        The default implementation of this method does nothing.
+
+        The mechanism described above allows *extensions* to defer the
+        completion of their setup until *the corresponding* call to the
+        `_complete_ext_setup()` function is made. This should happen
+        when the component/application in use is ready for this (for
+        example, just after the creation of the web application object
+        -- when necessary framework-specific hooks/middleware can finally
+        be registered/activated). Any necessary contextual information
+        (e.g., the web application object itself) should be passed via
+        the said *keyword argument* (the name of which, typically, is
+        specified in the `StructuredLogsFormatter` configuration, within
+        `corrector_conf_params["extensions"]`, as the `"keyword"` item
+        in the arguments mapping assigned to the respective *extension*
+        factory).
+        """
+
+    #
+    # Automatically populated stuff (to be used in subclasses and the corrector)
+
+    _auto_maker_keys: ClassVar[Sequence[str]]
+    _logger: ClassVar[logging.Logger]   # Some extensions may want to emit logs...
+
+    #
+    # Auxiliary/internal stuff...
+
+    _keyword_to_complete_setup_callbacks: ClassVar[
+        collections.defaultdict[str, collections.deque[Callable[..., None]]]
+    ] = collections.defaultdict(collections.deque)
+
+    def __init_subclass__(cls, /, **kwargs: Any):
+        super().__init_subclass__(**kwargs)
+        cls._logger = logging.getLogger(
+            f'{cls.__module__}.{cls.__qualname__}'
+        )
+        cls._auto_maker_keys = tuple(
+            key for key in dir(cls)
+            if getattr(getattr(cls, key, None), 'implements_auto_maker', False)
+        )
+
+    __constructor_kwargs: Mapping[str, Any]
+
+    def __new__(cls, **kwargs: Any) -> Self:
+        self = super().__new__(cls)
+        self.__constructor_kwargs = kwargs
+        return self
+
+    @reprlib.recursive_repr(fillvalue='<...>')
+    def __repr__(self) -> str:
+        type_name = type(self).__qualname__
+        arguments_repr = ', '.join(
+            f'{name}={arg!r}'
+            for name, arg in self.__constructor_kwargs.items()
+        )
+        return f'{type_name}({arguments_repr})'
+
+    def __str__(self) -> str:
+        return f'`{self!a}`'
+
+
+class _WebExtension(_Extension):
+
+    """
+    The base class for *web*-component-dedicated *extensions*.
+    """
+
+    TRUSTED_PROXIES_ENV_VAR = 'CERT_LOG_TRUSTED_PROXIES'
+    TRUSTED_PROXIES_SEPARATOR = ' '
+    REQUEST_ID_HEADER = 'X-CERT-Request-ID'
+
+    #
+    # Hooks
+
+    def is_compatible_with(self, component_type: str, /) -> bool:
+        return component_type == 'web'
+
+    @abc.abstractmethod
+    def complete_setup(self, positional_arg: Any, /) -> None:
+        """
+        Use web-framework-specific facilities to set up three callbacks:
+        `on_request_start()`, `on_request_finish()` and `on_request_cleanup()`,
+        so that they will be automatically called whenever -- respectively
+        -- handling of an HTTP request starts or ends, or the after-request
+        cleanup is performed.
+        """
+        raise NotImplementedError
+
+    req: _ContextBoundProperty[types.SimpleNamespace] = _ContextBoundProperty(
+        """
+        A special property, powered by `_ContextBoundProperty` (see its
+        documentation...) -- supporting setting, getting and deleting an
+        *instance-local* and *context-local* namespace, intended to be a
+        `types.SimpleNamespace` object. That namespace:
+
+        * is supposed to store and make available to the *extension*'s
+          instance methods (especially those implementing *auto-makers*)
+          any contextual data related to the current HTTP request;
+
+        * is created by the `on_request_start()` method, and populated
+          by it with certain attributes -- in particular, the `start_arg`
+          one, to which the argument received by that method is assigned
+          (supposed to be a web-framework-specific representation of any
+          necessary information regarding the current request);
+
+        * is deleted by the `on_request_finish()` method and -- to be on
+          the safe side -- also by `on_request_cleanup()`.
+        """
+    )
+
+    def on_request_start(self, req_start_arg: Any = None) -> None:
+        """Intended to be called near the start of request handling."""
+        self.req = req_ctx = types.SimpleNamespace(
+            start_arg=req_start_arg,
+            start_time=time.perf_counter(),
+        )
+        req_ctx.verified_remote_ip = self.determine_and_verify_remote_ip()
+        req_ctx.verified_x_forwarded_for=self.determine_and_verify_x_forwarded_for()
+
+    def on_request_finish(self, req_finish_arg: Any = None) -> None:
+        """Intended to be called near the end of request handling."""
+        self._access_logger.info(xm(
+            response_status=self.determine_response_status(req_finish_arg),
+            request_duration_ms=self._get_request_duration_ms(),
+        ))
+        del self.req
+
+    def on_request_cleanup(self) -> None:
+        """Intended to be called on the unconditional after-request cleanup."""
+        # Just to be on the safe side, let's ensure `req` is deleted here
+        # -- considering that, depending on the specific characteristics
+        # of the web framework, `on_request_finish()` (see above) may or
+        # may not be guaranteed to be called in the case of an error...
+        del self.req
+
+    @_ctx_cached('req', fallback_result=None)
+    def determine_and_verify_remote_ip(self) -> str | None:
+        # (See the docstring of the `remote_ip` *auto-maker*)
+        remote_direct_ip = self.remote_direct_ip()
+        if remote_direct_ip is None:
+            self._request_defects_logger.warning(xm(
+                'No remote IP?! (`remote_direct_ip()` returned None)'
+            ))
+            return None
+
+        trusted_proxies = (
+            os.environ
+            .get(self.TRUSTED_PROXIES_ENV_VAR, '')
+            .split(self.TRUSTED_PROXIES_SEPARATOR)
+        )
+        if (remote_direct_ip in trusted_proxies
+            and (x_forwarded_for := self.determine_and_verify_x_forwarded_for())
+        ):
+            assert x_forwarded_for is not None
+            return x_forwarded_for
+
+        return remote_direct_ip
+
+    @_ctx_cached('req', fallback_result=None)
+    def determine_and_verify_x_forwarded_for(self) -> str | None:
+        # (See the docstring of the `remote_x_forwarded_for` *auto-maker*)
+        if addresses := self.determine_all_x_forwarded_for():
+            if len(addresses) == 1:
+                addr = addresses[0]
+                illegal_chars = set(addr) - self._IP_CHARS
+                if not illegal_chars:
+                    return addr.lower()  # (might be IPv6...)
+
+                self._request_defects_logger.warning(xm(
+                    '`X-Forwarded-For` contains character(s) '
+                    'that cannot be part of an IP address: {}',
+                    ', '.join(map(ascii, sorted(illegal_chars)))
+                ))
+            else:
+                self._request_defects_logger.warning(xm(
+                    '`X-Forwarded-For` contains more than 1 value ({})',
+                    len(addresses),
+                ))
+        return None
+
+    @abc.abstractmethod
+    def determine_all_x_forwarded_for(self) -> list[str] | None:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def determine_response_status(self, req_finish_arg: Any, /) -> int | None:
+        raise NotImplementedError
+
+    #
+    # Auto-makers
+
+    @_auto_maker
+    @_ctx_cached('req', fallback_result=None)
+    def remote_ip(self) -> str | None:
+        """
+        Real IP address of the client that sent the current HTTP request.
+
+        Actually, this is just the address of the TCP peer -- unless the
+        peer is one of the configured trusted proxies and `X-Forwarded-For`
+        header is set (for more information, see the description of the
+        `remote_x_forwarded_for` *auto-maker*).
+        """
+        remote_ip: str | None = self.req.verified_remote_ip
+        return remote_ip
+
+    @_auto_maker
+    @_ctx_cached('req', fallback_result=None)
+    def remote_x_forwarded_for(self) -> str | None:
+        """
+        IP address from `X-Forwarded-For` header.
+
+        *Warning*: it is expected that `X-Forwarded-For`, if present
+        at all, contains exactly one IP address -- which assumes very
+        specific setup (!), external to the web application.
+
+        If the expectation in question is not met, `None` is returned.
+        """
+        remote_x_forwarded_for: str | None = self.req.verified_x_forwarded_for
+        return remote_x_forwarded_for
+
+    @_auto_maker
+    @abc.abstractmethod
+    def remote_direct_ip(self) -> str | None:
+        """IP address of the TCP peer (which may be a proxy)."""
+
+    @_auto_maker
+    @abc.abstractmethod
+    def request_host(self) -> str | None:
+        """Domain name or host requested by the client."""
+
+    @_auto_maker
+    @abc.abstractmethod
+    def request_method(self) -> str | None:
+        """Current request's HTTP method ('GET', 'POST', etc.)"""
+
+    @_auto_maker
+    @abc.abstractmethod
+    def request_path(self) -> str | None:
+        """Current HTTP request's path."""
+
+    @_auto_maker
+    @abc.abstractmethod
+    def query_string(self) -> str | None:
+        """Current HTTP request's query string."""
+
+    @_auto_maker
+    @abc.abstractmethod
+    def user_agent(self) -> str | None:
+        """Current request's User-Agent."""
+
+    @_auto_maker
+    @abc.abstractmethod
+    def request_id(self) -> str | None:
+        """Internal request ID used for correlation between systems."""
+
+    #
+    # Auxiliary/internal stuff...
+
+    _IP_CHARS: Final[Set[str]] = frozenset('.:' + string.hexdigits)
+
+    _access_logger: ClassVar[logging.Logger]
+    _request_defects_logger: ClassVar[logging.Logger]
+
+    def __init_subclass__(cls, /, **kwargs: Any):
+        super().__init_subclass__(**kwargs)
+        cls._access_logger = logging.getLogger(
+            f'{__name__}.WEB_ACCESS'
+        )
+        cls._request_defects_logger = logging.getLogger(
+            f'{cls._logger.name}.request_defects'
+        )
+
+    def _get_request_duration_ms(self) -> float | None:
+        if req_ctx := self.req:
+            duration: float = time.perf_counter() - req_ctx.start_time
+            return round(1000 * duration, 3)
         return None
 
 
 #
-# Example *configuration corrector* implementation
+# Concrete classes of `_opinionated_conf_corrector`'s *extensions*
+
+
+class _DefaultExtension(_Extension):
+
+    """
+    The only *extension* always loaded by `_opinionated_conf_corrector`
+    -- providing common stuff (including some general-use *auto-makers*).
+    """
+
+    #
+    # Hooks
+
+    def is_compatible_with(self, component_type: str, /) -> bool:
+        return True
+
+    def get_base_record_attr_to_output_key_overrides(self) -> Mapping[str, str | None]:
+        return {
+            #'processName': None,  <- TODO later: decide whether useful...
+            'msg': None,
+            'thread': None,  # (we provide `tid` instead, see below)
+        }
+
+    #
+    # Auto-makers
+
+    @_auto_maker
+    def py_ver(self) -> str:
+        """Python version in "major.minor.patch" format."""
+        return self._PY_VER
+
+    @_auto_maker
+    def tid(self) -> int:
+        """Native (OS-level) identifier of the current thread."""
+        return threading.get_native_id()
+
+    #
+    # Auxiliary/internal stuff...
+
+    _PY_VER = '.'.join(map(str, (sys.version_info[:3] or ())))
+
+
+class _ExtraAutoMakerSourcesExtension(_Extension):
+
+    """
+    An *extension* for including *auto-makers* from arbitrary sources.
+
+    The sources of *auto-makers* should be specified via an iterable
+    (e.g., a list) passed to `_ExtraAutoMakerSourcesExtension` as the
+    `extra_auto_makers_from` keyword argument. Each of its items should
+    be either a *source object* itself (of any type -- typically just an
+    importable module) or a *dotted path* pointing to it. Each *source
+    object* must expose a `get_auto_makers` member being an argumentless
+    callable. The callable should return a mapping (e.g., a dict) that
+    maps *output data* keys to *auto-maker* callables (or *dotted paths*
+    pointing to *auto-maker* callables).
+    """
+
+    def __init__(
+        self,
+        *,
+        extra_auto_makers_from: (
+            Iterable[object | DottedPath] | object | DottedPath
+        ) = (),
+        **kwargs: Any,
+    ):
+        super().__init__(**kwargs)
+        self._sources = self._get_seq_of_sources(extra_auto_makers_from)
+
+    #
+    # Hooks
+
+    def is_compatible_with(self, component_type: str, /) -> bool:
+        return True
+
+    def get_auto_makers(self) -> Mapping[str, ValueProvider[object] | DottedPath]:
+        return dict(self._iter_auto_maker_items())
+
+    #
+    # Auxiliary/internal stuff...
+
+    def _get_seq_of_sources(
+        self,
+        sources: Iterable[object | DottedPath] | object | DottedPath,
+    ) -> Sequence[object | DottedPath]:
+        if isinstance(sources, str) or not isinstance(sources, Iterable):
+            return [sources]
+        return list(sources)
+
+    def _iter_auto_maker_items(self) -> Iterator[
+        tuple[str, ValueProvider[object] | DottedPath]
+    ]:
+        err_messages: list[str] = []
+        key_to_source_seq = collections.defaultdict[str, list[object]](list)
+
+        for source in self._sources:
+            if isinstance(source, str):
+                try:
+                    source = _resolve_dotted_path(source)
+                except Exception as exc:
+                    err_messages.append(
+                        f'{source=!a} could not be resolved ({exc!a})'
+                    )
+                    continue
+            get_auto_makers = getattr(source, 'get_auto_makers', None)
+            if callable(get_auto_makers):
+                for key, auto_maker in get_auto_makers().items():
+                    key_to_source_seq[key].append(source)
+                    yield key, auto_maker
+            else:
+                err_messages.append(
+                    f'{source!a} does not expose callable `get_auto_makers()`'
+                )
+
+        err_messages += (
+            (
+                f'{key=!a} is claimed by more than one auto-maker '
+                f'(from: {", ".join(map(ascii, sources_seq))})'
+            )
+            for key, sources_seq in key_to_source_seq.items()
+            if len(sources_seq) > 1
+        )
+        if err_messages:
+            listing = '; '.join(sorted(err_messages))
+            raise RuntimeError(
+                f'{self} could not obtain some auto-makers '
+                f'because of the following problems: {listing}'
+            )
+
+
+class _FlaskWebExtension(_WebExtension):
+
+    """
+    A *Flask*-dedicated implementation of `_WebExtension`.
+    """
+
+    #
+    # Hooks
+
+    def complete_setup(self, positional_arg: Any, /) -> None:
+        from flask import has_request_context, request    # type: ignore[import-not-found]
+
+        flask_app = positional_arg
+
+        @flask_app.before_request                        # type: ignore[untyped-decorator]
+        def on_request_start_wrapper() -> None:
+            if has_request_context():
+                self.on_request_start(req_start_arg=request)
+
+        @flask_app.after_request                         # type: ignore[untyped-decorator]
+        def on_request_finish_wrapper(response: T) -> T:
+            self.on_request_finish(req_finish_arg=response)
+            return response
+
+        @flask_app.teardown_request                      # type: ignore[untyped-decorator]
+        def on_request_cleanup_wrapper(_exc: BaseException | None) -> None:
+            self.on_request_cleanup()
+
+    @_ctx_cached('req', fallback_result=None)
+    def determine_all_x_forwarded_for(self) -> list[str]:
+        request = self.req.start_arg
+        all_xff_values: list[str] = request.headers.getlist('X-Forwarded-For')
+        return all_xff_values
+
+    def determine_response_status(self, response: Any, /) -> int:
+        return int(response.status_code)
+
+    #
+    # Auto-makers
+
+    @_auto_maker
+    @_ctx_cached('req', fallback_result=None)
+    def remote_direct_ip(self) -> str | None:
+        request = self.req.start_arg
+        remote_direct_ip: str | None = request.remote_addr
+        return remote_direct_ip
+
+    @_auto_maker
+    @_ctx_cached('req', fallback_result=None)
+    def request_host(self) -> str:
+        request = self.req.start_arg
+        request_host: str = request.host
+        return request_host
+
+    @_auto_maker
+    @_ctx_cached('req', fallback_result=None)
+    def request_method(self) -> str:
+        request = self.req.start_arg
+        request_method: str = request.method
+        return request_method
+
+    @_auto_maker
+    @_ctx_cached('req', fallback_result=None)
+    def request_path(self) -> str:
+        request = self.req.start_arg
+        request_path: str = request.path
+        return request_path
+
+    @_auto_maker
+    @_ctx_cached('req', fallback_result=None)
+    def query_string(self) -> str:
+        request = self.req.start_arg
+        query_string: str = request.query_string.decode('utf-8', 'replace')
+        return query_string
+
+    @_auto_maker
+    @_ctx_cached('req', fallback_result=None)
+    def user_agent(self) -> str:
+        request = self.req.start_arg
+        return str(request.user_agent)
+
+    @_auto_maker
+    @_ctx_cached('req', fallback_result=None)
+    def request_id(self) -> str | None:
+        request = self.req.start_arg
+        request_id: str | None = request.headers.get(self.REQUEST_ID_HEADER)
+        return request_id
+
+
+#
+# Actual *opinionated configuration corrector* implementation
 
 
 class _OpinionatedConfCorrectorImpl:
 
     r"""
-    An opinionated *configuration corrector* implementation.
+    The implementation of `_opinionated_conf_corrector`.
 
-    Example use:
+    ***
+
+    This particular *corrector* does -- step by step -- what follows:
+
+    * Ensure that `"component_type"` is included in `defaults`, with a
+      string as its value. (More details: if the `conf_corrector_params`
+      dict includes a `"component_type"` item, the item is copied into
+      the `defaults` dict; but if that key is initially in both dicts,
+      the values assigned to it need to be already equal -- if not, an
+      exception is raised. An exception is also raised if *none* of
+      those two dicts includes `"component_type"`, as well as if a value
+      assigned to that key is not a `str` object.)
+
+    * Load the default *extension* (pointed to by the class attributes
+      `DEFAULT_EXTENSION_FACTORY` and `DEFAULT_EXTENSION_FACTORY_KWARGS`);
+      then, if the `conf_corrector_params` dict contains the `"extensions"`
+      item, load all *extensions* it specifies (see the description of
+      the `extensions` param below...) -- in alphabetical order of the
+      *extension* class names. It should be noted here that the order of
+      any further *extension*-related operations is always the order in
+      which they were loaded.
+
+    * From all loaded *extensions*, get the *auto-makers* they provide
+      (by calling each *extension*'s `get_auto_makers()`) and add them
+      to the `auto_makers` dict; only an *auto-maker* whose *output data*
+      key is *not* already included in that dict will be added to it
+      (others are ignored). *Important:* at most one *auto-maker* from
+      *extensions* is allowed per *output data* key (that is, any
+      *auto-maker key* conflicts between *extensions* will cause an
+      error).
+
+    * From all loaded *extensions*, get the *record attribute to output
+      data key* mappings they provide (by calling each *extension*'s
+      `get_base_record_attr_to_output_key_overrides()`) and update the
+      `base_record_attr_to_output_key` dict with their contents.
+
+    * If `conf_corrector_params["base_record_attr_to_output_key_overrides"]`
+      exists (see the `base_record_attr_to_output_key_overrides` param's
+      description below...), update the `base_record_attr_to_output_key`
+      dict also with the content of that mapping.
+
+    * If `conf_corrector_params["simple_format"]` *or* the environment
+      variable `CERT_LOG_SIMPLE_FORMAT` is suitably set, *replace* the
+      `serializer` callable with a *simple format* serializer (see the
+      descriptions of the `simple_format` param and the said environment
+      variable, below...).
+
+    * If `conf_corrector_params["level_colors"]` *or* the environment
+      variable `CERT_LOG_LEVEL_COLORS` is suitably set, *wrap* the
+      `serializer` callable (whatever it is) with a *colorizing* layer
+      (see the descriptions of the `level_colors` param and the said
+      environment variable, below...).
+
+    * Finally, check whether the following conditions are met (if not,
+      an exception is raised):
+
+      * for *each* loaded *extension*, its `is_compatible_with()` hook
+        method -- called with the value of `defaults["component_type"]`
+        as the sole positional argument -- returns `True`;
+
+      * each of the keys from the `OUTPUT_KEYS_ALWAYS_REQUIRED_IN_CONF`
+        class attribute is included in `defaults` and/or `auto_makers`
+        -- except that the `"component_type"` key must be in `defaults`,
+        *not* in `auto_makers`;
+
+      * each of the keys from the `"component_type"`-specific submapping
+        in the `COMPONENT_TYPE_TO_OUTPUT_KEYS_REQUIRED_IN_CONF` class
+        attribute is included in `defaults` and/or `auto_makers; or there
+        is no such submapping for the particular `"component_type"`.
+
+    *Important:* if any *extensions* are instantiated with a keyword
+    argument the name of which is **`keyword`** and the value of which
+    is a string, you may need to call -- just once, somewhere in your
+    code -- the `_complete_ext_setup()` function (which is provided by
+    this module), passing to it a keyword argument whose name matches
+    that string -- to complete the setup of those *extensions* (see the
+    documentation for the `_Extension.complete_setup` method).
+
+    ***
+
+    Params (i.e., items recognized in the `conf_corrector_params` dict
+    that is received by the corrector) -- all optional:
+
+    * `component_type` -- a string specifying the *type* of the component
+      that is currently run (e.g.: `"web"`, `"worker"`...). *Note* that
+      this param *must* be specified if the `defaults` dict received by
+      the corrector does not include the `"component_type"` item.
+
+    * `extensions` -- a mapping that maps *extension factory* callables,
+      or *dotted paths* pointing to such callables, to mappings of
+      keyword arguments to these callables (see the documentation for
+      the `_Extension` class...).
+
+    * `base_record_attr_to_output_key_overrides` -- a mapping the items
+      of which are used to update the `base_record_attr_to_output_key`
+      dict being processed by the corrector (*after* updating it with
+      similar stuff produced by any *extensions*).
+
+    * `simple_format` -- if specified (and not `None`), it should be
+      *either* a [`str.format_map`][]-compatible *format string* (e.g.,
+      `"{level}: {message}"`) *or* a boolean-flag-like value (`True`,
+      `"true"`, `"t"`, `"1"`, `"yes"` or `"y"` -- representing *logical
+      truth*; or `False`, `"false"`, `"f"`, `"0"`, `"no"`, `"n"` or empty
+      string -- representing *logical falsehood*; a flag-like string is
+      always examined in its `.lower()`-ed and `.strip()`-ed form). In
+      the latter case, if the flag-like value represents *logical truth*,
+      the default *format string* (see the `SIMPLE_FORMAT_DEFAULT` class
+      attribute) is used; on the other hand, any flag-like value that
+      represents *logical falsehood* disables the feature explicitly. If
+      the feature is enabled, a [`str.format_map`][]-based *serializer*
+      is created. It will form log entries according to the determined
+      *format string*, always substituting any missing *output data*
+      values with empty strings, and automatically adding `stack_info`
+      and/or `exc_text` *output data* values if available. The *simple
+      format* feature is intended to be used in developers' environments
+      (where real structured logs might be inconvenient).
+
+    * `level_colors` -- if specified (and not `None`), it should be
+      *either* a mapping (or an `ast.literal_eval()`-evaluable string
+      representing a mapping) that maps `.lower()`-ed log level names
+      (such as `"info"`, `"warning"`, `"error"`...) to ANSI color codes
+      (such as `"\x1b[34m"`, `"\x1b[1;33m"`, `"\x1b[43m"`...), *or* a
+      boolean-flag-like value (`True`, `"true"`, `"t"`, `"1"`, `"yes"`
+      or `"y"` -- representing *logical truth*; or `False`, `"false"`,
+      `"f"`, `"0"`, `"no"`, `"n"` or empty string -- representing
+      *logical falsehood*; a flag-like string is always examined in its
+      `.lower()`-ed and `.strip()`-ed form). In the latter case, if the
+      flag-like value represents *logical truth*, the default *level
+      colors* mapping (see the `LEVEL_COLORS_DEFAULT` class attribute)
+      is used; on the other hand, any flag-like value that represents
+      *logical falsehood* disables the feature explicitly. If the feature
+      is enabled, so that some *level colors* mapping is determined, then
+      any *serializer* that was supposed to be used is being wrapped --
+      to colorize every serialized output by prefixing it with the ANSI
+      code corresponding (according to that mapping) to the level of the
+      log entry. The param can also be set to a string that, after being
+      `.lower()`-ed and `.strip()`-ed, is equal to `"auto"` -- then the
+      effect depends on whether the *simple format* feature is enabled:
+      if it is, the default *level colors* mapping is used; if not, the
+      *colorizing* feature is disabled.
+
+    Supported environment variables:
+
+    * `CERT_LOG_SIMPLE_FORMAT` -- same as the `simple_format` param,
+      but with lower priority (i.e., not used at all if the param is
+      specified and not `None`).
+
+    * `CERT_LOG_LEVEL_COLORS` -- same as the `level_colors` param,
+      but with lower priority (i.e., not used at all if the param is
+      specified and not `None`).
+
+    Default behaviors:
+
+    * Not specifying the `simple_format` param (or setting it to `None`)
+      *and also* not specifying the `CERT_LOG_SIMPLE_FORMAT` environment
+      variable -- is equivalent to setting the param to `"false"`. In
+      other words, by *default*, the *simple format* feature is *not*
+      enabled.
+
+    * Not specifying the `level_colors` param (or setting it to `None`)
+      *and also* not specifying the `CERT_LOG_LEVEL_COLORS` environment
+      variable -- is equivalent to setting the param to `"auto"` (!). In
+      other words, the *default* behavior is that whether the *colorizing*
+      feature is enabled depends on whether the *simple format* feature
+      is enabled.
+
+    ***
+
+    Example usage for a *Flask*-based application:
 
     ```python
     import logging.config
@@ -4543,10 +5261,24 @@ class _OpinionatedConfCorrectorImpl:
                 },
                 "conf_corrector": "certlib.log._opinionated_conf_corrector",
                 "conf_corrector_params": {
-                    "extra_auto_makers_from": [
-                        "certlib.log._auto_makers.common",
-                        "certlib.log._auto_makers.flask",
-                    ],
+                    "extensions": {
+                        "certlib.log._FlaskWebExtension": {
+                            # Note: `certlib.log._complete_ext_setup()` will need
+                            # to be called with the *Flask* application object as
+                            # the `flask_app` keyword argument (see below...).
+                            "keyword": "flask_app",
+                        },
+                        "certlib.log._ExtraAutoMakerSourcesExtension": {
+                            "extra_auto_makers_from": [
+                                "my_flask_based_app.custom_auto_makers_source",
+                            ],
+                        },
+                    },
+                    "base_record_attr_to_output_key_overrides": {
+                        # (Here: somewhat contrived example items...)
+                        "processName": "process_name_according_to_python_stdlib",
+                        "threadName": None,
+                    },
                 },
             },
         },
@@ -4566,92 +5298,27 @@ class _OpinionatedConfCorrectorImpl:
     })
     ```
 
-    Optional params (i.e., recognized items in `conf_corrector_params`):
+    Then, somewhere in your code, you need to place such a call to the
+    `_complete_ext_setup()` function:
 
-    * `extra_auto_makers_from` -- a list of objects (e.g., modules), or
-      *dotted paths* pointing to objects, each of which is expected to
-      provide a `get_auto_makers` member being a callable that takes no
-      arguments and returns a mapping that maps *output data* keys to
-      *auto-maker* callables (or *dotted paths* pointing to *auto-maker*
-      callables). At most one *extra auto-maker* can be specified per
-      *output data* key (i.e., any key conflicts between the mappings
-      got from `get_auto_makers()` calls will cause an error). Moreover,
-      only those of the *extra auto-makers* whose *output data* keys are
-      *not* already present in the `auto_makers` dict obtained by the
-      corrector are added to that dict. The rest (if any) are ignored.
+    ```python
+    import flask
+    import certlib.log
+    ...
+    app = flask.Flask(__name__)
+    ...
+    certlib.log._complete_ext_setup(flask_app=app)
+    ```
 
-    * `base_record_attr_to_output_key_overrides` -- a mapping to be used
-      to update the `base_record_attr_to_output_key` dict received by
-      the corrector (after updating the latter with some common stuff --
-      see the `_BASE_RECORD_ATTR_TO_OUTPUT_KEY_COMMON_OVERRIDES` class
-      attribute).
+    Thanks to this:
 
-    * `simple_format` -- if specified (and not `None`), it should be
-      *either* a [`str.format_map`][]-compatible *format string* (e.g.,
-      `"{level}: {message}"`) *or* a boolean-flag-like value (`True`,
-      `"true"`, `"t"`, `"1"`, `"yes"` or `"y"` -- representing *logical
-      truth*; or `False`, `"false"`, `"f"`, `"0"`, `"no"`, `"n"` or empty
-      string -- representing *logical falsehood*; a flag-like string is
-      always examined in its `.lower()`-ed and `.strip()`-ed form). In
-      the latter case, if the flag-like value represents *logical truth*,
-      the default *format string* (see the `_SIMPLE_FORMAT_DEFAULT` class
-      attribute) is used; on the other hand, any flag-like value that
-      represents *logical falsehood* disables the feature explicitly. If
-      the feature is enabled, a [`str.format_map`][]-based *serializer*
-      is created. It will form log entries according to the determined
-      *format string*, always substituting any missing *output data*
-      values with empty strings, and automatically adding `stack_info`
-      and/or `exc_text` *output data* values if available. The *simple
-      format* feature is intended to be used in developers' environments
-      (where real structured logs might be inconvenient).
+    * every log entry your code emits while a request is being handled
+      is automatically enriched with all `web`-component-type-specific
+      keys (`remote_ip`, `request_host`, `query_string`, etc.);
 
-    * `level_colors` -- if specified (and not `None`), it should be
-      *either* a mapping (or an `ast.literal_eval()`-evaluable string
-      representing a mapping) that maps `.lower()`-ed log level names
-      (such as `"info"`, `"warning"`, `"error"`...) to ANSI color codes
-      (such as `"\x1b[34m"`, `"\x1b[1;33m"`, `"\x1b[43m"`...) *or* a
-      boolean-flag-like value (`True`, `"true"`, `"t"`, `"1"`, `"yes"`
-      or `"y"` -- representing *logical truth*; or `False`, `"false"`,
-      `"f"`, `"0"`, `"no"`, `"n"` or empty string -- representing
-      *logical falsehood*; a flag-like string is always examined in its
-      `.lower()`-ed and `.strip()`-ed form). In the latter case, if the
-      flag-like value represents *logical truth*, the default *level
-      colors* mapping (see the `_LEVEL_COLORS_DEFAULT` class attribute)
-      is used; on the other hand, any flag-like value that represents
-      *logical falsehood* disables the feature explicitly. If the feature
-      is enabled, so that some *level colors* mapping is determined, then
-      any *serializer* that was supposed to be used is being wrapped --
-      to colorize every serialized output by prefixing it with the ANSI
-      code corresponding (according to that mapping) to the level of the
-      log entry. The param can also be set to a string that, after being
-      `.lower()`-ed and `.strip()`-ed, is equal to `"auto"` -- then the
-      effect depends on whether the *simple format* feature is enabled:
-      if it is, the default *level colors* mapping is used; if not, the
-      colorizing feature is disabled.
-
-    Supported environment variables:
-
-    * `CERT_LOG_SIMPLE_FORMAT` -- same as the `simple_format` param,
-      but with lower priority (i.e., not used at all if the param is
-      specified and not `None`).
-
-    * `CERT_LOG_LEVEL_COLORS` -- same as the `level_colors` param,
-      but with lower priority (i.e., not used at all if the param is
-      specified and not `None`).
-
-    Default behaviors:
-
-    * Not specifying the `simple_format` param (or setting it to `None`)
-      *and also* not specifying the `CERT_LOG_SIMPLE_FORMAT` environment
-      variable -- is equivalent to the **`false`** setting. In other
-      words, the *simple format* feature is *not* used *by default*.
-
-    * Not specifying the `level_colors` param (or setting it to `None`)
-      *and also* not specifying the `CERT_LOG_LEVEL_COLORS` environment
-      variable -- is equivalent to the **`auto`** setting (!). In other
-      words, the *default* behavior is that whether the *level colors*
-      feature is used depends on whether the *simple format* feature
-      is used.
+    * for each request, an *access log* entry is emitted *automatically*
+      (including all `web`-component-type-specific keys as well as the
+      *duration* of handling the request and the response's *status code*).
     """
 
     #
@@ -4661,7 +5328,7 @@ class _OpinionatedConfCorrectorImpl:
     def _perform_conf_correction(cls, conf: ConfDict) -> CorrectedConfDict:
         inst = cls(conf)
         inst.adjust()
-        inst.verify()
+        inst.validate()
         return inst._corr_conf
 
     #
@@ -4669,7 +5336,7 @@ class _OpinionatedConfCorrectorImpl:
 
     # * Constants:
 
-    _OUTPUT_KEYS_ALWAYS_REQUIRED_IN_CONF: Final[Mapping[str, str]] = {
+    OUTPUT_KEYS_ALWAYS_REQUIRED_IN_CONF: Mapping[str, str] = {
         'system': '''
             The name of the *entire system* or *project* your script/application
             is part of (e.g.: "My System", "MWDB", "n6"...).
@@ -4680,49 +5347,45 @@ class _OpinionatedConfCorrectorImpl:
         ''',
         'component_type': '''
             A conventional label of the *type* of the script/application being
-            executed, agreed upon in your organization (e.g.: "web", "worker",
-            "collector", "parser"...).
+            executed, agreed upon in your organization (e.g.: "web", "worker"...).
         ''',
     }
 
-    _COMPONENT_TYPE_TO_OUTPUT_KEYS_REQUIRED_IN_CONF: Final[Mapping[
-        str, Mapping[str, str]
-    ]] = {
+    COMPONENT_TYPE_TO_OUTPUT_KEYS_REQUIRED_IN_CONF: Mapping[
+        str,
+        Mapping[str, str],
+    ] = {
         'web': {
-            key: (getdoc(obj) or '<not documented yet>')
-            for key, obj in _BaseWebAutoMakersSubmodule.get_auto_makers().items()
+            key: (
+                getdoc(getattr(_WebExtension, key))
+                or '<not documented yet>'
+            )
+            for key in _WebExtension._auto_maker_keys
         },
         'worker': {
-            # TODO: description:
             'worker_id': '''
                 TBD...
-            '''
-            # TODO: decide whether more stuff should be added here...
+            '''  # ^ TODO: description
+            # TODO: decide whether more items should be added here...
         },
+        # TODO: more component types here?...
     }
 
-    #_VALID_COMPONENT_TYPES: Set[str] = TODO: decide whether worth defining...
+    DEFAULT_EXTENSION_FACTORY = _DefaultExtension
+    DEFAULT_EXTENSION_FACTORY_KWARGS: Mapping[str, Any] = {}
 
-    _BASE_RECORD_ATTR_TO_OUTPUT_KEY_COMMON_OVERRIDES: Final[
-        Mapping[str, str | None]
-    ] = {
-        'thread': None,  # (let's use `tid` instead; see `_CommonAutoMakers.tid`...)
-        #'processName': None,
-        # ^ TODO: decide whether `processName` is useful... (universally? in some cases?)
-    }
+    SIMPLE_FORMAT_ENV_VAR = 'CERT_LOG_SIMPLE_FORMAT'
+    SIMPLE_FORMAT_DEFAULT = '{level}:{func:.20}:{lineno} - {message}'
 
-    _SIMPLE_FORMAT_ENV_VAR = 'CERT_LOG_SIMPLE_FORMAT'
-    _SIMPLE_FORMAT_DEFAULT = '{level}:{func:.20}:{lineno} - {message}'
-
-    _LEVEL_COLORS_ENV_VAR = 'CERT_LOG_LEVEL_COLORS'
-    _LEVEL_COLORS_DEFAULT: Final[Mapping[str, str]] = {
+    LEVEL_COLORS_ENV_VAR = 'CERT_LOG_LEVEL_COLORS'
+    LEVEL_COLORS_DEFAULT: Mapping[str, str] = {
         'debug': '\x1b[90m',               # grey
         'info': '\x1b[34m',                # blue
         'warning': '\x1b[1;33m',           # bold yellow
         'error': '\x1b[1;31m',             # bold red
         'critical': '\x1b[1;31m\x1b[43m',  # bold red with yellow background
     }
-    _COLOR_RESET = '\x1b[0m'
+    _COLOR_RESET: Final = '\x1b[0m'
 
     # * Initialization:
 
@@ -4730,11 +5393,11 @@ class _OpinionatedConfCorrectorImpl:
         corr_conf, params = self._get_corr_conf_and_params(conf)
         self._corr_conf = corr_conf
         self._params = params
-        self._auto_maker_sources = self._get_auto_maker_sources(params)
+        self._extensions = self._load_extensions(params)
 
     _corr_conf: Final[CorrectedConfDict]
     _params: Final[dict[str, Any]]
-    _auto_maker_sources: Final[list[DottedPath | object]]
+    _extensions: Final[Sequence[_Extension]]
 
     def _get_corr_conf_and_params(
         self,
@@ -4752,7 +5415,6 @@ class _OpinionatedConfCorrectorImpl:
     ) -> None:
         key = 'component_type'
         defaults = corr_conf['defaults']
-        assert isinstance(defaults, dict)
         if key in defaults:
             if key in params and params[key] != defaults[key]:
                 raise ValueError(
@@ -4774,29 +5436,46 @@ class _OpinionatedConfCorrectorImpl:
                 f'object: {defaults[key]!a}'
             )
 
-    def _get_auto_maker_sources(
+    def _load_extensions(
         self,
         params: dict[str, Any],
-    ) -> list[DottedPath | object]:
-        sources = params.get('extra_auto_makers_from', ())
-        if isinstance(sources, str) or not isinstance(sources, Iterable):
-            return [sources]
-        return list(sources)
+    ) -> Sequence[_Extension]:
+        default_ext = self.DEFAULT_EXTENSION_FACTORY(
+            **self.DEFAULT_EXTENSION_FACTORY_KWARGS
+        )
+        given_factory_kw_pairs = [
+            (
+                (_resolve_dotted_path(obj) if isinstance(obj, str) else obj),
+                kwargs,
+            )
+            for obj, kwargs in params.get('extensions', {}).items()
+        ]
+        extensions = [factory(**kw) for factory, kw in given_factory_kw_pairs]
+        extensions.sort(key=operator.attrgetter('__class__.__name__'))
+        extensions.insert(0, default_ext)
+        return extensions
 
     def __repr__(self) -> str:
         if self.__class__ is _OpinionatedConfCorrectorImpl:
-            return f'<the `{__name__}._opinionated_conf_corrector` object>'
+            return f'<{self}>'
         return super().__repr__()
 
-    # * Formatter configuration adjustment:
+    def __str__(self) -> str:
+        if self.__class__ is _OpinionatedConfCorrectorImpl:
+            return f'the `{__name__}._opinionated_conf_corrector` object'
+        return super().__repr__()  # [sic!]
+
+    # * Adjustments to the *configuration dict*:
 
     def adjust(self) -> None:
         for key, auto_maker in self._iter_auto_maker_items():
             self._corr_conf['auto_makers'].setdefault(key, auto_maker)
-        self._corr_conf['base_record_attr_to_output_key'].update({
-            **self._BASE_RECORD_ATTR_TO_OUTPUT_KEY_COMMON_OVERRIDES,
-            **self._params.get('base_record_attr_to_output_key_overrides', {}),
-        })
+        self._corr_conf['base_record_attr_to_output_key'].update(
+            self._iter_base_attr_to_key_items_from_extensions(),
+        )
+        self._corr_conf['base_record_attr_to_output_key'].update(
+            self._params.get('base_record_attr_to_output_key_overrides', ())
+        )
         if sf_serializer := self._make_simple_format_serializer():
             self._corr_conf['serializer'] = sf_serializer
         if sc_wrapper := self._make_serializer_colorizing_wrapper(
@@ -4804,44 +5483,35 @@ class _OpinionatedConfCorrectorImpl:
         ):
             self._corr_conf['serializer'] = sc_wrapper
 
-    def _iter_auto_maker_items(self) -> Iterator[tuple[str, ValueProvider[object]]]:
-        err_messages: list[str] = []
-        key_to_source_seq = collections.defaultdict[str, list[object]](list)
-
-        for source in self._auto_maker_sources:
-            if isinstance(source, str):
-                try:
-                    source = _resolve_dotted_path(source)
-                except Exception as exc:
-                    err_messages.append(
-                        f'* {source=!a} could not be resolved ({exc!a})'
-                    )
-                    continue
-            get_auto_makers = getattr(source, 'get_auto_makers', None)
-            if callable(get_auto_makers):
-                for key, auto_maker in get_auto_makers().items():
-                    key_to_source_seq[key].append(source)
-                    yield key, auto_maker
-            else:
-                err_messages.append(
-                    f'* {source!a} does not expose callable `get_auto_makers()`'
-                )
-
-        err_messages += (
+    def _iter_auto_maker_items(self) -> Iterator[
+        tuple[str, ValueProvider[object] | DottedPath]
+    ]:
+        key_to_extensions = collections.defaultdict[str, list[_Extension]](list)
+        for ext in self._extensions:
+            for key, auto_maker in ext.get_auto_makers().items():
+                key_to_extensions[key].append(ext)
+                yield key, auto_maker
+        format_ext = '`{!a}`'.format
+        if err_messages := [
             (
                 f'* {key=!a} is claimed by more than one auto-maker'
-                f' (from: {", ".join(map(ascii, sources_seq))})'
+                f' (from: {", ".join(map(format_ext, extensions))})'
             )
-            for key, sources_seq in key_to_source_seq.items()
-            if len(sources_seq) > 1
-        )
-        if err_messages:
+            for key, extensions in key_to_extensions.items()
+            if len(extensions) > 1
+        ]:
             listing = '\n\n'.join(sorted(err_messages))
             raise RuntimeError(
                 f'Some auto-makers could not be included '
                 f'because of the following errors:'
                 f'\n\n{listing}'
             )
+
+    def _iter_base_attr_to_key_items_from_extensions(self) -> Iterator[
+        tuple[str, str | None]
+    ]:
+        for ext in self._extensions:
+            yield from ext.get_base_record_attr_to_output_key_overrides().items()
 
     def _make_simple_format_serializer(self) -> OutputSerializer | None:
         simple_format = self._determine_simple_format()
@@ -4919,7 +5589,7 @@ class _OpinionatedConfCorrectorImpl:
     def _determine_simple_format(self) -> str | None:
         simple_format = self._params.get('simple_format')
         if simple_format is None:
-            simple_format = os.environ.get(self._SIMPLE_FORMAT_ENV_VAR)
+            simple_format = os.environ.get(self.SIMPLE_FORMAT_ENV_VAR)
             if simple_format is None:
                 return None
         if isinstance(simple_format, bool):
@@ -4929,7 +5599,7 @@ class _OpinionatedConfCorrectorImpl:
             if flag_str in ('false', 'f', '0', 'no', 'n', ''):
                 return None
             if flag_str in ('true', 't', '1', 'yes', 'y'):
-                simple_format = self._SIMPLE_FORMAT_DEFAULT
+                simple_format = self.SIMPLE_FORMAT_DEFAULT
             assert simple_format
             return simple_format
         raise TypeError(
@@ -4943,7 +5613,7 @@ class _OpinionatedConfCorrectorImpl:
     ) -> Mapping[str, str] | None:
         level_colors = self._params.get('level_colors')
         if level_colors is None:
-            level_colors = os.environ.get(self._LEVEL_COLORS_ENV_VAR, 'auto')
+            level_colors = os.environ.get(self.LEVEL_COLORS_ENV_VAR, 'auto')
         if isinstance(level_colors, bool):
             level_colors = str(level_colors)
         if isinstance(level_colors, str):
@@ -4951,10 +5621,10 @@ class _OpinionatedConfCorrectorImpl:
             if flag_str in ('false', 'f', '0', 'no', 'n', ''):
                 return None
             if flag_str in ('true', 't', '1', 'yes', 'y'):
-                return self._LEVEL_COLORS_DEFAULT
+                return self.LEVEL_COLORS_DEFAULT
             if flag_str == 'auto':
                 if simple_format_in_use:
-                    return self._LEVEL_COLORS_DEFAULT
+                    return self.LEVEL_COLORS_DEFAULT
                 return None
             level_colors = ast.literal_eval(level_colors)
         if isinstance(level_colors, Mapping):
@@ -4966,9 +5636,9 @@ class _OpinionatedConfCorrectorImpl:
             f'{type(level_colors).__qualname__}'
         )
 
-    # * Formatter configuration verification:
+    # * Validation of the *configuration dict*:
 
-    def verify(self) -> None:
+    def validate(self) -> None:
         if err_messages := list(self._iter_err_messages()):
             listing = '\n\n'.join(err_messages)
             raise ValueError(
@@ -4978,17 +5648,18 @@ class _OpinionatedConfCorrectorImpl:
             )
 
     def _iter_err_messages(self) -> Iterator[str]:
+        ct = self._get_component_type()
+        yield from self._iter_err_messages_for_extensions_incompatible_with_ct(ct)
         yield from self._iter_err_messages_for_missing_output_keys(
-            required=self._OUTPUT_KEYS_ALWAYS_REQUIRED_IN_CONF,
+            required=self.OUTPUT_KEYS_ALWAYS_REQUIRED_IN_CONF,
             header_message=(
                 'The following commonly expected *output data* keys are '
                 'missing (each of them should be included in `defaults` '
                 'and/or `auto_makers`):'
             ),
         )
-        ct = self._get_component_type()
         yield from self._iter_err_messages_for_missing_output_keys(
-            required=self._COMPONENT_TYPE_TO_OUTPUT_KEYS_REQUIRED_IN_CONF.get(ct, {}),
+            required=self.COMPONENT_TYPE_TO_OUTPUT_KEYS_REQUIRED_IN_CONF.get(ct, {}),
             header_message=(
                 f'The following *output data* keys, expected for the '
                 f'{ct!a} component type, are missing (each of them should '
@@ -5001,6 +5672,26 @@ class _OpinionatedConfCorrectorImpl:
                 f'The {ct_key!a} key should be included in `defaults` '
                 f'or `conf_corrector_params`, *not* in `auto_makers`!'
             )
+
+    def _get_component_type(self) -> str:
+        ct = self._corr_conf['defaults']['component_type']
+        assert isinstance(ct, str)
+        return ct
+
+    def _iter_err_messages_for_extensions_incompatible_with_ct(
+        self, ct: str,
+    ) -> Iterator[str]:
+        if incompatible_extensions := [
+            ext
+            for ext in self._extensions
+            if not ext.is_compatible_with(ct)
+        ]:
+            yield (
+                f"The following corrector *extensions* are "
+                f"incompatible with component_type={ct!a}:"
+            )
+            for ext in incompatible_extensions:
+                yield f'* `{ext!a}`'
 
     def _iter_err_messages_for_missing_output_keys(
         self, required: Mapping[str, str], header_message: str
@@ -5020,13 +5711,18 @@ class _OpinionatedConfCorrectorImpl:
         indented = textwrap.indent(dedented, indent * ' ')
         return indented
 
-    def _get_component_type(self) -> str:
-        ct = self._corr_conf['defaults']['component_type']
-        assert isinstance(ct, str)
-        return ct
 
-
-# Our *configuration corrector* callable exposed at module level
-# (note: you can refer to it within your formatter configuration
-# with the "certlib.log._opinionated_conf_corrector" dotted path).
+# The *opinionated configuration corrector* callable, compliant with
+# the `ConfCorrector` protocol, exposed at module level (note: you
+# can refer to it within your formatter configuration by using the
+# "certlib.log._opinionated_conf_corrector" dotted path).
 _opinionated_conf_corrector = _OpinionatedConfCorrectorImpl._perform_conf_correction
+
+
+# See the documentation for `_Extension.complete_setup()`...
+def _complete_ext_setup(**keyword_to_arg: Any) -> None:
+    for keyword, arg in keyword_to_arg.items():
+        callbacks = _Extension._keyword_to_complete_setup_callbacks[keyword]
+        while callbacks:
+            complete_setup = callbacks.popleft()
+            complete_setup(arg)
