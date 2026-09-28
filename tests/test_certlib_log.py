@@ -5565,12 +5565,14 @@ class TestSnippetsInDocumentation:
 
 
     @pytest.fixture(scope='class')
+    @classmethod
     def snippet_finder(self) -> Generator[_SnippetFinder]:
         snippet_finder = self._SnippetFinder(certlib.log)
         yield snippet_finder
         snippet_finder.assert_all_snippets_covered()
 
     @pytest.fixture(scope='class', autouse=True)
+    @classmethod
     def mark_uninteresting_snippets_as_covered(self, snippet_finder):
         # Testing these code snippets would
         # be hard and/or not very beneficial:
@@ -5583,6 +5585,7 @@ class TestSnippetsInDocumentation:
         snippet_finder.lookup(substring='__call__(conf: ConfDict)')
 
     @pytest.fixture(scope='class')
+    @classmethod
     def client_ip_context_var(self) -> contextvars.ContextVar[ipaddress.IPv4Address]:
         default = ipaddress.IPv4Address('192.168.0.123')
         return contextvars.ContextVar('client_ip_context_var', default=default)
