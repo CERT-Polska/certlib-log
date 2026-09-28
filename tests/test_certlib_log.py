@@ -5564,9 +5564,9 @@ class TestSnippetsInDocumentation:
             root_logger.setLevel(initial_level)
 
 
-    classmethod_if_supported = (
-        # TODO: remove it after dropping unofficial support for Py3.9
-        lambda func: func if pytest.version_tuple[0] < 9
+    classmethod_if_supported: Callable[[Any], Any] = (
+        # TODO: get rid of it after dropping unofficial support for Py3.9
+        (lambda func: func) if pytest.version_tuple[0] < 9   # type: ignore[operator]
         else classmethod
     )
 
