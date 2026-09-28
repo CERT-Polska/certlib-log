@@ -6421,6 +6421,14 @@ class TestSnippetsInDocumentation:
             exec(simple_snippet, {})
             logging.getLogger('some').warning('Here!')
 
+        # Also, let's separately test (superficially) the
+        # *example log entry* snippet:
+        json_snippet = snippet_finder.lookup(
+            substring="Request from '10.20.30.40'",
+            syntax_label='json',
+        )
+        assert isinstance(json.loads(json_snippet), dict)
+
         snippet_finder.assert_all_snippets_covered()
         readme_specific_expected_output_items = {
             'client_ip': '192.168.0.123',
