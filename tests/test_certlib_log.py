@@ -5588,7 +5588,7 @@ class TestSnippetsInDocumentation:
         snippet_finder.lookup(substring='# All WRONG (!!!):')
         snippet_finder.lookup(substring='__call__() -> Value')
         snippet_finder.lookup(substring='__call__(output_data')
-        snippet_finder.lookup(substring='__call__(conf: ConfDict)')
+        snippet_finder.lookup(substring='__call__(conf: ConfDict')
 
     @pytest.fixture(scope='class')
     @classmethod_if_supported
