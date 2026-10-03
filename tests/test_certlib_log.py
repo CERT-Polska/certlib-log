@@ -155,6 +155,7 @@ EXAMPLE_CUSTOM_ITEMS = {
     'SomeSpam': ExampleSomethingWithCustomStrAndRepr(),
     'my enum member...': ExampleEnum.FOO,
     'IPv4 address': ipaddress.IPv4Address('10.20.30.40'),
+    'simple namespace': SimpleNamespace(a=42, b=[1, 2, 3]),
     'my_subdict': {
         (1, 2): (1, (1, (1, {1: 0.0, float('inf'): float('inf')}))),
         ExampleSomethingWithCustomStrAndRepr(): ExampleSomethingWithCustomStrAndRepr(),
@@ -197,7 +198,8 @@ EXAMPLE_CUSTOM_ITEMS = {
             'ipv6address': ipaddress.IPv6Address('2001:0db8:85a3:0000:0000:8a2e:0370:7334'),
             'ipv6iface': ipaddress.IPv6Interface('2001:0db8:85a3:0000:0000:8a2e:0370:7334/124'),
             'ipv6network': ipaddress.IPv6Network('2001:0db8:85a3:0000:0000:8a2e:0370:7330/124'),
-            'uuid': str(uuid.UUID('12345678-1234-5678-1234-567812345678')),
+            'uuid': uuid.UUID('12345678-1234-5678-1234-567812345678'),
+            'ns': SimpleNamespace(a=42, sub=SimpleNamespace(c=None)),
         }),
         # (Below: very long key...)
         (' b r r R R r r R' * 1000): ExampleDataClass(
@@ -215,6 +217,7 @@ EXAMPLE_PREPARED_CUSTOM_OUTPUT_ITEMS = {
     'SomeSpam': '-> REPR <-',
     'my enum member...': 'ExampleEnum.FOO',
     'IPv4 address': '10.20.30.40',
+    'simple namespace': {'a': 42, 'b': [1, 2, 3]},
     'my_subdict': {
         '(1, 2)': [1, [1, [1, {'1': 0.0, 'inf': 'inf'}]]],
         '-> STR <-': '-> REPR <-',
@@ -258,6 +261,7 @@ EXAMPLE_PREPARED_CUSTOM_OUTPUT_ITEMS = {
             'ipv6iface': '2001:db8:85a3::8a2e:370:7334/124',
             'ipv6network': '2001:db8:85a3::8a2e:370:7330/124',
             'uuid': '12345678-1234-5678-1234-567812345678',
+            'ns': {'a': 42, 'sub': {'c': None}},
         },
         # (Below: key trimmed to 200 characters.)
         (' b r r R R r r R' * 12 + ' b r r R'): {
@@ -6454,7 +6458,7 @@ class TestSnippetsInDocumentation:
                     'pattern': '{what[a].b[0][c]} is day #{today:%j} of year {today:%Y}',
                 },
                 'what': {
-                    'a': "namespace(b=[{'c': 'Today'}])",
+                    'a': {'b': [{'c': 'Today'}]},
                 },
                 'today': '2026-02-21',
                 'some_extra_item': 42,
@@ -6499,7 +6503,7 @@ class TestSnippetsInDocumentation:
                     'pattern': '{what[a].b[0][c]} is day #{today:%j} of year {today:%Y}',
                 },
                 'what': {
-                    'a': "namespace(b=[{'c': 'Today'}])",
+                    'a': {'b': [{'c': 'Today'}]},
                 },
                 'today': '2026-02-21',
                 'some_extra_item': 42,

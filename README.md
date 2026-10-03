@@ -165,6 +165,7 @@ def example_with_text_message_formatting(city, humidity, error_summary=None):
             ),
         },
         today=dt.date.today(),
+        # (=> text message like: 'Today is day #052 of year 2026')
 
         # Arbitrary data items can also be given (which is especially
         # useful when `certlib.log.StructuredLogsFormatter` is in use).
