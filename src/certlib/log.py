@@ -2287,6 +2287,7 @@ class StructuredLogsFormatter(logging.Formatter):
         exclude_from_seq_types: tuple[type, ...] = (str, bytes, bytearray),
         is_dataclass: Callable[[object], bool] = dataclasses.is_dataclass,
         dataclass_as_dict: Callable[[Any], dict[str, object]] = dataclasses.asdict,
+        vars_types: tuple[type, ...] = (types.SimpleNamespace,),
         last_resort: Callable[[object], str] = repr,
         **kwargs: Any,
     ) -> OutputValue:
@@ -2473,6 +2474,9 @@ class StructuredLogsFormatter(logging.Formatter):
             # type-dedicated check earlier...) => convert it to a *dict*.
             return self.prepare_value(dataclass_as_dict(value), **kwargs)
 
+        if isinstance(value, vars_types):
+            return self.prepare_value(vars(value), **kwargs)
+
         # Any other object...
         return last_resort(value)
 
@@ -2512,12 +2516,12 @@ class StructuredLogsFormatter(logging.Formatter):
             keys in the *output data* dict, but *is* applied to *each key*
             in every mapping that **`prepare_value`** takes as an input
             *value* (also, in every dict created by **`prepare_value`**
-            as a result of converting an *exception*, *named tuple* or
-            *dataclass* instance...). All of this is true for the default
-            implementation of **`prepare_value`**. It is recommended
-            (yet not enforced) that any custom implementations of the
-            **`prepare_value`** method make use of *this* method in a
-            similar way.
+            as a result of converting an *exception*, *named tuple*,
+            *dataclass* instance, etc.). All of this is true for
+            the default implementation of **`prepare_value`**. It is
+            recommended (yet not enforced) that any custom implementations
+            of the **`prepare_value`** method make use of *this* method in
+            a similar way.
         """
         key_str = str(key)
         if len(key_str) > self._DESIRED_MAX_KEY_LENGTH:
