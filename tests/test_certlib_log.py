@@ -6051,9 +6051,9 @@ class TestSnippetsInDocumentation:
                 no_substring=no_substring,
             )
             for substring, no_substring in [
-                ('"Note: {} is {!r} (in {:%Y-%m})"', None),
-                ('"Note: {0} is {1!r} (in {2:%Y-%m})"', None),
-                ('"Note: {} is {val!r} (in {today:%Y-%m})"', 'something_more=(1,'),
+                ('(in {:%Y-%m})"', None),
+                ('(in {2:%Y-%m})"', None),
+                ('(in {today:%Y-%m})"', 'something_more=(1,'),
                 ('something_more=(1,', None),
             ]
         )
@@ -6068,7 +6068,7 @@ class TestSnippetsInDocumentation:
                 'logger': 'myown.portal.another_example_module',
                 'message': f"Note: foo is 'Bar' (in 2026-02)",
                 'message_base': {
-                    'pattern': 'Note: {} is {!r} (in {:%Y-%m})',
+                    'pattern': 'Note: {} is {.attr[item]!r} (in {:%Y-%m})',
                 },
             },
             {
@@ -6077,7 +6077,7 @@ class TestSnippetsInDocumentation:
                 'logger': 'myown.portal.another_example_module',
                 'message': f"Note: foo is 'Bar' (in 2026-02)",
                 'message_base': {
-                    'pattern': 'Note: {0} is {1!r} (in {2:%Y-%m})',
+                    'pattern': 'Note: {0} is {1.attr[item]!r} (in {2:%Y-%m})',
                 },
             },
             {
@@ -6086,9 +6086,9 @@ class TestSnippetsInDocumentation:
                 'logger': 'myown.portal.another_example_module',
                 'message': f"Note: foo is 'Bar' (in 2026-02)",
                 'message_base': {
-                    'pattern': 'Note: {} is {val!r} (in {today:%Y-%m})',
+                    'pattern': 'Note: {} is {obj.attr[item]!r} (in {today:%Y-%m})',
                 },
-                'val': 'Bar',
+                'obj': '<our object>',
                 'today': '2026-02-21',
             },
             last_expected_output := {
@@ -6097,9 +6097,9 @@ class TestSnippetsInDocumentation:
                 'logger': 'myown.portal.another_example_module',
                 'message': f"Note: foo is 'Bar' (in 2026-02)",
                 'message_base': {
-                    'pattern': 'Note: {} is {val!r} (in {today:%Y-%m})',
+                    'pattern': 'Note: {} is {obj.attr[item]!r} (in {today:%Y-%m})',
                 },
-                'val': 'Bar',
+                'obj': '<our object>',
                 'today': '2026-02-21',
                 'something': 123456789,
                 'something_more': [1, 2, 3, 4, True, None, {'5': [6789, 10]}],
@@ -6270,6 +6270,16 @@ class TestSnippetsInDocumentation:
                     'pattern': 'Maxsize is {maxsize:x}',
                 },
                 'maxsize': sys.maxsize,
+            },
+            {
+                **get_output_base(level='INFO'),
+                **commonly_expected_output_items,
+                'logger': 'root',
+                'message': f'Python {sys.version_info[0]}.{sys.version_info[1]}',
+                'message_base': {
+                    'pattern': 'Python {sys.version_info[0]}.{sys.version_info[1]}',
+                },
+                'sys': repr(sys),
             },
             {
                 **get_output_base(level='WARNING'),
