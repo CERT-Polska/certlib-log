@@ -1387,9 +1387,13 @@ class StructuredLogsFormatter(logging.Formatter):
             similar, but fewer restrictions apply to it (compare
             **[`ConfDict`][]** vs. **[`CorrectedConfDict`][]**). In
             particular, the *returned* dict is allowed to include a
-            subset of the keys listed above, instead of including all of
-            them (the absence of an item is equivalent to including it
-            unchanged from its initial form the *given* dict included).
+            subset of the keys listed above (even an empty subset)
+            instead of including all of them.
+
+            The absence of a key in the *returned* dict is equivalent to
+            assigning to that key the same object that was assigned to
+            it in the *given* dict. Note that any in-place changes the
+            *corrector* has made to that object since then are kept.
 
             !!! warning "Forward compatibility requirement"
 
@@ -1657,16 +1661,18 @@ class StructuredLogsFormatter(logging.Formatter):
 
             corrected: CorrectedConfDict = conf_corrector(conf)
 
-            if 'defaults' in corrected:
-                raw_defaults = self._as_ready_raw_defaults(corrected['defaults'])
-            if 'auto_makers' in corrected:
-                auto_makers = self._as_ready_auto_makers(corrected['auto_makers'])
-            if 'serializer' in corrected:
-                serializer = self._as_ready_serializer(corrected['serializer'])
-            if 'base_record_attr_to_output_key' in corrected:
-                base_attr_to_key = self._as_ready_base_attr_to_key(
-                    corrected['base_record_attr_to_output_key'],
-                )
+            raw_defaults = self._as_ready_raw_defaults(
+                corrected.get('defaults', raw_defaults),
+            )
+            auto_makers = self._as_ready_auto_makers(
+                corrected.get('auto_makers', auto_makers),
+            )
+            serializer = self._as_ready_serializer(
+                corrected.get('serializer', serializer),
+            )
+            base_attr_to_key = self._as_ready_base_attr_to_key(
+                corrected.get('base_record_attr_to_output_key', base_attr_to_key),
+            )
 
         self.defaults = self._prepare_and_filter_defaults(raw_defaults)
         self.auto_makers = auto_makers
