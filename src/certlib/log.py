@@ -4710,8 +4710,7 @@ class _WebExtension(_Extension):
           (supposed to be a web-framework-specific representation of any
           necessary information regarding the current request);
 
-        * is deleted by the `on_request_finish()` method and -- to be on
-          the safe side -- also by `on_request_cleanup()`.
+        * is deleted by the `on_request_cleanup()` method.
         """
     )
 
@@ -4726,6 +4725,7 @@ class _WebExtension(_Extension):
         self.req = req_ctx = types.SimpleNamespace(
             start_arg=req_start_arg,
             start_time=time.perf_counter(),
+            access_log_entry_emitted=False,
         )
         req_ctx.verified_remote_ip = self.determine_and_verify_remote_ip()
         req_ctx.verified_x_forwarded_for=self.determine_and_verify_x_forwarded_for()
@@ -4742,15 +4742,19 @@ class _WebExtension(_Extension):
             response_status=self.determine_response_status(req_finish_arg),
             request_duration_ms=self._get_request_duration_ms(),
         ))
-        del self.req
+        self.req.access_log_entry_emitted = True
 
     def on_request_cleanup(self) -> None:
         """Intended to be called on the unconditional after-request cleanup."""
-        # Just to be on the safe side, let's ensure `req` is deleted here
-        # -- considering that, depending on the specific characteristics
-        # of the web framework, `on_request_finish()` (see above) may or
-        # may not be guaranteed to be called in the case of an error...
-        del self.req
+        try:
+            if not self.req.access_log_entry_emitted:
+                self._access_logger.warning(xm(
+                    'Undetermined `response_status`! (500?)',
+                    request_duration_ms=self._get_request_duration_ms(),
+                    exc_info=True,
+                ))
+        finally:
+            del self.req
 
     @_ctx_cached('req', fallback_result=None)
     def determine_and_verify_remote_ip(self) -> str | None:

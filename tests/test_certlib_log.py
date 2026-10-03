@@ -6722,6 +6722,7 @@ class TestSnippetsInDocumentation:
             },
             {
                 **get_expected_output_base(level='WARNING'),
+                **expected_request_specific_output_items,    # <- Notice this.
                 'func': 'test_extra_non_public_opinionated_conf_corrector_snippets',
                 'logger': 'my_flask_based_app.views',
                 'message': 'Before after-request cleanup',
