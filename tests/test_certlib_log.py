@@ -5588,7 +5588,7 @@ class TestSnippetsInDocumentation:
         snippet_finder.lookup(substring='# All WRONG (!!!):')
         snippet_finder.lookup(substring='__call__() -> Value')
         snippet_finder.lookup(substring='__call__(output_data')
-        snippet_finder.lookup(substring='__call__(conf: ConfDict)')
+        snippet_finder.lookup(substring='__call__(conf: ConfDict')
 
     @pytest.fixture(scope='class')
     @classmethod_if_supported
@@ -6693,9 +6693,9 @@ class TestSnippetsInDocumentation:
             logger.warning('Inside request handler')
             fake_request_lifecycle.finish()
 
-            logger.warning('Outside request handler #2')
+            logger.warning('Before after-request cleanup')
             fake_request_lifecycle.cleanup()
-            logger.warning('Outside request handler #3')
+            logger.warning('Outside request handler again')
 
         assert get_actual_output_list() == [
             {
@@ -6722,15 +6722,16 @@ class TestSnippetsInDocumentation:
             },
             {
                 **get_expected_output_base(level='WARNING'),
+                **expected_request_specific_output_items,    # <- Notice this.
                 'func': 'test_extra_non_public_opinionated_conf_corrector_snippets',
                 'logger': 'my_flask_based_app.views',
-                'message': 'Outside request handler #2',
+                'message': 'Before after-request cleanup',
             },
             {
                 **get_expected_output_base(level='WARNING'),
                 'func': 'test_extra_non_public_opinionated_conf_corrector_snippets',
                 'logger': 'my_flask_based_app.views',
-                'message': 'Outside request handler #3',
+                'message': 'Outside request handler again',
             },
         ]
         assert fake_request.headers.mock_calls == [

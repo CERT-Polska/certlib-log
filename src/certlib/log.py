@@ -573,10 +573,10 @@ format = {
 
 ### Configuration Validation and Adjustments
 
-Regardless of the configuration style you choose, you may need to
-perform customized *validation* and/or *adjustments* concerning your
-[`StructuredLogsFormatter`][] configuration while the formatter is
-initialized. If so, define your custom *configuration corrector*
+Regardless of the configuration style you choose, you may want to
+perform extra *validation* and/or *adjustments* concerning your
+[`StructuredLogsFormatter`][] configuration, during the initialization
+of the formatter. To do so, define your custom *configuration corrector*
 function and specify it as yet another argument to the
 `StructuredLogsFormatter` constructor: **`conf_corrector`**.
 
@@ -587,7 +587,7 @@ practical example.
 Let us implement a simple *configuration corrector*:
 
 ```python
-# Let's place it, e.g., in a module importable as `myown.log_helpers`.
+# Place it, for example, in a module importable as `myown.log_helpers`.
 
 def my_conf_corrector(conf: dict) -> dict:
     # The given dict always contains:
@@ -1258,7 +1258,7 @@ class StructuredLogsFormatter(logging.Formatter):
       (*importable dotted name*) that points to an *auto-maker* (see
       also the [`make_base_auto_makers`][] method...).
 
-        ??? warning "Output key validation"
+        ??? warning "*Output data* key validation"
 
             It is required that every *output data* key (just *key*,
             as we are *not* talking about *output data* values here)
@@ -1292,7 +1292,7 @@ class StructuredLogsFormatter(logging.Formatter):
       **`serializer`** can be a *dotted path* string (*importable dotted
       name*) that points to such a callable.
 
-        ??? note "Output data typing"
+        ??? note "*Output data* typing"
 
             The type of every *output data* dict (taken by **`serializer`**)
             is annotated as **`dict[str, OutputValue]`**. Essentially, the
@@ -1325,11 +1325,11 @@ class StructuredLogsFormatter(logging.Formatter):
       executes the *corrector* just once -- before the main part of the
       formatter initialization.
 
-        ??? info "Corrector interface"
+        ??? info "*Configuration corrector* interface"
 
             Every *configuration corrector* should comply with the
-            **[`ConfCorrector`][]** protocol -- which requires it to be
-            a callable object that:
+            **[`ConfCorrector`][]** protocol -- which, essentially,
+            requires it to be a callable object that:
 
             * accepts one positional argument: a [`dict`][] (hereinafter
               referred to as the *given* dict), structured according to
@@ -1387,32 +1387,40 @@ class StructuredLogsFormatter(logging.Formatter):
             similar, but fewer restrictions apply to it (compare
             **[`ConfDict`][]** vs. **[`CorrectedConfDict`][]**). In
             particular, the *returned* dict is allowed to include a
-            subset of the keys listed above, instead of including all of
-            them (the absence of an item is equivalent to including it
-            unchanged from its initial form the *given* dict included).
+            subset of the keys listed above (even an empty subset)
+            instead of including all of them.
+
+            The absence of a key in the *returned* dict is equivalent to
+            assigning to that key the same object that was assigned to
+            it in the *given* dict. Note that any in-place changes the
+            *corrector* has made to that object since then are kept.
+
+            Apart from that, [`None`][] is also a valid return value. It
+            is equivalent to an empty dict.
 
             !!! warning "Forward compatibility requirement"
 
                 In future versions of the library, including *non-major*
-                ones, other items may also appear in the *given* dict (in
-                addition to the five items listed above). Therefore, every
-                *corrector* should ignore any unrecognized keys in the
-                *given* dict. Also, it should *not* add to the *returned*
-                dict any keys that were not present in the *given* dict.
+                ones, other items may also appear in the *given* dict
+                (in addition to the five items listed above). Therefore,
+                every *corrector* should ignore any unrecognized keys in
+                the *given* dict (rather than complaining about them or
+                modifying anything in objects assigned to them). Also,
+                it should *not* place in the *returned* dict any keys
+                that were not present in the *given* dict.
 
             As you can see, the *given* dict's items are automatically
             processed (converted/copied/verified/resolved, as described
             above) -- before the *corrector* is executed. It should be
-            added here that the *returned* dict's items are processed
-            in the same way -- after the *corrector* is executed (yet
-            still before using them in the main part of the formatter
-            initialization). One exception: the *returned* dict's
-            `"conf_corrector_params"` item (if present at all) is
-            ignored.
+            added here that the *returned* dict's items (if present)
+            are processed in the same way -- after the *corrector* is
+            executed (yet still before they are used in the main part of
+            the formatter initialization). One exception: the *returned*
+            dict's `"conf_corrector_params"` item is simply ignored.
 
     * **`conf_corrector_params`** (a [`dict`][] or other mapping; default: `{}`):
       additional custom data the **`conf_corrector`** callable will get.
-      Ignored if **`conf_corrector`** is [`None`][] or unspecified.
+      Ignored if that callable is not specified.
 
     **Alternatively**, a mapping (especially a [`dict`][]) of keyword
     arguments compatible with the main signature described above, or an
@@ -1444,14 +1452,11 @@ class StructuredLogsFormatter(logging.Formatter):
 
     !!! note
 
-        Thanks to the interface extensions described above, you can
-        configure a **`StructuredLogsFormatter`** even if you are
-        using the [`logging.config.fileConfig`][]-specific configuration
-        format (which, despite its limitations, is still quite popular).
-
-        See the **`formatter_structured`** section of the `fileConfig`-style
-        [configuration example](guide.md#certlib.log--loggingconfigfileconfig-style-configuration-example)
-        in the *User's Guide*.
+        Thanks to the constructor signature variants described in the last
+        few paragraphs, you can configure a **`StructuredLogsFormatter`**
+        even if you are using the [`logging.config.fileConfig`][]-specific
+        configuration format (which, despite its limitations, is still
+        quite popular).
 
     ??? warning "Deep-copyable *defaults* requirement"
 
@@ -1476,7 +1481,17 @@ class StructuredLogsFormatter(logging.Formatter):
 
             Regarding _**any other**_ mappings that are copied while
             being processed by the **`StructuredLogsFormatter`**
-            constructor, only _**shallow**_ copies are made.
+            constructor, only _**shallow**_ copies are made (typically,
+            by applying **[`dict`][]** to the mapping).
+
+    ??? exclusion "Key order non-guarantee"
+
+        Whenever *any* mapping is converted to a [`dict`][] and copied
+        during the execution of the **`StructuredLogsFormatter`**
+        constructor (regardless of whether a *deep* or *shallow* copy
+        is being made), the order of the mapping’s keys is _**not**_
+        guaranteed to be retained (in particular, the order *may* change
+        to alphabetical).
 
     This class defines the following *hook methods* that can be
     extended/overridden in subclasses:
@@ -1500,19 +1515,22 @@ class StructuredLogsFormatter(logging.Formatter):
     * [`record_attr_to_output_key`][]
     * [`serializer`][]
 
-    !!! warning "Mutability restriction"
+    ??? warning "Mutability restriction"
 
         Modifying any nested mutable data within any of the aforementioned
         attributes (in particular, any mutable values in **[`defaults`][]**)
         is forbidden. Doing so will result in undefined behavior.
 
-    When it comes to customizing the format of log entry *timestamps*, the
-    related attributes defined by the [`logging.Formatter`][] base class
-    (namely: `converter`, `default_time_format` and `default_msec_format`)
-    are _**ignored**_ by the machinery of `StructuredLogsFormatter`.
+    !!! note
 
-    To learn how to actually customize *timestamp formatting*, please
-    refer to the description of the [`format_timestamp`][] method.
+        When it comes to customizing the format of log entry *timestamps*,
+        the related attributes defined by the [`logging.Formatter`][]
+        base class (namely: `converter`, `default_time_format` and
+        `default_msec_format`) are _**ignored**_ by the machinery of
+        **`StructuredLogsFormatter`**.
+
+        To learn how to actually customize *timestamp formatting*, please
+        refer to the description of the **[`format_timestamp`][]** method.
 
     !!! info "See also"
 
@@ -1632,10 +1650,10 @@ class StructuredLogsFormatter(logging.Formatter):
         base_attr_to_key = self._as_ready_base_attr_to_key(
             self.make_base_record_attr_to_output_key(),
         )
-        serializer = self._resolve_serializer(given_serializer)
+        serializer = self._as_ready_serializer(given_serializer)
 
         if given_conf_corrector is not None:
-            conf_corrector = self._resolve_conf_corrector(given_conf_corrector)
+            conf_corrector = self._as_ready_conf_corrector(given_conf_corrector)
             conf: ConfDict = {
                 'defaults': raw_defaults,
                 'auto_makers': auto_makers,
@@ -1644,18 +1662,20 @@ class StructuredLogsFormatter(logging.Formatter):
                 'conf_corrector_params': dict(given_conf_corrector_params),
             }
 
-            corrected: CorrectedConfDict = conf_corrector(conf)
+            corrected: CorrectedConfDict = conf_corrector(conf) or {}
 
-            if 'defaults' in corrected:
-                raw_defaults = self._as_ready_raw_defaults(corrected['defaults'])
-            if 'auto_makers' in corrected:
-                auto_makers = self._as_ready_auto_makers(corrected['auto_makers'])
-            if 'serializer' in corrected:
-                serializer = self._resolve_serializer(corrected['serializer'])
-            if 'base_record_attr_to_output_key' in corrected:
-                base_attr_to_key = self._as_ready_base_attr_to_key(
-                    corrected['base_record_attr_to_output_key'],
-                )
+            raw_defaults = self._as_ready_raw_defaults(
+                corrected.get('defaults', raw_defaults),
+            )
+            auto_makers = self._as_ready_auto_makers(
+                corrected.get('auto_makers', auto_makers),
+            )
+            serializer = self._as_ready_serializer(
+                corrected.get('serializer', serializer),
+            )
+            base_attr_to_key = self._as_ready_base_attr_to_key(
+                corrected.get('base_record_attr_to_output_key', base_attr_to_key),
+            )
 
         self.defaults = self._prepare_and_filter_defaults(raw_defaults)
         self.auto_makers = auto_makers
@@ -1803,7 +1823,7 @@ class StructuredLogsFormatter(logging.Formatter):
           method to the obtained *output data* dict, and
           returns the result.
 
-        ??? note "Details"
+        ??? note "Clarification"
 
             The **`formatMessage`** name may be slightly misleading. Let
             us emphasize that the job of this method is *always* -- also
@@ -2190,15 +2210,15 @@ class StructuredLogsFormatter(logging.Formatter):
           the description of the [`prepare_submapping_key`][] method...);
 
         * when it comes to transforming every **value** by applying the
-          aforementioned `prepare_value` method to it, if the result of
-          this transformation turns out to be a *void* value (by which
+          aforementioned [`prepare_value`][] method to it, if the result
+          of this transformation turns out to be a *void* value (by which
           we mean any *falsy* value *not equal* to `0`, for example:
           [`None`][], `""`, `[]` or `{}` -- but _**not:**_ [`False`][],
           `0`, `0.0`, etc.), then it is *excluded* (*even* if it should
           be included according to any other rule described above); note
           that *nested* values, even if *void*, are *never* subject to
-          such an *exclusion* (at least if the default implementations
-          of `prepare_value` and `prepare_submapping_key` are used);
+          such an *exclusion* (at least if the default implementation
+          of `prepare_value` is in use);
 
         * potential *item collisions* (which might occur, for example,
           when some **key** is present *both* in the `ExtendedMessage`'s
@@ -2624,7 +2644,7 @@ class StructuredLogsFormatter(logging.Formatter):
         self,
         unready_raw_defaults: Mapping[str, object],
     ) -> dict[str, object]:
-        raw_defaults = deepcopy(self._as_sorted_dict(unready_raw_defaults))
+        raw_defaults = deepcopy(_as_sorted_dict(unready_raw_defaults))
         self._validate_mapping_keys_as_output_keys(raw_defaults)
         return raw_defaults
 
@@ -2632,7 +2652,7 @@ class StructuredLogsFormatter(logging.Formatter):
         self,
         unready_auto_makers: Mapping[str, ValueProvider[object] | DottedPath],
     ) -> dict[str, ValueProvider[object]]:
-        auto_makers = self._as_sorted_dict(unready_auto_makers)
+        auto_makers = _as_sorted_dict(unready_auto_makers)
         self._validate_mapping_keys_as_output_keys(auto_makers)
         return self._resolve_auto_makers(auto_makers)
 
@@ -2640,25 +2660,34 @@ class StructuredLogsFormatter(logging.Formatter):
         self,
         unready_base_attr_to_key: Mapping[str, str | None],
     ) -> dict[str, str | None]:
-        base_attr_to_key = self._as_sorted_dict(unready_base_attr_to_key)
+        base_attr_to_key = _as_sorted_dict(unready_base_attr_to_key)
         self._validate_base_attr_to_key(base_attr_to_key)
         return base_attr_to_key
 
-    def _as_sorted_dict(
+    def _as_ready_serializer(
         self,
-        mapping: Mapping[HashableT, T],
-    ) -> dict[HashableT, T]:
-        return {
-            key: mapping[key]
-            for key in sorted(mapping.keys(), key=str)
-        }
+        given_serializer: OutputSerializer | DottedPath,
+    ) -> OutputSerializer:
+        return self._resolve_callable(
+            given_serializer,
+            descr='serializer'
+        )
+
+    def _as_ready_conf_corrector(
+        self,
+        given_conf_corrector: ConfCorrector | DottedPath,
+    ) -> ConfCorrector:
+        return self._resolve_callable(
+            given_conf_corrector,
+            descr='configuration corrector'
+        )
 
     def _validate_mapping_keys_as_output_keys(
         self,
         mapping: Mapping[str, object],
     ) -> None:
         for key in mapping.keys():
-            self._verify_output_key_is_valid(key)
+            self._validate_as_output_key(key)
 
     def _validate_base_attr_to_key(
         self,
@@ -2666,9 +2695,9 @@ class StructuredLogsFormatter(logging.Formatter):
     ) -> None:
         for key in base_attr_to_key.values():  # [sic!]
             if key is not None:
-                self._verify_output_key_is_valid(key)
+                self._validate_as_output_key(key)
 
-    def _verify_output_key_is_valid(self, key: str) -> None:
+    def _validate_as_output_key(self, key: str) -> None:
         if not isinstance(key, str):
             raise TypeError(f'{key=!a} is not a str')
         if len(key) > self._DESIRED_MAX_KEY_LENGTH:
@@ -2682,32 +2711,14 @@ class StructuredLogsFormatter(logging.Formatter):
         auto_makers: Mapping[str, ValueProvider[object] | DottedPath]
     ) -> dict[str, ValueProvider[object]]:
         return {
-            key: self._get_resolved_callable(
+            key: self._resolve_callable(
                 auto_maker,
                 descr=f'{key!a} auto-maker',
             )
             for key, auto_maker in auto_makers.items()
         }
 
-    def _resolve_serializer(
-        self,
-        given_serializer: OutputSerializer | DottedPath,
-    ) -> OutputSerializer:
-        return self._get_resolved_callable(
-            given_serializer,
-            descr='serializer'
-        )
-
-    def _resolve_conf_corrector(
-        self,
-        given_conf_corrector: ConfCorrector | DottedPath,
-    ) -> ConfCorrector:
-        return self._get_resolved_callable(
-            given_conf_corrector,
-            descr='configuration corrector'
-        )
-
-    def _get_resolved_callable(
+    def _resolve_callable(
         self,
         obj: CallableT | DottedPath,
         descr: str,
@@ -3084,12 +3095,12 @@ class ExtendedMessage:
       will take part in formatting the actual text message (regardless
       of what formatter is in use).
 
-    **Alternatively**, a mapping (e.g., a [`dict`][]) of *extra data*
-    items can be passed to the [constructor][ExtendedMessage] as the
-    *first positional argument*. The effect is the same as if each of
-    its items was passed as an *extra keyword argument*, without passing
-    any positional arguments. A shallow copy of the mapping, converted
-    to a `dict`, is assigned to the [`data`][] attribute.
+    **Alternatively**, a mapping (e.g., a `dict`) of *extra data* items
+    can be passed to the [constructor][ExtendedMessage] as the *first
+    positional argument*. The effect is the same as if each of its
+    items was passed as an *extra keyword argument*, without passing
+    any positional arguments. A shallow copy of the mapping, made by
+    applying [`dict`][] to it, is assigned to the [`data`][] attribute.
 
     ??? warning "Interface restriction"
 
@@ -3108,8 +3119,8 @@ class ExtendedMessage:
     call) being an `ExtendedMessage` (`xm`) instance, that instance's
     [`get_message_value`][] method is always invoked -- either *directly*
     (by the machinery of [`StructuredLogsFormatter`][]) or *indirectly*
-    (via [`__str__`][], by the standard machinery that other formatter
-    types use).
+    (via [`__str__`][], by the standard machinery other formatter types
+    use).
 
     ??? info "Edge case"
 
@@ -3151,7 +3162,7 @@ class ExtendedMessage:
         logger.info(xm('{}, {} and {}', 'Athos', 'Porthos', 'Aramis'))
         ```
 
-    !!! warning "Dangers of mutability"
+    ??? warning "Dangers of mutability"
 
         Although replacing objects assigned to the **`ExtendedMessage`**'s
         instance attributes or mutating their contents (where applicable)
@@ -3176,12 +3187,12 @@ class ExtendedMessage:
         * placing any callables matching
           **[`recognized_deferred_value_creator_types`][]** in the
           relevant collections *after* the aforementioned *deferred
-          value creation* mechanism is triggered may leave those
-          callables *never* called and replaced.
+          value creation* mechanism has been triggered may leave those
+          callables *never* called/replaced.
 
         A separate concern is the risk of inadvertently mutating some
-        shared data (which, for example, might have been passed to the
-        `xm(...)` call).
+        shared data (which, for example, might have been passed as an
+        argument to the `xm(...)` call).
 
         To put it briefly, _**you have been warned**_.
 
@@ -3949,7 +3960,7 @@ constructor.
 class ConfCorrector(Protocol):
     """
     ```python
-    __call__(conf: ConfDict) -> CorrectedConfDict
+    __call__(conf: ConfDict, /) -> CorrectedConfDict | None
     ```
 
     A [*protocol*][typing.Protocol] which describes a callable object
@@ -3957,12 +3968,14 @@ class ConfCorrector(Protocol):
     below...) as the sole positional argument, and either raises an
     exception or returns a [`CorrectedConfDict`][]-compliant dict (see
     below...). The latter is allowed (but definitely *not* required) to
-    be the same dict object as the former (modified or not).
+    be the same dict object as the former (modified or not). Apart from
+    that, [`None`][] is also a valid return value (equivalent to an empty
+    dict).
 
     Objects compliant with the `ConfCorrector` protocol can be passed to
     the [`StructuredLogsFormatter`][] constructor as **`conf_corrector`**.
     """
-    def __call__(self, conf: ConfDict, /) -> CorrectedConfDict: ...
+    def __call__(self, conf: ConfDict, /) -> CorrectedConfDict | None: ...
 
 
 class ConfDict(TypedDict):
@@ -4020,13 +4033,14 @@ class CorrectedConfDict(TypedDict, total=False):
     ```
 
     A [`TypedDict`][typing.TypedDict] which describes a [`dict`][]
-    *returned* by every [`ConfCorrector`][]-compliant callable object.
+    *returned* by every [`ConfCorrector`][]-compliant callable object
+    (unless it returns [`None`][]).
 
-    It is similar to [`ConfDict`][], but wider -- i.e., more forgiving
+    `CorrectedConfDict` is similar to [`ConfDict`][], but more forgiving
     -- as it *also* allows for:
 
-    * lack of some (or even all) of the keys (note the `total=False` flag
-      in the definition);
+    * the absence of some (or even all) of the keys (note the `total=False`
+      flag in the definition);
     * **`"auto_makers"`** including values being *dotted path* strings
       (not yet resolved; expected to point to [`ValueProvider`][]-compliant
       targets);
@@ -4197,6 +4211,25 @@ def _clear_auto_makers_and_internal_record_hooks_related_global_state() -> None:
 
 #
 # Miscellaneous helpers
+
+
+def _as_sorted_dict(mapping: Mapping[HashableT, T]) -> dict[HashableT, T]:
+    """
+    Return a new dict equivalent to the given mapping -- but with keys
+    sorted by their `str()` representations.
+
+    >>> _as_sorted_dict({'c': 3, 'd': 4, 'a': 1})
+    {'a': 1, 'c': 3, 'd': 4}
+
+    >>> _as_sorted_dict(types.MappingProxyType(
+    ...     {42: None, b'2': 'b', 222: 'dwa', (): b'trzy', '1': 1}
+    ... ))
+    {(): b'trzy', '1': 1, 222: 'dwa', 42: None, b'2': 'b'}
+    """
+    return {
+        key: mapping[key]
+        for key in sorted(mapping.keys(), key=str)
+    }
 
 
 def _resolve_dotted_path(dotted_path: str) -> Any:
@@ -4390,7 +4423,7 @@ def _ctx_cached(
     * (4) the `SimpleNamespace` instance or mutable mapping, hereinafter
       referred to as the *namespace*, is checked for the presence of the
       method's unique *cache key* (generated automatically -- in a manner
-      that makes conflicts with other items in the *namespace* unlikely);
+      that makes collisions with other items in the *namespace* unlikely);
 
     * (5) if the *cache key* is already present in the *namespace*, the
       value stored under it is immediately returned;
@@ -4650,11 +4683,25 @@ class _WebExtension(_Extension):
     @abc.abstractmethod
     def complete_setup(self, positional_arg: Any, /) -> None:
         """
-        Use web-framework-specific facilities to set up three callbacks:
-        `on_request_start()`, `on_request_finish()` and `on_request_cleanup()`,
-        so that they will be automatically called whenever -- respectively
-        -- handling of an HTTP request starts or ends, or the after-request
-        cleanup is performed.
+        See the description of `_Extension.complete_setup()`. When
+        it comes to the implementation of this method in a concrete
+        `_WebExtension` subclass, it should use web-framework-specific
+        facilities to set up each of the following three methods as
+        *callbacks* -- so that they will be automatically called for
+        each HTTP request:
+
+        * `on_request_start()` -- when the request handling starts;
+
+        * `on_request_finish()` -- when the request handling finishes;
+          generally, this callback should be set up in a way that will
+          cause it to be called regardless of whether the response
+          indicates a success or an error; however, depending on the
+          specifics of the web framework in use, the call is allowed
+          to be skipped in rare cases of serious internal errors;
+
+        * `on_request_cleanup()` -- *must* be set up in a way that will
+          guarantee it is *always* called as a part of the after-request
+          cleanup, *also* in cases of serious internal errors.
         """
         raise NotImplementedError
 
@@ -4675,35 +4722,51 @@ class _WebExtension(_Extension):
           (supposed to be a web-framework-specific representation of any
           necessary information regarding the current request);
 
-        * is deleted by the `on_request_finish()` method and -- to be on
-          the safe side -- also by `on_request_cleanup()`.
+        * is deleted by the `on_request_cleanup()` method.
         """
     )
 
     def on_request_start(self, req_start_arg: Any = None) -> None:
-        """Intended to be called near the start of request handling."""
+        """
+        Intended to be called near the start of request handling.
+
+        The argument (`req_start_arg`) is supposed to be a
+        web-framework-specific representation of any necessary
+        information -- especially about the HTTP *request*.
+        """
         self.req = req_ctx = types.SimpleNamespace(
             start_arg=req_start_arg,
             start_time=time.perf_counter(),
+            access_log_entry_emitted=False,
         )
         req_ctx.verified_remote_ip = self.determine_and_verify_remote_ip()
         req_ctx.verified_x_forwarded_for=self.determine_and_verify_x_forwarded_for()
 
     def on_request_finish(self, req_finish_arg: Any = None) -> None:
-        """Intended to be called near the end of request handling."""
+        """
+        Intended to be called near the end of request handling.
+
+        The argument (`req_finish_arg`) is supposed to be a
+        web-framework-specific representation of any necessary
+        information -- especially about the HTTP *response*.
+        """
         self._access_logger.info(xm(
             response_status=self.determine_response_status(req_finish_arg),
             request_duration_ms=self._get_request_duration_ms(),
         ))
-        del self.req
+        self.req.access_log_entry_emitted = True
 
     def on_request_cleanup(self) -> None:
         """Intended to be called on the unconditional after-request cleanup."""
-        # Just to be on the safe side, let's ensure `req` is deleted here
-        # -- considering that, depending on the specific characteristics
-        # of the web framework, `on_request_finish()` (see above) may or
-        # may not be guaranteed to be called in the case of an error...
-        del self.req
+        try:
+            if not self.req.access_log_entry_emitted:
+                self._access_logger.warning(xm(
+                    'Undetermined `response_status`! (500?)',
+                    request_duration_ms=self._get_request_duration_ms(),
+                    exc_info=True,
+                ))
+        finally:
+            del self.req
 
     @_ctx_cached('req', fallback_result=None)
     def determine_and_verify_remote_ip(self) -> str | None:
@@ -4745,7 +4808,8 @@ class _WebExtension(_Extension):
                 ))
             else:
                 self._request_defects_logger.warning(xm(
-                    '`X-Forwarded-For` contains more than 1 value ({})',
+                    '`X-Forwarded-For` contains more '
+                    'than 1 value (namely: {} values)',
                     len(addresses),
                 ))
         return None
@@ -4898,12 +4962,12 @@ class _ExtraAutoMakerSourcesExtension(_Extension):
     An *extension* for including *auto-makers* from arbitrary sources.
 
     The sources of *auto-makers* should be specified via an iterable
-    (e.g., a list) passed to `_ExtraAutoMakerSourcesExtension` as the
+    (e.g., a `list`) passed to `_ExtraAutoMakerSourcesExtension` as the
     `extra_auto_makers_from` keyword argument. Each of its items should
     be either a *source object* itself (of any type -- typically just an
     importable module) or a *dotted path* pointing to it. Each *source
     object* must expose a `get_auto_makers` member being an argumentless
-    callable. The callable should return a mapping (e.g., a dict) that
+    callable. The callable should return a mapping (e.g., a `dict`) that
     maps *output data* keys to *auto-maker* callables (or *dotted paths*
     pointing to *auto-maker* callables).
     """
@@ -5014,7 +5078,8 @@ class _FlaskWebExtension(_WebExtension):
         all_xff_values: list[str] = request.headers.getlist('X-Forwarded-For')
         return all_xff_values
 
-    def determine_response_status(self, response: Any, /) -> int:
+    def determine_response_status(self, req_finish_arg: Any, /) -> int:
+        response = req_finish_arg
         return int(response.status_code)
 
     #
@@ -5716,7 +5781,9 @@ class _OpinionatedConfCorrectorImpl:
 # the `ConfCorrector` protocol, exposed at module level (note: you
 # can refer to it within your formatter configuration by using the
 # "certlib.log._opinionated_conf_corrector" dotted path).
-_opinionated_conf_corrector = _OpinionatedConfCorrectorImpl._perform_conf_correction
+_opinionated_conf_corrector: ConfCorrector = (
+    _OpinionatedConfCorrectorImpl._perform_conf_correction
+)
 
 
 # See the documentation for `_Extension.complete_setup()`...
