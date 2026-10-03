@@ -6392,10 +6392,14 @@ class TestSnippetsInDocumentation:
                 myexample.__dict__,
             )
             exec(
-                snippet_finder.lookup(substring='from certlib.log import xm'),
+                snippet_finder.lookup(substring='example_with_text_message_formatting'),
                 myexample.lib.__dict__,
             )
-            # Let's test the functions defined in the second snippet...
+            exec(
+                snippet_finder.lookup(substring='example_with_no_text'),
+                myexample.lib.__dict__,
+            )
+            # Let's call the functions defined in some snippets...
             myexample.lib.example_with_text_message_formatting(
                 city='Warsaw',
                 humidity=0.191,
@@ -6421,24 +6425,6 @@ class TestSnippetsInDocumentation:
                 debug_data_dict=deepcopy(EXAMPLE_CUSTOM_ITEMS),
             )
 
-        # Let's separately test the *minimal setup* snippet
-        # (that placed in README as the first one):
-        sub = 'some_handler = logging.StreamHandler()'
-        sub_upd = f'{sub}; some_handler.name = "stderr"'  # <- Just to ease cleanup
-        simple_snippet = snippet_finder.lookup(substring=sub).replace(sub, sub_upd)
-        with self._finally_undoing_our_tweaks_to_root_logger():
-            exec(simple_snippet, {})
-            logging.getLogger('some').warning('Here!')
-
-        # Also, let's separately test (superficially) the
-        # *example log entry* snippet:
-        json_snippet = snippet_finder.lookup(
-            substring="Request from '10.20.30.40'",
-            syntax_label='json',
-        )
-        assert isinstance(json.loads(json_snippet), dict)
-
-        snippet_finder.assert_all_snippets_covered()
         readme_specific_expected_output_items = {
             'client_ip': '192.168.0.123',
             'nano_time': AnyOfType(int),
@@ -6463,9 +6449,12 @@ class TestSnippetsInDocumentation:
                 **readme_specific_expected_output_items,
                 'func': 'example_with_text_message_formatting',
                 'logger': 'myexample.lib',
-                'message': 'Today is day #052 of the year 2026',
+                'message': 'Today is day #052 of year 2026',
                 'message_base': {
-                    'pattern': 'Today is day #{today:%j} of the year {today:%Y}',
+                    'pattern': '{what[a].b[0][c]} is day #{today:%j} of year {today:%Y}',
+                },
+                'what': {
+                    'a': "namespace(b=[{'c': 'Today'}])",
                 },
                 'today': '2026-02-21',
                 'some_extra_item': 42,
@@ -6505,9 +6494,12 @@ class TestSnippetsInDocumentation:
                 **readme_specific_expected_output_items,
                 'func': 'example_with_text_message_formatting',
                 'logger': 'myexample.lib',
-                'message': 'Today is day #052 of the year 2026',
+                'message': 'Today is day #052 of year 2026',
                 'message_base': {
-                    'pattern': 'Today is day #{today:%j} of the year {today:%Y}',
+                    'pattern': '{what[a].b[0][c]} is day #{today:%j} of year {today:%Y}',
+                },
+                'what': {
+                    'a': "namespace(b=[{'c': 'Today'}])",
                 },
                 'today': '2026-02-21',
                 'some_extra_item': 42,
@@ -6545,8 +6537,18 @@ class TestSnippetsInDocumentation:
                 'logger': 'myexample.lib',
                 **EXAMPLE_PREPARED_CUSTOM_OUTPUT_ITEMS,
             },
+        ]
+
+        # Let's separately test the *minimal setup* snippet
+        # (the one placed in README as the first one):
+        sub = 'some_handler = logging.StreamHandler()'
+        sub_upd = f'{sub}; some_handler.name = "stderr"'  # <- Just to ease cleanup
+        simple_snippet = snippet_finder.lookup(substring=sub).replace(sub, sub_upd)
+        with self._finally_undoing_our_tweaks_to_root_logger():
+            exec(simple_snippet, {})
+            logging.getLogger('some').warning('Here!')
+        assert get_actual_output_list() == [
             {
-                # (Part of testing the *minimal setup* snippet)
                 **get_output_base(level='WARNING'),
                 'func': 'test_readme_snippets',
                 'logger': 'some',
@@ -6555,6 +6557,16 @@ class TestSnippetsInDocumentation:
                 'timestamp': expected_utc_formatted_timestamp,
             },
         ]
+
+        # Also, let's separately test (superficially) the
+        # *example log entry* snippet:
+        json_snippet = snippet_finder.lookup(
+            substring="Request from '10.20.30.40'",
+            syntax_label='json',
+        )
+        assert isinstance(json.loads(json_snippet), dict)
+
+        snippet_finder.assert_all_snippets_covered()
 
 
     #
