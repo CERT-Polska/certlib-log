@@ -1328,8 +1328,8 @@ class StructuredLogsFormatter(logging.Formatter):
         ??? info "*Configuration corrector* interface"
 
             Every *configuration corrector* should comply with the
-            **[`ConfCorrector`][]** protocol -- which requires it to be
-            a callable object that:
+            **[`ConfCorrector`][]** protocol -- which, essentially,
+            requires it to be a callable object that:
 
             * accepts one positional argument: a [`dict`][] (hereinafter
               referred to as the *given* dict), structured according to
@@ -1394,6 +1394,9 @@ class StructuredLogsFormatter(logging.Formatter):
             assigning to that key the same object that was assigned to
             it in the *given* dict. Note that any in-place changes the
             *corrector* has made to that object since then are kept.
+
+            Apart from that, [`None`][] is also a valid return value. It
+            is equivalent to an empty dict.
 
             !!! warning "Forward compatibility requirement"
 
@@ -1659,7 +1662,7 @@ class StructuredLogsFormatter(logging.Formatter):
                 'conf_corrector_params': dict(given_conf_corrector_params),
             }
 
-            corrected: CorrectedConfDict = conf_corrector(conf)
+            corrected: CorrectedConfDict = conf_corrector(conf) or {}
 
             raw_defaults = self._as_ready_raw_defaults(
                 corrected.get('defaults', raw_defaults),
@@ -3957,7 +3960,7 @@ constructor.
 class ConfCorrector(Protocol):
     """
     ```python
-    __call__(conf: ConfDict, /) -> CorrectedConfDict
+    __call__(conf: ConfDict, /) -> CorrectedConfDict | None
     ```
 
     A [*protocol*][typing.Protocol] which describes a callable object
@@ -3965,12 +3968,14 @@ class ConfCorrector(Protocol):
     below...) as the sole positional argument, and either raises an
     exception or returns a [`CorrectedConfDict`][]-compliant dict (see
     below...). The latter is allowed (but definitely *not* required) to
-    be the same dict object as the former (modified or not).
+    be the same dict object as the former (modified or not). Apart from
+    that, [`None`][] is also a valid return value (equivalent to an empty
+    dict).
 
     Objects compliant with the `ConfCorrector` protocol can be passed to
     the [`StructuredLogsFormatter`][] constructor as **`conf_corrector`**.
     """
-    def __call__(self, conf: ConfDict, /) -> CorrectedConfDict: ...
+    def __call__(self, conf: ConfDict, /) -> CorrectedConfDict | None: ...
 
 
 class ConfDict(TypedDict):
@@ -4028,7 +4033,8 @@ class CorrectedConfDict(TypedDict, total=False):
     ```
 
     A [`TypedDict`][typing.TypedDict] which describes a [`dict`][]
-    *returned* by every [`ConfCorrector`][]-compliant callable object.
+    *returned* by every [`ConfCorrector`][]-compliant callable object
+    (unless it returns [`None`][]).
 
     `CorrectedConfDict` is similar to [`ConfDict`][], but more forgiving
     -- as it *also* allows for:
