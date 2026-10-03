@@ -1643,10 +1643,10 @@ class StructuredLogsFormatter(logging.Formatter):
         base_attr_to_key = self._as_ready_base_attr_to_key(
             self.make_base_record_attr_to_output_key(),
         )
-        serializer = self._resolve_serializer(given_serializer)
+        serializer = self._as_ready_serializer(given_serializer)
 
         if given_conf_corrector is not None:
-            conf_corrector = self._resolve_conf_corrector(given_conf_corrector)
+            conf_corrector = self._as_ready_conf_corrector(given_conf_corrector)
             conf: ConfDict = {
                 'defaults': raw_defaults,
                 'auto_makers': auto_makers,
@@ -1662,7 +1662,7 @@ class StructuredLogsFormatter(logging.Formatter):
             if 'auto_makers' in corrected:
                 auto_makers = self._as_ready_auto_makers(corrected['auto_makers'])
             if 'serializer' in corrected:
-                serializer = self._resolve_serializer(corrected['serializer'])
+                serializer = self._as_ready_serializer(corrected['serializer'])
             if 'base_record_attr_to_output_key' in corrected:
                 base_attr_to_key = self._as_ready_base_attr_to_key(
                     corrected['base_record_attr_to_output_key'],
@@ -2635,7 +2635,7 @@ class StructuredLogsFormatter(logging.Formatter):
         self,
         unready_raw_defaults: Mapping[str, object],
     ) -> dict[str, object]:
-        raw_defaults = deepcopy(self._as_sorted_dict(unready_raw_defaults))
+        raw_defaults = deepcopy(_as_sorted_dict(unready_raw_defaults))
         self._validate_mapping_keys_as_output_keys(raw_defaults)
         return raw_defaults
 
@@ -2643,7 +2643,7 @@ class StructuredLogsFormatter(logging.Formatter):
         self,
         unready_auto_makers: Mapping[str, ValueProvider[object] | DottedPath],
     ) -> dict[str, ValueProvider[object]]:
-        auto_makers = self._as_sorted_dict(unready_auto_makers)
+        auto_makers = _as_sorted_dict(unready_auto_makers)
         self._validate_mapping_keys_as_output_keys(auto_makers)
         return self._resolve_auto_makers(auto_makers)
 
@@ -2651,25 +2651,34 @@ class StructuredLogsFormatter(logging.Formatter):
         self,
         unready_base_attr_to_key: Mapping[str, str | None],
     ) -> dict[str, str | None]:
-        base_attr_to_key = self._as_sorted_dict(unready_base_attr_to_key)
+        base_attr_to_key = _as_sorted_dict(unready_base_attr_to_key)
         self._validate_base_attr_to_key(base_attr_to_key)
         return base_attr_to_key
 
-    def _as_sorted_dict(
+    def _as_ready_serializer(
         self,
-        mapping: Mapping[HashableT, T],
-    ) -> dict[HashableT, T]:
-        return {
-            key: mapping[key]
-            for key in sorted(mapping.keys(), key=str)
-        }
+        given_serializer: OutputSerializer | DottedPath,
+    ) -> OutputSerializer:
+        return self._resolve_callable(
+            given_serializer,
+            descr='serializer'
+        )
+
+    def _as_ready_conf_corrector(
+        self,
+        given_conf_corrector: ConfCorrector | DottedPath,
+    ) -> ConfCorrector:
+        return self._resolve_callable(
+            given_conf_corrector,
+            descr='configuration corrector'
+        )
 
     def _validate_mapping_keys_as_output_keys(
         self,
         mapping: Mapping[str, object],
     ) -> None:
         for key in mapping.keys():
-            self._verify_output_key_is_valid(key)
+            self._validate_as_output_key(key)
 
     def _validate_base_attr_to_key(
         self,
@@ -2677,9 +2686,9 @@ class StructuredLogsFormatter(logging.Formatter):
     ) -> None:
         for key in base_attr_to_key.values():  # [sic!]
             if key is not None:
-                self._verify_output_key_is_valid(key)
+                self._validate_as_output_key(key)
 
-    def _verify_output_key_is_valid(self, key: str) -> None:
+    def _validate_as_output_key(self, key: str) -> None:
         if not isinstance(key, str):
             raise TypeError(f'{key=!a} is not a str')
         if len(key) > self._DESIRED_MAX_KEY_LENGTH:
@@ -2693,32 +2702,14 @@ class StructuredLogsFormatter(logging.Formatter):
         auto_makers: Mapping[str, ValueProvider[object] | DottedPath]
     ) -> dict[str, ValueProvider[object]]:
         return {
-            key: self._get_resolved_callable(
+            key: self._resolve_callable(
                 auto_maker,
                 descr=f'{key!a} auto-maker',
             )
             for key, auto_maker in auto_makers.items()
         }
 
-    def _resolve_serializer(
-        self,
-        given_serializer: OutputSerializer | DottedPath,
-    ) -> OutputSerializer:
-        return self._get_resolved_callable(
-            given_serializer,
-            descr='serializer'
-        )
-
-    def _resolve_conf_corrector(
-        self,
-        given_conf_corrector: ConfCorrector | DottedPath,
-    ) -> ConfCorrector:
-        return self._get_resolved_callable(
-            given_conf_corrector,
-            descr='configuration corrector'
-        )
-
-    def _get_resolved_callable(
+    def _resolve_callable(
         self,
         obj: CallableT | DottedPath,
         descr: str,
@@ -4210,6 +4201,25 @@ def _clear_auto_makers_and_internal_record_hooks_related_global_state() -> None:
 # Miscellaneous helpers
 
 
+def _as_sorted_dict(mapping: Mapping[HashableT, T]) -> dict[HashableT, T]:
+    """
+    Return a new dict equivalent to the given mapping -- but with keys
+    sorted by their `str()` representations.
+
+    >>> _as_sorted_dict({'c': 3, 'd': 4, 'a': 1})
+    {'a': 1, 'c': 3, 'd': 4}
+
+    >>> _as_sorted_dict(types.MappingProxyType(
+    ...     {42: None, b'2': 'b', 222: 'dwa', (): b'trzy', '1': 1}
+    ... ))
+    {(): b'trzy', '1': 1, 222: 'dwa', 42: None, b'2': 'b'}
+    """
+    return {
+        key: mapping[key]
+        for key in sorted(mapping.keys(), key=str)
+    }
+
+
 def _resolve_dotted_path(dotted_path: str) -> Any:
     """
     Import an object specified by the given *dotted path*.
@@ -4782,7 +4792,8 @@ class _WebExtension(_Extension):
                 ))
             else:
                 self._request_defects_logger.warning(xm(
-                    '`X-Forwarded-For` contains more than 1 value ({})',
+                    '`X-Forwarded-For` contains more '
+                    'than 1 value (namely: {} values)',
                     len(addresses),
                 ))
         return None
@@ -5051,7 +5062,8 @@ class _FlaskWebExtension(_WebExtension):
         all_xff_values: list[str] = request.headers.getlist('X-Forwarded-For')
         return all_xff_values
 
-    def determine_response_status(self, response: Any, /) -> int:
+    def determine_response_status(self, req_finish_arg: Any, /) -> int:
+        response = req_finish_arg
         return int(response.status_code)
 
     #
@@ -5753,7 +5765,9 @@ class _OpinionatedConfCorrectorImpl:
 # the `ConfCorrector` protocol, exposed at module level (note: you
 # can refer to it within your formatter configuration by using the
 # "certlib.log._opinionated_conf_corrector" dotted path).
-_opinionated_conf_corrector = _OpinionatedConfCorrectorImpl._perform_conf_correction
+_opinionated_conf_corrector: ConfCorrector = (
+    _OpinionatedConfCorrectorImpl._perform_conf_correction
+)
 
 
 # See the documentation for `_Extension.complete_setup()`...

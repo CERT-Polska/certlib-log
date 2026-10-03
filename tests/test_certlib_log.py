@@ -6693,9 +6693,9 @@ class TestSnippetsInDocumentation:
             logger.warning('Inside request handler')
             fake_request_lifecycle.finish()
 
-            logger.warning('Outside request handler #2')
+            logger.warning('Before after-request cleanup')
             fake_request_lifecycle.cleanup()
-            logger.warning('Outside request handler #3')
+            logger.warning('Outside request handler again')
 
         assert get_actual_output_list() == [
             {
@@ -6724,13 +6724,13 @@ class TestSnippetsInDocumentation:
                 **get_expected_output_base(level='WARNING'),
                 'func': 'test_extra_non_public_opinionated_conf_corrector_snippets',
                 'logger': 'my_flask_based_app.views',
-                'message': 'Outside request handler #2',
+                'message': 'Before after-request cleanup',
             },
             {
                 **get_expected_output_base(level='WARNING'),
                 'func': 'test_extra_non_public_opinionated_conf_corrector_snippets',
                 'logger': 'my_flask_based_app.views',
-                'message': 'Outside request handler #3',
+                'message': 'Outside request handler again',
             },
         ]
         assert fake_request.headers.mock_calls == [
