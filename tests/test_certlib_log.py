@@ -197,7 +197,7 @@ EXAMPLE_CUSTOM_ITEMS = {
             'ipv6address': ipaddress.IPv6Address('2001:0db8:85a3:0000:0000:8a2e:0370:7334'),
             'ipv6iface': ipaddress.IPv6Interface('2001:0db8:85a3:0000:0000:8a2e:0370:7334/124'),
             'ipv6network': ipaddress.IPv6Network('2001:0db8:85a3:0000:0000:8a2e:0370:7330/124'),
-            'uuid': str(uuid.UUID('12345678-1234-5678-1234-567812345678')),
+            'uuid': uuid.UUID('12345678-1234-5678-1234-567812345678'),
         }),
         # (Below: very long key...)
         (' b r r R R r r R' * 1000): ExampleDataClass(
