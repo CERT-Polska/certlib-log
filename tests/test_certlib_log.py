@@ -6392,10 +6392,14 @@ class TestSnippetsInDocumentation:
                 myexample.__dict__,
             )
             exec(
-                snippet_finder.lookup(substring='from certlib.log import xm'),
+                snippet_finder.lookup(substring='example_with_text_message_formatting'),
                 myexample.lib.__dict__,
             )
-            # Let's test the functions defined in the second snippet...
+            exec(
+                snippet_finder.lookup(substring='example_with_no_text'),
+                myexample.lib.__dict__,
+            )
+            # Let's call the functions defined in some snippets...
             myexample.lib.example_with_text_message_formatting(
                 city='Warsaw',
                 humidity=0.191,
@@ -6463,9 +6467,12 @@ class TestSnippetsInDocumentation:
                 **readme_specific_expected_output_items,
                 'func': 'example_with_text_message_formatting',
                 'logger': 'myexample.lib',
-                'message': 'Today is day #052 of the year 2026',
+                'message': 'Today is day #052 of year 2026',
                 'message_base': {
-                    'pattern': 'Today is day #{today:%j} of the year {today:%Y}',
+                    'pattern': '{what[a].b[0][c]} is day #{today:%j} of year {today:%Y}',
+                },
+                'what': {
+                    'a': "namespace(b=[{'c': 'Today'}])",
                 },
                 'today': '2026-02-21',
                 'some_extra_item': 42,
@@ -6505,9 +6512,12 @@ class TestSnippetsInDocumentation:
                 **readme_specific_expected_output_items,
                 'func': 'example_with_text_message_formatting',
                 'logger': 'myexample.lib',
-                'message': 'Today is day #052 of the year 2026',
+                'message': 'Today is day #052 of year 2026',
                 'message_base': {
-                    'pattern': 'Today is day #{today:%j} of the year {today:%Y}',
+                    'pattern': '{what[a].b[0][c]} is day #{today:%j} of year {today:%Y}',
+                },
+                'what': {
+                    'a': "namespace(b=[{'c': 'Today'}])",
                 },
                 'today': '2026-02-21',
                 'some_extra_item': 42,

@@ -131,12 +131,13 @@ Example log entry:
 }
 ```
 
-### Logging with *`{}`-Formatted Text Message* or *No Text Message*
+### Logging *`{}`-Formatted* Text Messages
 
 ```python
 import datetime as dt
 import ipaddress
 import logging
+import types
 from certlib.log import xm   # Note: `xm` is short for `ExtendedMessage`
 
 logger = logging.getLogger(__name__)
@@ -153,8 +154,16 @@ def example_with_text_message_formatting(city, humidity, error_summary=None):
     logger.warning(xm('Humidity in {} is {:.1%}', city, humidity))
 
     logger.info(xm(
-        # (Here: making use of `datetime`-specific format codes...)
-        'Today is day #{today:%j} of the year {today:%Y}',
+        # Here: making use of `{}`-formatting-specific attribute and
+        # item lookups as well as `datetime`-specific format codes.
+        '{what[a].b[0][c]} is day #{today:%j} of year {today:%Y}',
+        what={
+            'a': types.SimpleNamespace(
+                b=[
+                    {'c': 'Today'},
+                ],
+            ),
+        },
         today=dt.date.today(),
 
         # Arbitrary data items can also be given (which is especially
@@ -165,12 +174,23 @@ def example_with_text_message_formatting(city, humidity, error_summary=None):
             dt.time(12, 59),
         ]},
     ))
+```
+
+### Logging *Pure Data* (without any Text Message)
+
+The possibility to focus on pure data -- *without* the need to pass
+any *text-message*-related arguments -- is especially handy when
+`certlib.log.StructuredLogsFormatter` is in use (but *not only* then).
+
+```python
+import logging
+from certlib.log import xm
+
+logger = logging.getLogger(__name__)
+
+...
 
 def example_with_no_text(temperature, pressure, debug_data_dict, calm=True):
-    # (The possibility to focus on pure data, *without* the need
-    # to pass any *text-message*-related arguments, is especially
-    # handy when `certlib.log.StructuredLogsFormatter` is in use.)
-
     if calm:
         logger.info(xm(
             # Just data:
