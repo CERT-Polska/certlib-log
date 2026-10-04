@@ -82,8 +82,8 @@ That's it!
     import logging.config
 
     logging.config.dictConfig({
-        "formatters": {"fmt": {"()": "certlib.log.StructuredLogsFormatter"}},
-        "handlers": {"some": {"class": "logging.StreamHandler", "formatter": "fmt"}},
+        "formatters": {"struct": {"()": "certlib.log.StructuredLogsFormatter"}},
+        "handlers": {"some": {"class": "logging.StreamHandler", "formatter": "struct"}},
         "root": {"handlers": ["some"]},
         "version": 1, "disable_existing_loggers": False
     })

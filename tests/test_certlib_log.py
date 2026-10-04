@@ -5849,7 +5849,7 @@ class TestSnippetsInDocumentation:
         expected_utc_formatted_timestamp,
     ):
         config_snippet = snippet_finder.lookup(
-            substring='{"fmt": {"()": "certlib.log.StructuredLogsFormatter"}}',
+            substring='{"struct": {"()": "certlib.log.StructuredLogsFormatter"}}',
         )
         pytest.skip('...test not implemented yet...')
 
