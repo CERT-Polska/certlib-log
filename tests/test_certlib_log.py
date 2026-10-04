@@ -6465,11 +6465,9 @@ class TestSnippetsInDocumentation:
                 'logger': 'myexample.lib',
                 'message': 'Today is day #052 of year 2026',
                 'message_base': {
-                    'pattern': '{what[a].b[0][c]} is day #{today:%j} of year {today:%Y}',
+                    'pattern': '{what[a].b[c]} is day #{today:%j} of year {today:%Y}',
                 },
-                'what': {
-                    'a': {'b': [{'c': 'Today'}]},
-                },
+                'what': {'a': {'b': {'c': 'Today'}}},
                 'today': '2026-02-21',
                 'some_extra_item': 42,
                 'other_arbitrary_stuff': {'foo': [
@@ -6510,11 +6508,9 @@ class TestSnippetsInDocumentation:
                 'logger': 'myexample.lib',
                 'message': 'Today is day #052 of year 2026',
                 'message_base': {
-                    'pattern': '{what[a].b[0][c]} is day #{today:%j} of year {today:%Y}',
+                    'pattern': '{what[a].b[c]} is day #{today:%j} of year {today:%Y}',
                 },
-                'what': {
-                    'a': {'b': [{'c': 'Today'}]},
-                },
+                'what': {'a': {'b': {'c': 'Today'}}},
                 'today': '2026-02-21',
                 'some_extra_item': 42,
                 'other_arbitrary_stuff': {'foo': [
