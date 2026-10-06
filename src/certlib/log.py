@@ -82,8 +82,8 @@ That's it!
     import logging.config
 
     logging.config.dictConfig({
-        "formatters": {"fmt": {"()": "certlib.log.StructuredLogsFormatter"}},
-        "handlers": {"some": {"class": "logging.StreamHandler", "formatter": "fmt"}},
+        "formatters": {"struct": {"()": "certlib.log.StructuredLogsFormatter"}},
+        "handlers": {"some": {"class": "logging.StreamHandler", "formatter": "struct"}},
         "root": {"handlers": ["some"]},
         "version": 1, "disable_existing_loggers": False
     })
@@ -574,17 +574,18 @@ format = {
 ### Configuration Validation and Adjustments
 
 Regardless of the configuration style you choose, you may want to
-perform extra *validation* and/or *adjustments* concerning your
-[`StructuredLogsFormatter`][] configuration, during the initialization
-of the formatter. To do so, define your custom *configuration corrector*
-function and specify it as yet another argument to the
-`StructuredLogsFormatter` constructor: **`conf_corrector`**.
+perform -- automatically, during the initialization of the formatter
+-- some extra *validation* and/or *adjustments* concerning your
+[`StructuredLogsFormatter`][] configuration. To do so, define
+your custom *configuration corrector* function and pass it to the
+`StructuredLogsFormatter` constructor as yet another keyword argument:
+**`conf_corrector`**.
 
 Since the technical details are discussed in the [reference documentation
 for the constructor][StructuredLogsFormatter], here we will focus on a
 practical example.
 
-Let us implement a simple *configuration corrector*:
+Let us implement such a simple *configuration corrector*:
 
 ```python
 # Place it, for example, in a module importable as `myown.log_helpers`.
@@ -768,11 +769,12 @@ settings...
 
     !!! exclusion "Interface exclusion"
 
-        **`_opinionated_conf_corrector`** is _**not**_ part of the
-        `certlib.log` public API. This means that any elements of
-        that *corrector* may be changed or removed in *minor* or
-        *patch* versions of the library (including the possibility
-        of completely removing that *corrector*).
+        **`_opinionated_conf_corrector`**, along with some extra
+        classes and helpers related to it, are _**not**_ part of the
+        `certlib.log` public API. This means that the *corrector*, and
+        any part of the related extra stuff, may be changed or removed
+        in *minor* or *patch* versions of the library (including the
+        possibility of complete removal).
 
 ***
 
@@ -1368,12 +1370,12 @@ class StructuredLogsFormatter(logging.Formatter):
 
             * `"auto_makers"`: a **[`make_base_auto_makers`][]**-produced
               mapping merged with the constructor's **`auto_makers`**
-              argument (described earlier) and copied by applying [`dict`][]
-              to it -- ready to be set as the **[`auto_makers`][]**
-              formatter attribute (i.e., with all keys already verified
-              as valid *output data* keys, all *dotted path* values
-              already resolved, and *all* values already verified as
-              being callable objects);
+              argument (described earlier), then converted and copied
+              by applying [`dict`][] to it -- ready to be set as the
+              **[`auto_makers`][]** formatter attribute (i.e., with all
+              keys already verified as valid *output data* keys, all
+              *dotted path* values already resolved, and *all* values
+              already verified as being callable objects);
 
             * `"serializer"`: the callable specified as the constructor's
               **`serializer`** argument (described earlier) -- ready to be
@@ -1383,14 +1385,14 @@ class StructuredLogsFormatter(logging.Formatter):
 
             * `"base_record_attr_to_output_key"`: a
               **[`make_base_record_attr_to_output_key`][]**-produced
-              mapping, copied by applying [`dict`][] to it, with all
-              values already verified as valid *output data* keys or
+              mapping, converted and copied by applying [`dict`][] to it,
+              and with all values verified as valid *output data* keys or
               [`None`][];
 
             * `"conf_corrector_params"`: a mapping received
               by the `StructuredLogsFormatter` constructor as
-              **`conf_corrector_params`** (see below...), copied by
-              applying [`dict`][] to it.
+              **`conf_corrector_params`** (see below...), converted and
+              copied by applying [`dict`][] to it.
 
             The required structure of the *returned* dict is generally
             similar, but fewer restrictions apply to it (compare
@@ -1474,7 +1476,7 @@ class StructuredLogsFormatter(logging.Formatter):
         * specified as **`defaults`**, or
         * returned by **[`make_base_defaults`][]**, or
         * present in a *configuration-corrector*-returned dict as its
-          `defaults` item
+          `"defaults"` item
 
         -- needs to contain only items that can be passed to the
         **[`copy.deepcopy`][]** function.
@@ -1495,12 +1497,12 @@ class StructuredLogsFormatter(logging.Formatter):
 
     ??? exclusion "Key order non-guarantee"
 
-        Whenever *any* mapping is converted to a [`dict`][] and copied
-        during the execution of the **`StructuredLogsFormatter`**
-        constructor (regardless of whether a *deep* or *shallow* copy
+        During the execution of the **`StructuredLogsFormatter`**
+        constructor, whenever *any* mapping is converted to a [`dict`][]
+        and copied (regardless of whether a *deep* or *shallow* copy
         is being made), the order of the mapping’s keys is _**not**_
-        guaranteed to be retained (in particular, the order *may* change
-        to alphabetical).
+        guaranteed to be retained (in particular, the order *may* be
+        changed to alphabetical).
 
     This class defines the following *hook methods* that can be
     extended/overridden in subclasses:
@@ -1918,12 +1920,12 @@ class StructuredLogsFormatter(logging.Formatter):
 
             For every instance, the mapping assigned to the instance's
             **[`auto_makers`][]** attribute (supposed to specify all
-            *auto-makers* related to the instance) is based on this
-            method's result, first copied by applying [`dict`][] to it,
+            *auto-makers* related to the instance) is based on this method's
+            result, first converted and copied by applying [`dict`][] to it,
             and updated with all items from the **`auto_makers`** argument
-            to the [constructor][StructuredLogsFormatter] (if given);
-            then -- adjusted by resolving any *dotted paths* (*importable
-            dotted names*) to actual *auto-maker* callables.
+            to the [constructor][StructuredLogsFormatter] (if given); then
+            -- adjusted by resolving any *dotted paths* (*importable dotted
+            names*) to actual *auto-maker* callables.
 
             Finally, the **`StructuredLogsFormatter`** constructor
             automatically registers each of the *auto-makers* by calling
@@ -1973,9 +1975,9 @@ class StructuredLogsFormatter(logging.Formatter):
             **[`record_attr_to_output_key`][]** attribute (supposed to
             specify the ultimate mapping of names of log record object
             attributes to actual *output data* keys) is based on this
-            method's result -- copied by applying [`dict`][] to it,
-            and then updated with keys derived from all the keys
-            the instance's **[`auto_makers`][]** mapping contains:
+            method's result, converted and copied by applying [`dict`][]
+            to it -- and then updated with keys derived from all the
+            keys the instance's **[`auto_makers`][]** mapping contains:
             each modified by *prefixing* it with the value of the
             **[`auto_made_record_attr_prefix`][]** attribute, and
             each mapped to the same key, but *without* that prefix.
@@ -2048,7 +2050,8 @@ class StructuredLogsFormatter(logging.Formatter):
         record (typically, an instance of [`logging.LogRecord`][]) as the
         sole argument. The log record is expected to have its [`created`
         attribute](https://docs.python.org/3/library/logging.html#logrecord-attributes)
-        already set to a [`float`][] number representing a Unix timestamp.
+        already set to a [`float`][] number representing a time in seconds
+        [since the epoch](https://docs.python.org/3/library/time.html#time.time).
 
         What should be returned by this method is a string (presumably,
         derived somehow from the aforementioned `created` attribute of
@@ -4053,13 +4056,13 @@ class CorrectedConfDict(TypedDict, total=False):
     `CorrectedConfDict` is similar to [`ConfDict`][], but more forgiving
     -- as it *also* allows for:
 
-    * the absence of some (or even all) of the keys (note the `total=False`
-      flag in the definition);
-    * **`"auto_makers"`** including values being *dotted path* strings
-      (not yet resolved; expected to point to [`ValueProvider`][]-compliant
-      targets);
-    * **`"serializer"`** being a *dotted path* string (not yet resolved;
-      expected to point to an [`OutputSerializer`][]-compliant target).
+    * the absence of some (or even all) of the keys (note the
+      `total=False` flag in the definition);
+    * `"auto_makers"` set to a dict that includes values being
+      *dotted path* strings (not yet resolved; expected to point
+      to [`ValueProvider`][]-compliant callables);
+    * `"serializer"` set to a *dotted path* string (not yet resolved;
+      expected to point to an [`OutputSerializer`][]-compliant callable).
 
     !!! warning "Forward compatibility requirement"
 

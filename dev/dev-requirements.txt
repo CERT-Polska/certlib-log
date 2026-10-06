@@ -4,7 +4,7 @@
 #
 #    pip-compile --allow-unsafe --strip-extras dev-requirements.in
 #
-ast-serialize==0.11.2
+ast-serialize==0.12.1
     # via mypy
 babel==2.18.0
     # via
@@ -24,7 +24,7 @@ certifi==2026.7.22
     # via
     #   -r ../docs/doc-requirements.txt
     #   requests
-charset-normalizer==3.5.1
+charset-normalizer==3.5.2
     # via
     #   -r ../docs/doc-requirements.txt
     #   requests
@@ -64,7 +64,7 @@ jinja2==3.1.6
     #   mkdocs
     #   mkdocs-material
     #   mkdocstrings
-librt==0.15.0
+librt==0.16.0
     # via mypy
 markdown==3.10.3
     # via
@@ -74,7 +74,7 @@ markdown==3.10.3
     #   mkdocs-material
     #   mkdocstrings
     #   pymdown-extensions
-markupsafe==3.0.3
+markupsafe==3.0.4
     # via
     #   -r ../docs/doc-requirements.txt
     #   jinja2
@@ -113,7 +113,7 @@ mkdocstrings==1.0.6
     #   mkdocstrings-python
 mkdocstrings-python==2.0.9
     # via -r ../docs/doc-requirements.txt
-mypy==2.3.1
+mypy==2.4.0
     # via -r dev-requirements.in
 mypy-extensions==1.1.0
     # via
@@ -143,7 +143,7 @@ pathspec==1.1.1
     #   mypy
 pip-tools==7.6.1
     # via -r dev-requirements.in
-platformdirs==4.12.1
+platformdirs==4.12.3
     # via
     #   -r ../docs/doc-requirements.txt
     #   black

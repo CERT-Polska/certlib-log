@@ -154,16 +154,12 @@ def example_with_text_message_formatting(city, humidity, error_summary=None):
     logger.warning(xm('Humidity in {} is {:.1%}', city, humidity))
 
     logger.info(xm(
-        # Here: making use of `{}`-formatting-specific attribute and
-        # item lookups as well as `datetime`-specific format codes.
-        '{what[a].b[0][c]} is day #{today:%j} of year {today:%Y}',
-        what={
-            'a': types.SimpleNamespace(
-                b=[
-                    {'c': 'Today'},
-                ],
-            ),
-        },
+        # Here: using `{}`-formatting-specific item/attribute
+        # lookups as well as `datetime`-specific format codes.
+        '{what[a].b[c]} is day #{today:%j} of year {today:%Y}',
+        what={'a': types.SimpleNamespace(
+            b={'c': 'Today'},
+        )},
         today=dt.date.today(),
         # (=> text message like: 'Today is day #052 of year 2026')
 
@@ -177,7 +173,7 @@ def example_with_text_message_formatting(city, humidity, error_summary=None):
     ))
 ```
 
-### Logging *Pure Data* (without any Text Message)
+### Logging *Pure Data* (without Text Messages)
 
 The possibility to focus on pure data -- *without* the need to pass
 any *text-message*-related arguments -- is especially handy when
