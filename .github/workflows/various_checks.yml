@@ -19,7 +19,7 @@ jobs:
       matrix:
         python-version:
         - "3.10"
-        - "3.15-dev"
+        - "3.15"
 
     steps:
     - uses: actions/checkout@v6
@@ -28,6 +28,7 @@ jobs:
       uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
+        allow-prereleases: true
         cache: 'pip'
         cache-dependency-path: dev/dev-requirements.txt
 
