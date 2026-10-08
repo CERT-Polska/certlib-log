@@ -223,19 +223,18 @@ Referring to the *auto-makers* specified in the example above:
   function -- employed here to ensure that every log entry will include
   a nanosecond-precise timestamp;
 
-* `client_ip` points (via a *dotted path*) to a custom callable --
-  presumably, the [`get`][contextvars.ContextVar.get] method of a
-  *context variable* (supposed to be already populated, which could
-  have been done, e.g., by an HTTP request handler) -- the current
-  value of which will be included in each (relevant) log entry.
+* `client_ip` points (via a *dotted path*) to a custom callable -- which
+  in this example is (presumably) the [`get`][contextvars.ContextVar.get]
+  method of a *context variable*; its values (supposedly, set by an
+  application-specific HTTP request handler...) will be included in
+  respective log entries.
 
 !!! tip
 
     If the presence of some *output data* key makes sense only in a
-    certain context (e.g., when handling an HTTP request...), just
-    make the respective *auto-maker* return **[`None`][]** in any
-    other contexts. Such *void* items will be automatically omitted
-    from *output data*.
+    certain context (e.g., when handling an HTTP request), just make the
+    respective *auto-maker* return **[`None`][]** in any other contexts.
+    Such *void* items will be automatically omitted from *output data*.
 
     For a context variable's **[`get`][contextvars.ContextVar.get]**,
     this can be achieved simply by defining the variable's default value
@@ -841,8 +840,8 @@ logger.info(xm(my_data))
     than once per **`xm`** instance).
 
     In practice, this feature is useful if the creation of a certain
-    value is costly -- and you prefer it to be created when (and if)
-    the log entry is actually about to be formatted and emitted.
+    value is costly -- and you prefer it to be created only when (and
+    if) the log entry is actually about to be formatted and emitted.
 
     !!! note
 
@@ -901,33 +900,33 @@ class Obj:
     def __repr__(self):
         return '<our object>'
 
-some_name = "foo"
-some_obj = Obj(value="Bar")
+some_name = "Foo"
+some_obj = Obj(value="bar")
 
 # * Actual logging example:
 
 logger.info(xm(
-    "Note: {} is {.attr[item]!r} (in {:%Y-%m})",
+    "{} is {.attr[item]!r} (in {:%Y-%m})",
     some_name, some_obj,
     dt.date.today,  # (<- function/method: to be called by formatter)
 ))
 ```
 
-The resultant message will be: `"Note: foo is 'Bar' (in 2026-02)"`
+The resultant message will be: `"Foo is 'bar' (in 2026-02)"`
 (assuming that, for this particular example, the [`dt.date.today`][datetime.date.today]
 class method would return an instance of [`dt.date`][datetime.date]
 representing a *February 2026* date, e.g., one equal to `dt.date(2026,
 2, 21)`).
 
-What that means if the logging system is configured to employ a
+What that means *if* the logging system is configured to employ a
 [`StructuredLogsFormatter`][], is that:
 
 * the formatted message will appear in the JSON-serialized *output
-  data* as the item: `"message": "Note: foo is 'Bar' (in 2026-02)"`,
+  data* as the item: `"message": "Foo is 'bar' (in 2026-02)"`,
 * and the raw message pattern will also be included, like this:
-  `"message_base": {"pattern": "Note: {} is {.attr[item]!r} (in {:%Y-%m})"}`.
+  `"message_base": {"pattern": "{} is {.attr[item]!r} (in {:%Y-%m})"}`.
 
-!!! info
+!!! note
 
     When you use **[`xm`][]**, you still benefit from the standard
     mechanism of deferring message formatting until the log entry
@@ -940,7 +939,7 @@ numbered:
 
 ```python
 logger.info(xm(
-    "Note: {0} is {1.attr[item]!r} (in {2:%Y-%m})",
+    "{0} is {1.attr[item]!r} (in {2:%Y-%m})",
     some_name, some_obj,
     dt.date.today,  # (<- function/method: to be called by formatter)
 ))
@@ -952,21 +951,21 @@ replacement fields being *named* (and, therefore, with the corresponding
 
 ```python
 logger.info(xm(
-    "Note: {} is {obj.attr[item]!r} (in {today:%Y-%m})",
+    "{} is {obj.attr[item]!r} (in {today:%Y-%m})",
     some_name,
     obj=some_obj,
     today=dt.date.today,  # (<- function/method: to be called by formatter)
 ))
 ```
 
-It is worth noting that if a [`StructuredLogsFormatter`][] is in use,
+It is worth noting that *if* a [`StructuredLogsFormatter`][] is in use,
 then any *keyword arguments* (*named* ones) passed to [`xm`][], apart
 from being used to fill in the respective replacement fields, are also
 included as *output data* items. For example, *output data* resulting
 from the above call will contain, among others, the following items:
 
-* `"message": "Note: foo is 'Bar' (in 2026-02)"`,
-* `"message_base": {"pattern": "Note: {} is {obj.attr[item]!r} (in {today:%Y-%m})"}`,
+* `"message": "Foo is 'bar' (in 2026-02)"`,
+* `"message_base": {"pattern": "{} is {obj.attr[item]!r} (in {today:%Y-%m})"}`,
 * `"obj": "<our object>"`,
 * `"today": "2026-02-21"`.
 
@@ -976,7 +975,7 @@ message formatting):
 
 ```python
 logger.info(xm(
-    "Note: {} is {obj.attr[item]!r} (in {today:%Y-%m})",
+    "{} is {obj.attr[item]!r} (in {today:%Y-%m})",
     some_name,
     obj=some_obj,
     today=dt.date.today,          # (<- function/method: to be called...)
@@ -989,8 +988,8 @@ In this case, the resultant *output data* generated by the
 [`StructuredLogsFormatter`][]'s machinery will contain,
 among others, the following items:
 
-* `"message": "Note: foo is 'Bar' (in 2026-02)"`,
-* `"message_base": {"pattern": "Note: {} is {obj.attr[item]!r} (in {today:%Y-%m})"}`,
+* `"message": "Foo is 'bar' (in 2026-02)"`,
+* `"message_base": {"pattern": "{} is {obj.attr[item]!r} (in {today:%Y-%m})"}`,
 * `"obj": "<our object>"`,
 * `"today": "2026-02-21"`,
 * `"something": 123456789`,
@@ -1013,9 +1012,9 @@ here as being sorted by key, and with extra newlines/indentation):
     "levelno": 20,
     "lineno": 179,
     "logger": "myown.portal.another_example_module",
-    "message": "Note: foo is 'Bar' (in 2026-02)",
+    "message": "Foo is 'bar' (in 2026-02)",
     "message_base": {
-        "pattern": "Note: {} is {obj.attr[item]!r} (in {today:%Y-%m})"
+        "pattern": "{} is {obj.attr[item]!r} (in {today:%Y-%m})"
     },
     "nano_time": 1771631594315719605,
     "obj": "<our object>",
@@ -1353,11 +1352,15 @@ class StructuredLogsFormatter(logging.Formatter):
 
             The *returned* dict is allowed -- but *not* required -- to be
             equal to the *given* dict, and/or to be the same dict object
-            (modified or not). Any exception, if raised, will bubble up
-            to the caller of the **`StructuredLogsFormatter`** constructor.
+            (modified or not).
 
-            The *given* dict, created by the constructor, always contains
-            the following items:
+            !!! note
+
+                Any exception, if raised, will bubble up to the caller
+                of the **`StructuredLogsFormatter`** constructor.
+
+            The *given* dict (created by the **`StructuredLogsFormatter`**
+            constructor) always contains the following items:
 
             * `"defaults"`: a **[`make_base_defaults`][]**-produced
               mapping merged with the constructor's **`defaults`**
@@ -1420,14 +1423,14 @@ class StructuredLogsFormatter(logging.Formatter):
                 it should *not* place in the *returned* dict any keys
                 that were not present in the *given* dict.
 
-            As you can see, the *given* dict's items are automatically
+            As already stated, the *given* dict's items are automatically
             processed (converted/copied/verified/resolved, as described
             above) -- before the *corrector* is executed. It should be
             added here that the *returned* dict's items (if present)
             are processed in the same way -- after the *corrector* is
             executed (yet still before they are used in the main part of
             the formatter initialization). One exception: the *returned*
-            dict's `"conf_corrector_params"` item is simply ignored.
+            dict's `"conf_corrector_params"` item is just ignored.
 
     * **`conf_corrector_params`** (a [`dict`][] or other mapping; default: `{}`):
       additional custom data the **`conf_corrector`** callable will get.
