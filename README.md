@@ -47,7 +47,7 @@ This approach **makes it possible to**:
   of log record fields, e.g., from [context variables](https://docs.python.org/3/library/contextvars.html)...);
 
 - retain existing logging configuration methods (whether
-  using an [`*.ini` file](https://docs.python.org/3/library/logging.config.html#configuration-file-format)
+  using an [`*.ini`-style file](https://docs.python.org/3/library/logging.config.html#configuration-file-format)
   or loading a [configuration dict](https://docs.python.org/3/library/logging.config.html#logging.config.dictConfig)).
 
 

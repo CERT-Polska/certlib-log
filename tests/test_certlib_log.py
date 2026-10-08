@@ -92,6 +92,11 @@ from certlib.log import (
 
 PY_3_11_OR_NEWER = sys.version_info[:2] >= (3, 11)
 
+PYPY_3_12 = (
+    sys.implementation.name == 'pypy'
+    and sys.version_info[:2] == (3, 12)
+)
+
 HELPER_IMPORTABLE_MODULE_NAME = (
     f'_helper_importable_module_for_certlib_log_tests_'
     f'{hashlib.sha224(ascii(__name__).encode()).hexdigest()}'
@@ -121,6 +126,18 @@ assert EXAMPLE_TIMESTAMP_DT == dt.datetime.fromtimestamp(
 assert EXAMPLE_TIMESTAMP_DT.strftime('%Y-%m-%d %H:%M:%S.%f') + 'Z' == (
     EXAMPLE_TIMESTAMP_FORMATTED
 )
+
+
+class AnyOfType:
+
+    def __init__(self, tp: type):
+        self.tp = tp
+
+    def __eq__(self, other: object) -> bool:
+        return self.tp is type(other)
+
+    def __repr__(self) -> str:
+        return f'<any of type {self.tp!r}>'
 
 
 class ExampleNonDictMutableMapping(MutableMapping[Any, Any]):
@@ -247,7 +264,10 @@ EXAMPLE_PREPARED_CUSTOM_OUTPUT_ITEMS = {
         'Singletons': [None, True, False],
         'Types': [
             'int',
-            'datetime.time',
+            # Under PyPy 3.12, or at least some micro version(s) of
+            # it, the `dt.time` type's `__module__` is "_pydatetime"
+            # (rather than "datetime").
+            AnyOfType(str) if PYPY_3_12 else 'datetime.time',
             'logging.LogRecord',
             'ValueError',
             'ipaddress.AddressValueError',
@@ -272,18 +292,6 @@ EXAMPLE_PREPARED_CUSTOM_OUTPUT_ITEMS = {
     # (Below: key trimmed to 200 characters.)
     ('-key-' * 40): ('-value-' * 1000),
 }
-
-
-class AnyOfType:
-
-    def __init__(self, tp: type):
-        self.tp = tp
-
-    def __eq__(self, other: object) -> bool:
-        return self.tp is type(other)
-
-    def __repr__(self) -> str:
-        return f'<any of type {self.tp!r}>'
 
 
 class TimeModuleFakingProxy:
@@ -6066,27 +6074,27 @@ class TestSnippetsInDocumentation:
                 **get_output_base(level='INFO'),
                 **commonly_expected_output_items,
                 'logger': 'myown.portal.another_example_module',
-                'message': f"Note: foo is 'Bar' (in 2026-02)",
+                'message': f"Foo is 'bar' (in 2026-02)",
                 'message_base': {
-                    'pattern': 'Note: {} is {.attr[item]!r} (in {:%Y-%m})',
+                    'pattern': '{} is {.attr[item]!r} (in {:%Y-%m})',
                 },
             },
             {
                 **get_output_base(level='INFO'),
                 **commonly_expected_output_items,
                 'logger': 'myown.portal.another_example_module',
-                'message': f"Note: foo is 'Bar' (in 2026-02)",
+                'message': f"Foo is 'bar' (in 2026-02)",
                 'message_base': {
-                    'pattern': 'Note: {0} is {1.attr[item]!r} (in {2:%Y-%m})',
+                    'pattern': '{0} is {1.attr[item]!r} (in {2:%Y-%m})',
                 },
             },
             {
                 **get_output_base(level='INFO'),
                 **commonly_expected_output_items,
                 'logger': 'myown.portal.another_example_module',
-                'message': f"Note: foo is 'Bar' (in 2026-02)",
+                'message': f"Foo is 'bar' (in 2026-02)",
                 'message_base': {
-                    'pattern': 'Note: {} is {obj.attr[item]!r} (in {today:%Y-%m})',
+                    'pattern': '{} is {obj.attr[item]!r} (in {today:%Y-%m})',
                 },
                 'obj': '<our object>',
                 'today': '2026-02-21',
@@ -6095,9 +6103,9 @@ class TestSnippetsInDocumentation:
                 **get_output_base(level='INFO'),
                 **commonly_expected_output_items,
                 'logger': 'myown.portal.another_example_module',
-                'message': f"Note: foo is 'Bar' (in 2026-02)",
+                'message': f"Foo is 'bar' (in 2026-02)",
                 'message_base': {
-                    'pattern': 'Note: {} is {obj.attr[item]!r} (in {today:%Y-%m})',
+                    'pattern': '{} is {obj.attr[item]!r} (in {today:%Y-%m})',
                 },
                 'obj': '<our object>',
                 'today': '2026-02-21',
