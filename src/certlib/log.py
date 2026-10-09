@@ -2291,7 +2291,7 @@ class StructuredLogsFormatter(logging.Formatter):
         value: object,
         *,
         to_str_types: tuple[type, ...] = (
-            dt.date, dt.datetime, dt.time,
+            dt.date, dt.datetime, dt.time, dt.timedelta, dt.timezone,
             decimal.Decimal, enum.Enum, fractions.Fraction,
             ipaddress.IPv4Address, ipaddress.IPv4Interface, ipaddress.IPv4Network,
             ipaddress.IPv6Address, ipaddress.IPv6Interface, ipaddress.IPv6Network,
@@ -2397,6 +2397,8 @@ class StructuredLogsFormatter(logging.Formatter):
             ```
         """
         if isinstance(value, to_str_types):
+            if isinstance(value, dt.timedelta):
+                return _pretty_timedelta_str(value)
             return str(value)
 
         if (prepare_nonfinite_float is not None
@@ -4294,6 +4296,55 @@ def _resolve_dotted_path(dotted_path: str) -> Any:
             f'({type(exc).__qualname__}: {exc})'
         ) from exc
     return obj
+
+
+def _pretty_timedelta_str(td: dt.timedelta) -> str:
+    """
+    Get a string representation of the given `dt.timedelta` object.
+
+    >>> ninety_four_seconds = dt.timedelta(seconds=94)
+    >>> _pretty_timedelta_str(ninety_four_seconds)
+    '0:01:34'
+    >>> almost_one_day = dt.timedelta(hours=23, seconds=3599.999999)
+    >>> _pretty_timedelta_str(almost_one_day)
+    '23:59:59.999999'
+    >>> one_day = dt.timedelta(days=1)
+    >>> _pretty_timedelta_str(one_day)
+    '1 day, 0:00:00'
+    >>> longer = dt.timedelta(days=1, seconds=7294.567)
+    >>> _pretty_timedelta_str(longer)
+    '1 day, 2:01:34.567000'
+
+    Note how negative `timedelta` values are formatted:
+
+    >>> _pretty_timedelta_str(-ninety_four_seconds)
+    '-0:01:34'
+    >>> _pretty_timedelta_str(-almost_one_day)
+    '-23:59:59.999999'
+    >>> _pretty_timedelta_str(-one_day)
+    '-(1 day, 0:00:00)'
+    >>> _pretty_timedelta_str(-longer)
+    '-(1 day, 2:01:34.567000)'
+
+    The purpose of this helper is to provide more readable string
+    representations of `timedelta` values -- considering that the
+    standard `timedelta.__str__` implementation formats negative
+    values in a rather unintuitive way:
+
+    >>> str(-ninety_four_seconds)
+    '-1 day, 23:58:26'
+    >>> str(-almost_one_day)
+    '-1 day, 0:00:00.000001'
+    >>> str(-one_day)
+    '-1 day, 0:00:00'
+    >>> str(-longer)
+    '-2 days, 21:58:25.433000'
+    """
+    if td.days >= 0:
+        return str(td)
+    if td.days >= -1 and (td.seconds or td.microseconds):
+        return f'-{-td!s}'
+    return f'-({-td!s})'
 
 
 #
