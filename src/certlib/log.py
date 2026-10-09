@@ -2291,7 +2291,7 @@ class StructuredLogsFormatter(logging.Formatter):
         value: object,
         *,
         to_str_types: tuple[type, ...] = (
-            dt.date, dt.datetime, dt.time,
+            dt.date, dt.datetime, dt.time, dt.timedelta, dt.timezone,
             decimal.Decimal, enum.Enum, fractions.Fraction,
             ipaddress.IPv4Address, ipaddress.IPv4Interface, ipaddress.IPv4Network,
             ipaddress.IPv6Address, ipaddress.IPv6Interface, ipaddress.IPv6Network,
