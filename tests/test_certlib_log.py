@@ -3170,7 +3170,7 @@ class TestStructuredLogsFormatter:
         'formatter_init_kwargs',
         [
             dict(
-                conf_corrector=make_conf_corrector_returning(42)
+                conf_corrector=make_conf_corrector_returning(0)
             ),
             dict(
                 conf_corrector=make_conf_corrector_returning([{'abc': 42}, None])

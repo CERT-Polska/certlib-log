@@ -1676,7 +1676,9 @@ class StructuredLogsFormatter(logging.Formatter):
                 'conf_corrector_params': dict(given_conf_corrector_params),
             }
 
-            corrected: CorrectedConfDict = conf_corrector(conf) or {}
+            corrected: CorrectedConfDict | None = conf_corrector(conf)
+            if corrected is None:
+                corrected = {}
 
             raw_defaults = self._as_ready_raw_defaults(
                 corrected.get('defaults', raw_defaults),
@@ -2461,7 +2463,7 @@ class StructuredLogsFormatter(logging.Formatter):
                   and seq[0] is type(seq[1])
                   and isinstance(seq[1], BaseException)
                   and (seq[2] is None
-                       or type(seq[2]).__name__ == 'traceback')):
+                       or type(seq[2]) is types.TracebackType)):
                 # A sequence of 3 items: exception type, that type's
                 # instance and traceback (or None) => treat it as if
                 # it was just the *exception instance*...
