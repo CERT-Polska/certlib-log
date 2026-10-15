@@ -5519,6 +5519,8 @@ class _OpinionatedConfCorrectorImpl:
 
     # * Constants:
 
+    COMPONENT_TYPE_KEY = 'component_type'
+
     OUTPUT_KEYS_ALWAYS_REQUIRED_IN_CONF: Mapping[str, str] = {
         'system': '''
             The name of the *entire system* or *project* your script/application
@@ -5528,7 +5530,7 @@ class _OpinionatedConfCorrectorImpl:
             The name of a particular *script* or *application* being executed.
             For a CLI script it should be its basename.
         ''',
-        'component_type': '''
+        COMPONENT_TYPE_KEY: '''
             A conventional label of the *type* of the script/application being
             executed, agreed upon in your organization (e.g.: "web", "worker"...).
         ''',
@@ -5614,7 +5616,7 @@ class _OpinionatedConfCorrectorImpl:
         corr_conf: CorrectedConfDict,
         params: dict[str, Any],
     ) -> None:
-        key = 'component_type'
+        key = self.COMPONENT_TYPE_KEY
         defaults = corr_conf['defaults']
         assert isinstance(defaults, dict)
         if key in defaults:
@@ -5850,47 +5852,50 @@ class _OpinionatedConfCorrectorImpl:
             )
 
     def _iter_err_messages(self) -> Iterator[str]:
-        ct = self._get_component_type()
-        yield from self._iter_err_messages_for_extensions_incompatible_with_ct(ct)
+        component_type = self._corr_defaults[self.COMPONENT_TYPE_KEY]
+        assert isinstance(component_type, str)
+        yield from self._iter_err_messages_for_extensions_incompatible_with(
+            component_type,
+        )
         yield from self._iter_err_messages_for_missing_output_keys(
             required=self.OUTPUT_KEYS_ALWAYS_REQUIRED_IN_CONF,
             header_message=(
-                'The following commonly expected *output data* keys are '
-                'missing (each of them should be included in `defaults` '
-                'and/or `auto_makers`):'
+                'The following commonly expected *output data* '
+                'keys are missing (each of them should be included '
+                'in `defaults` and/or `auto_makers`):'
             ),
         )
         yield from self._iter_err_messages_for_missing_output_keys(
-            required=self.COMPONENT_TYPE_TO_OUTPUT_KEYS_REQUIRED_IN_CONF.get(ct, {}),
+            required=self.COMPONENT_TYPE_TO_OUTPUT_KEYS_REQUIRED_IN_CONF.get(
+                component_type,
+                {},
+            ),
             header_message=(
-                f'The following *output data* keys, expected for the '
-                f'{ct!a} component type, are missing (each of them should '
-                f'be included in `defaults` and/or `auto_makers`):'
+                f'The following *output data* keys, expected for '
+                f'the {component_type!a} component type, are missing '
+                f'(each of them should be included in `defaults` '
+                f'and/or `auto_makers`):'
             ),
         )
-        ct_key = 'component_type'
-        if ct_key in self._corr_conf['auto_makers']:
+        if self.COMPONENT_TYPE_KEY in self._corr_auto_makers:
             yield (
-                f'The {ct_key!a} key should be included in `defaults` '
-                f'or `conf_corrector_params`, *not* in `auto_makers`!'
+                f'The {self.COMPONENT_TYPE_KEY!a} key should be '
+                f'included in `defaults` or `conf_corrector_params`, '
+                f'*not* in `auto_makers`!'
             )
 
-    def _get_component_type(self) -> str:
-        ct = self._corr_conf['defaults']['component_type']
-        assert isinstance(ct, str)
-        return ct
-
-    def _iter_err_messages_for_extensions_incompatible_with_ct(
-        self, ct: str,
+    def _iter_err_messages_for_extensions_incompatible_with(
+        self, component_type: str,
     ) -> Iterator[str]:
         if incompatible_extensions := [
             ext
             for ext in self._extensions
-            if not ext.is_compatible_with(ct)
+            if not ext.is_compatible_with(component_type)
         ]:
             yield (
                 f"The following corrector *extensions* are "
-                f"incompatible with component_type={ct!a}:"
+                f"incompatible with {self.COMPONENT_TYPE_KEY}"
+                f"={component_type!a}:"
             )
             for ext in incompatible_extensions:
                 yield f'* `{ext!a}`'
