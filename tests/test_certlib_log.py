@@ -879,27 +879,27 @@ class TestStructuredLogsFormatter:
 
         if 'conf_corrector' not in kwargs and once_in(3):
             if once_in(2):
-                corrected = None if once_in(2) else {}
+                corrected = None if once_in(2) else mapping_conv({})
             else:
                 corrected = {}
                 if once_in(3):
                     corrected |= {
-                        'defaults': {
+                        'defaults': mapping_conv({
                             'component_type': EXAMPLE_COMPONENT_TYPE,
-                        },
-                        'auto_makers': {
+                        }),
+                        'auto_makers': mapping_conv({
                             'system': (
                                 ConstantValueAutoMaker(EXAMPLE_SYSTEM)
                                 .importable_dotted_name
                             ),
                             'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT),
-                        },
+                        }),
                     }
                 else:
                     if 'defaults' in kwargs and once_in(2):
-                        corrected['defaults'] = dict(kwargs.pop('defaults') or {})
+                        corrected['defaults'] = kwargs.pop('defaults')
                     if 'auto_makers' in kwargs and once_in(2):
-                        corrected['auto_makers'] = dict(kwargs.pop('auto_makers') or {})
+                        corrected['auto_makers'] = kwargs.pop('auto_makers')
                 if once_in(3):
                     corrected['serializer'] = (
                         kwargs.pop('serializer', 'json.dumps') if once_in(2)
@@ -910,9 +910,10 @@ class TestStructuredLogsFormatter:
                         ])
                     )
                 if once_in(4):
-                    corrected['conf_corrector_params'] = {'whatever': '...'}
+                    corrected['conf_corrector_params'] = mapping_conv({'whatever': '...'})
                 if once_in(4):
                     corrected['...arbitrary key...'] = 31222646
+                corrected = mapping_conv(corrected)
             conf_corrector = make_conf_corrector_returning(corrected)
             kwargs['conf_corrector'] = (
                 conf_corrector.importable_dotted_name if once_in(3)
@@ -1395,19 +1396,22 @@ class TestStructuredLogsFormatter:
                         'effectively-not-used-at-all': ConstantValueAutoMaker(54321.0),
                     }),
                     serializer='json.dumps',
-                    conf_corrector=make_conf_corrector_returning(dict(
-                        # Replaces only what it includes:
-                        auto_makers={
-                            'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT),
-                            'foo': ConstantValueAutoMaker(None),
-                            'zero': ConstantValueAutoMaker('ZER0').importable_dotted_name,
-                        },
-                        serializer=example_serializer,
-                        # (Below: items -- to be ignored)
-                        conf_corrector_params={'whatever': '...'},
-                        arbitrary_item='...',
-                        another_arbitrary_item=987654321,
-                    )),
+                    conf_corrector=make_conf_corrector_returning(
+                        # (Example of non-dict mapping)
+                        types.MappingProxyType(dict(
+                            # Replaces only what it includes:
+                            auto_makers={
+                                'component': ConstantValueAutoMaker(EXAMPLE_COMPONENT),
+                                'foo': ConstantValueAutoMaker(None),
+                                'zero': ConstantValueAutoMaker('ZER0').importable_dotted_name,
+                            },
+                            serializer=example_serializer,
+                            # (Below: items -- to be ignored)
+                            conf_corrector_params={'whatever': '...'},
+                            arbitrary_item='...',
+                            another_arbitrary_item=987654321,
+                        ))
+                    ),
                     # (This corrector completely ignores
                     # `conf_corrector_params` content)
                     conf_corrector_params={'whatever': '...'},
@@ -1454,7 +1458,8 @@ class TestStructuredLogsFormatter:
                     serializer=example_serializer,
                     conf_corrector=make_conf_corrector_returning(dict(
                         # Replaces only what it includes:
-                        defaults={
+                        defaults=types.MappingProxyType({
+                            # (Example of non-dict mapping)
                             'system': EXAMPLE_SYSTEM,
                             'component_type': EXAMPLE_COMPONENT_TYPE,
                             'vege': ['mar', 'chew', 'ka'],
@@ -1462,7 +1467,7 @@ class TestStructuredLogsFormatter:
                             'xyz': {('pom', 'i', 'dor'): 1111},
                             'zero': 0,
                             'D' * 200: {'L' * 10000: ['L' * 10000]},
-                        },
+                        }),
                         base_record_attr_to_output_key={
                             '🍋': '🥝',
                         },
@@ -1666,9 +1671,10 @@ class TestStructuredLogsFormatter:
                             'void_value_that_will_be_omitted': [],
                             'D' * 200: {'L' * 10000: ['L' * 10000]},
                         },
-                        base_record_attr_to_output_key={
+                        base_record_attr_to_output_key=types.MappingProxyType({
+                            # (Example of non-dict mapping)
                             '🍋': '🥝',
-                        },
+                        }),
                     )),
                 ),
                 # * Expected public attributes:
@@ -1704,22 +1710,26 @@ class TestStructuredLogsFormatter:
                         'also-effectively-not-used': ConstantValueAutoMaker(987654321),
                     },
                     serializer=example_serializer,
-                    conf_corrector=make_conf_corrector_returning(dict(
-                        # Replaces only what it includes:
-                        defaults={
-                            'system': EXAMPLE_SYSTEM,
-                            'component_type': EXAMPLE_COMPONENT_TYPE,
-                            'vege': ['mar', 'chew', 'ka'],
-                            'void_value_that_will_be_omitted': [],
-                            'D' * 200: {'L' * 10000: ['L' * 10000]},
-                        },
-                        auto_makers={
-                            'foo': ConstantValueAutoMaker(None).importable_dotted_name,
-                            'bar': ConstantValueAutoMaker(EXAMPLE_COMPONENT),
-                        },
-                        serializer=example_serializer.importable_dotted_name,
-                        arbitrary_key_to_be_ignored={'...not used...'},
-                    )),
+                    conf_corrector=make_conf_corrector_returning(
+                        # (Example of non-dict mapping)
+                        types.MappingProxyType(dict(
+                            # Replaces only what it includes:
+                            defaults={
+                                'system': EXAMPLE_SYSTEM,
+                                'component_type': EXAMPLE_COMPONENT_TYPE,
+                                'vege': ['mar', 'chew', 'ka'],
+                                'void_value_that_will_be_omitted': [],
+                                'D' * 200: {'L' * 10000: ['L' * 10000]},
+                            },
+                            auto_makers=types.MappingProxyType({
+                                # (Example of non-dict mapping)
+                                'foo': ConstantValueAutoMaker(None).importable_dotted_name,
+                                'bar': ConstantValueAutoMaker(EXAMPLE_COMPONENT),
+                            }),
+                            serializer=example_serializer.importable_dotted_name,
+                            arbitrary_key_to_be_ignored={'...not used...'},
+                        ))
+                    ),
                     # (This corrector completely ignores
                     # `conf_corrector_params` content)
                     conf_corrector_params={'whatever': '...'},
@@ -3181,11 +3191,11 @@ class TestStructuredLogsFormatter:
         self,
         make_formatter,
     ):
-        # Note: every *corrector* should return *either* a dict compliant
-        # with `CorrectedConfDict` or *or* None. This requirement is *not*
-        # guaranteed to be strictly verified -- but, typically, not meeting
-        # it will result in some exception (most often, one of the
-        # following...).
+        # Note: every *corrector* should return a dict compliant with
+        # `CorrectedConfDict` or an equivalent mapping, or None. This
+        # requirement is *not* guaranteed to be strictly verified --
+        # but, typically, not meeting it will result in some exception
+        # (most often, one of the following...).
         with pytest.raises((AttributeError, TypeError)):
             make_formatter()
 
