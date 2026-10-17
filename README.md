@@ -32,7 +32,7 @@ and without requiring extensive adjustments.
 
 An important **design decision** was to build the library on top of
 the standard [logging](https://docs.python.org/3/library/logging.html)
-mechanisms (rather than introducing alternative machinery).
+mechanisms, rather than introducing some alternative machinery.
 
 This approach **makes it possible to**:
 
@@ -40,13 +40,13 @@ This approach **makes it possible to**:
   enable [*structured logging*](https://certlib-log.readthedocs.io/page/guide/#certlib.log--tldr-how-to-quickly-enable-structured-logging)
   (often without changing a single line of code);
 
-- depending on the needs, gradually introduce other features provided
-  by the library (such as [*`{}`-style*](https://certlib-log.readthedocs.io/page/guide/#certlib.log--modern-formatting-style)
+- depending on the needs, gradually adopt other features provided by
+  the library (such as [*`{}`-style*](https://certlib-log.readthedocs.io/page/guide/#certlib.log--modern-formatting-style)
   message formatting, data-only [*message-less*](https://certlib-log.readthedocs.io/page/guide/#certlib.log--dealing-with-pure-data)
   log records, [*auto-making*](https://certlib-log.readthedocs.io/page/reference/#certlib.log.register_log_record_attr_auto_maker)
   of log record fields, e.g., from [context variables](https://docs.python.org/3/library/contextvars.html)...);
 
-- retain existing logging configuration methods (whether
+- retain existing ways to configure logging (whether
   using an [`*.ini`-style file](https://docs.python.org/3/library/logging.config.html#configuration-file-format)
   or loading a [configuration dict](https://docs.python.org/3/library/logging.config.html#logging.config.dictConfig)).
 
@@ -175,9 +175,10 @@ def example_with_text_message_formatting(city, humidity, error_summary=None):
 
 ### Logging *Pure Data* (without Text Messages)
 
-The possibility to focus on pure data -- *without* the need to pass
-any *text-message*-related arguments -- is especially handy when
-`certlib.log.StructuredLogsFormatter` is in use (but *not only* then).
+Focusing on pure data -- *without* needing to pass any
+*text-message*-related arguments -- is especially handy
+when `certlib.log.StructuredLogsFormatter` is in use (but
+*not only* then).
 
 ```python
 import logging
