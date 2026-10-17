@@ -120,7 +120,7 @@ the following possibilities:
   gained by giving a little tweak to logger method calls...
 
 While it is possible to use each of these capabilities independently of
-the others, the `certlib.log`'s stuff encourages combining them.
+the others, the interface of `certlib.log` encourages combining them.
 
 The following sections will discuss the two main tools provided by the
 library: [`StructuredLogsFormatter`][] and [`xm`][].
@@ -882,8 +882,8 @@ modern and convenient [`{}`-based style of message formatting](https://docs.pyth
     Whereas the standard tools provided by the `logging` module [*do*
     support](https://docs.python.org/3/library/logging.html#formatter-objects)
     the `{}`-based formatting style for the latter, they do *not* support
-    it for the former -- and this is where the `certlib.log`'s feature in
-    question comes into play.
+    it for the former -- and this is where the feature provided by
+    `certlib.log` comes into play.
 
 ```python
 import datetime as dt
@@ -1058,9 +1058,9 @@ If you have not read the *reference documentation* for the
 [`StructuredLogsFormatter`][] class yet, you are strongly encouraged to
 do so. Among other things, you will find there a list of hook methods
 that can be extended/overridden in your subclasses. Apart from that,
-the documentation in question includes (especially, in the individual
-descriptions of those hook methods) quite detailed information about
-other elements of the `StructuredLogsFormatter`'s interface and behavior.
+the documentation in question includes, especially in the individual
+descriptions of those hook methods, quite detailed information about
+other aspects of the `StructuredLogsFormatter` interface and behavior.
 
 ***
 
@@ -1324,7 +1324,7 @@ class StructuredLogsFormatter(logging.Formatter):
             original one(s). Doing otherwise will result in undefined
             behavior.
 
-    * **`conf_corrector`** (a function or other callable; none by default):
+    * **`conf_corrector`** (a function or other callable; default: [`None`][]):
       a custom callable that is automatically invoked for extra validation
       and/or adjustments regarding the instance configuration (including
       also the arguments described above); it can also be a *dotted path*
@@ -1479,8 +1479,8 @@ class StructuredLogsFormatter(logging.Formatter):
 
         * specified as **`defaults`**, or
         * returned by **[`make_base_defaults`][]**, or
-        * present in a *configuration-corrector*-returned mapping as its
-          `"defaults"` item
+        * assigned to `"defaults"` in a *configuration-corrector*-returned
+          mapping
 
         -- needs to contain only items that can be passed to the
         **[`copy.deepcopy`][]** function.
@@ -1521,8 +1521,9 @@ class StructuredLogsFormatter(logging.Formatter):
     * [`serialize_prepared_output_data`][]
 
     In some of the individual descriptions of these methods, several other
-    elements of the `StructuredLogsFormatter`'s interface and behavior are
-    also discussed -- in particular, the following instance attributes:
+    aspects of the `StructuredLogsFormatter` interface and behavior are
+    also discussed -- in particular, the role of the following instance
+    attributes:
 
     * [`defaults`][]
     * [`auto_makers`][]
@@ -1725,14 +1726,16 @@ class StructuredLogsFormatter(logging.Formatter):
         implementation][logging.Formatter.format] with
         a `StructuredLogsFormatter`-specific one.
 
-        In *some* respects, the `StructuredLogsFormatter`'s implementation
-        of this method is similar to the `logging.Formatter`'s original. In
+        In *some* respects, the `StructuredLogsFormatter`'s
+        implementation of this method is similar to the original one. In
         particular, it makes use of the [`usesTime`][], [`formatTime`][],
         [`formatMessage`][] and [`formatException`][logging.Formatter.formatException]
         methods in a similar way, and assigns values to the same log record
         attributes: [`message`, `asctime` and `exc_text`](https://docs.python.org/3/library/logging.html#logrecord-attributes),
         making doing so subject to the same conditions (where applicable).
-        However, it differs from the original in the following ways:
+
+        However, it differs from that original implementation in the
+        following ways:
 
         * of the methods mentioned above, the `formatMessage` one is
           always invoked last (in particular, *after* the log record's
@@ -1816,14 +1819,14 @@ class StructuredLogsFormatter(logging.Formatter):
                 f"formatter it should be None. To customize timestamp "
                 f"formatting in your logs, instead of trying to set "
                 f"`datefmt` or other `logging.Formatter`-specific stuff "
-                f"(*not* used by the `{slf}`'s machinery!), you should "
+                f"(*not* used by the machinery of `{slf}`!), you should "
                 f"rather extend/override (in your custom subclass) the "
                 f"`{slf_format_timestamp}` method. (Alternatively, instead "
                 f"of this, you might decide to completely override the "
                 f"`{slf_formatTime}` method, providing an implementation "
-                f"which, for example, would use the `logging.Formatter`'s "
-                f"legacy timestamp-formatting-related stuff, without any "
-                f"use of the `{slf_format_timestamp}` method...)"
+                f"which, for example, would use the legacy timestamp-"
+                f"formatting facilities of `logging.Formatter`, without "
+                f"any use of the `{slf_format_timestamp}` method...)"
             )
         return self.format_timestamp(record)
 
@@ -2319,20 +2322,20 @@ class StructuredLogsFormatter(logging.Formatter):
             If you ever customize the behavior of this method (whether
             by extending/overriding it in a subclass, or perhaps just
             by providing it with some non-default values of keyword
-            arguments), you need to ensure that it does *not* mutate its
-            argument or anything inside it (regardless of the level of
-            nesting, if any nested data is present). If some data needs
-            to be changed, a completely *new* value should be created
-            (to be returned as the prepared value), *without* mutating
-            existing object(s). Doing otherwise will result in undefined
-            behavior.
+            arguments), you need to ensure that it does *not* mutate the
+            object received via the **`value`** parameter or anything
+            inside it (regardless of the level of nesting, if any nested
+            data is present). If some data needs to be changed, a
+            completely *new* value should be created (to be returned as
+            the prepared value), *without* mutating existing object(s).
+            Doing otherwise will result in undefined behavior.
 
         The default implementation of this method should be sufficient
         in most cases. It converts any *value* (even such one that is
-        deeply nested inside sequences/mappings -- thanks to recursive
-        calls, always passing all keyword arguments from the parent
+        deeply nested inside sequences/mappings, thanks to recursive
+        calls -- always passing all keyword arguments from the parent
         call...) to a form that can be serialized with [`json.dumps`][]
-        (and which is -- hopefully -- short yet still readable, especially
+        (and which is, hopefully, short yet still readable, especially
         regarding instances of such types as: [*exceptions*][BaseException],
         [*dataclasses*][], typical [*named tuples*][collections.namedtuple],
         [`enum.Enum`][], [`uuid.UUID`][] as well as the essential types
@@ -2341,8 +2344,8 @@ class StructuredLogsFormatter(logging.Formatter):
         contained in that mapping is transformed by applying to it the
         [`prepare_submapping_key`][] method. On the other hand, a value
         of a sequence type, if that type is *not* included in the tuple
-        received via the **`exclude_from_seq_types`** parameter, is (at
-        least typically) converted to a [`list`][]...
+        received via the **`exclude_from_seq_types`** parameter, is
+        (typically) converted to a [`list`][].
 
         ??? tip "Subclass implementation tip"
 
@@ -2507,9 +2510,9 @@ class StructuredLogsFormatter(logging.Formatter):
 
             if (isinstance(seq, tuple)
                   and callable(dict_from_this := getattr(seq, '_asdict', None))):
-                # A tuple (presumably, a *named tuple*) with an
-                # `_asdict()` method => try to use that method
-                # to convert this tuple (presumably, to a *dict*).
+                # A tuple with an `_asdict()` method  (presumably,
+                # a *named tuple*) => try to use that method to
+                # convert this tuple (presumably, to a *dict*).
                 try:
                     d = dict_from_this()
                 except TypeError:
@@ -3093,21 +3096,21 @@ class ExtendedMessage:
 
     * **`exc_info`** (*keyword-only*; default: [`None`][]):
       its usage and related behavior are nearly identical to those of
-      the same-named argument to `logging.Logger`'s methods (see [the
+      the corresponding argument to `logging.Logger` methods (see [the
       relevant fragment](https://docs.python.org/3/library/logging.html#logging.Logger.debug)
       of the documentation for the `logging` module). This argument is
       assigned to the [`exc_info`][] attribute.
 
     * **`stack_info`** (*keyword-only*; default: [`False`][]):
       its usage and related behavior are nearly identical to those of
-      the same-named argument to `logging.Logger`'s methods (see [the
+      the corresponding argument to `logging.Logger` methods (see [the
       relevant fragment](https://docs.python.org/3/library/logging.html#logging.Logger.debug)
       of the documentation for the `logging` module). This argument is
       assigned to the [`stack_info`][] attribute.
 
     * **`stacklevel`** (*keyword-only*; default: `1`):
       its usage and related behavior are nearly identical to those of
-      the same-named argument to `logging.Logger`'s methods (see [the
+      the corresponding argument to `logging.Logger` methods (see [the
       relevant fragment](https://docs.python.org/3/library/logging.html#logging.Logger.debug)
       of the documentation for the `logging` module). This argument is
       assigned to the [`stacklevel`][] attribute.
@@ -4003,7 +4006,7 @@ DottedPath: TypeAlias = str
 """
 A [*type alias*](https://typing.python.org/en/latest/spec/aliases.html#type-aliases)
 which is used to annotate strings being a *dotted path* (*importable
-dotted name*).
+dotted name*), such as: `"some.custom.module.my_auto_maker"` or `"json.dumps"`.
 """
 
 
@@ -4037,8 +4040,11 @@ class ConfCorrector(Protocol):
 
     [`None`][] is also a valid return value (equivalent to an empty dict).
 
-    Objects compliant with the `ConfCorrector` protocol can be passed to
-    the [`StructuredLogsFormatter`][] constructor as **`conf_corrector`**.
+    !!! info "See also"
+
+        Objects compliant with the **`ConfCorrector`** protocol can be
+        passed to the **[`StructuredLogsFormatter`][]** constructor as
+        **`conf_corrector`**.
     """
     def __call__(self, conf: ConfDict, /) -> (
         CorrectedConfDict | Mapping[str, Any] | None
@@ -4063,19 +4069,20 @@ class ConfDict(TypedDict):
     as the sole positional argument by every [`ConfCorrector`][]-compliant
     callable object.
 
-    !!! warning "Forward compatibility requirement"
-
-        In future versions of the library, including *non-major* ones,
-        other items may be defined in addition to the five items defined
-        here. Any code that deals with a **`ConfDict`** needs to take
-        this possibility into account.
-
     !!! info "See also"
 
         In the part of the **[`StructuredLogsFormatter`][]** constructor's
         description that covers the **`conf_corrector`** argument, there
-        is a subpart titled *Corrector interface* -- you can find there a
-        bulleted list detailing each of the **`ConfDict`** items.
+        is a subpart titled *Configuration corrector interface* -- you can
+        find there a bulleted list detailing each of the **`ConfDict`**
+        items.
+
+    !!! warning "Forward compatibility requirement"
+
+        In future versions of the library, including *non-major* ones,
+        other items may be defined in addition to the five items defined
+        here. Any code that deals with **`ConfDict`** needs to take this
+        possibility into account.
     """
     defaults: dict[str, object]
     auto_makers: dict[str, ValueProvider[object]]
@@ -4120,8 +4127,8 @@ class CorrectedConfDict(TypedDict, total=False):
 
         In future versions of the library, including *non-major* ones,
         other *optional* items may be defined in addition to the five
-        items defined here. Any code that deals with a **`CorrectedConfDict`**
-        (or a non-`dict` mapping convertible to it) needs to take
+        items defined here. Any code that deals with **`CorrectedConfDict`**
+        (or a non-`dict` mapping type convertible to it) needs to take
         this possibility into account.
     """
     defaults: Mapping[str, object]
@@ -4406,7 +4413,12 @@ def _pretty_timedelta_str(td: dt.timedelta) -> str:
 
 class _AutoCvDict(dict[object, contextvars.ContextVar[T]]):
 
-    """An internal helper (customized `dict` subclass...)."""
+    """
+    An internal helper: customized `dict` subclass (employed by the
+    implementation of the `_ContextBoundProperty` descriptor class
+    -- as a mapping with the owner's instances as keys and *context
+    variables* as values).
+    """
 
     def __init__(self, *, cv_name_base: str):
         super().__init__()
@@ -4434,10 +4446,10 @@ class _ContextBoundProperty(Generic[T]):
 
     """
     A descriptor class that can be used in definitions of classes -- in
-    particular, subclasses of `_Exception`. Such a descriptor provides,
+    particular, subclasses of `_Extension`. Such a descriptor provides,
     separately per owner's instance, a `contextvars.ContextVar`-managed
-    property -- supporting all attribute operations: get, set and delete
-    (using a *per-instance* and *context-local* value storage). Note: if
+    property supporting all attribute operations: get, set and delete --
+    using a *per-instance* and *context-local* value storage. *Note:* if
     no value is set, any attempt to get the value raises `AttributeError`.
     On the other hand the delete operation never raises `AttributeError`
     (i.e., is [idempotent](https://en.wikipedia.org/wiki/Idempotence)).
