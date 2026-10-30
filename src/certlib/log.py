@@ -2413,7 +2413,7 @@ class StructuredLogsFormatter(logging.Formatter):
             Namely:
 
             * the set of actually recognized (not just ignored) optional
-              keyword arguments may be expanded (but never narrowed);
+              keyword arguments may be expanded (but not narrowed);
             * default values of optional keyword arguments may change.
 
             !!! note
@@ -2432,7 +2432,7 @@ class StructuredLogsFormatter(logging.Formatter):
               with optional arguments or by any other means...), for any
               runtime type of the object received via the **`value`**
               parameter, the runtime type of the *return value* will
-              *not*change (so, for example, it is guaranteed that
+              *not* change (so, for example, it is guaranteed that
               `prepare_value(<dt.timedelta instance>)` will still return
               a string -- even though its exact format may change in a
               minor* version).
