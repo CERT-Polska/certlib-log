@@ -31,10 +31,10 @@ jobs:
         - "pypy3.11"
         - "pypy3.12"
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python-version }}
         allow-prereleases: true
@@ -43,8 +43,8 @@ jobs:
 
     - name: Install test dependencies
       run: |
-        python3 -m pip install --upgrade pip
-        python3 -m pip install --use-pep517 -r tests/test-requirements.txt
+        ./check-and-upgrade-pip-to-v26-2-2.bash --no-require-virtualenv \
+        && python3 -m pip install --require-hashes --no-input -r tests/test-requirements.txt
 
     - name: Test with pytest
       run: |
@@ -53,17 +53,16 @@ jobs:
   prepare-and-test-unofficial-py39:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
 
     - name: Set up Python 3.9
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: '3.9'
 
-    - name: Install pytest
+    - name: Install test dependencies
       run: |
-        python3 -m pip install --upgrade pip
-        python3 -m pip install --use-pep517 'pytest>=8.0'
+        python3 -m pip install --require-hashes --only-binary :all: --no-deps --no-input -r tests/_test-requirements-py-3-9.txt
 
     - name: Test with pytest
       run: |

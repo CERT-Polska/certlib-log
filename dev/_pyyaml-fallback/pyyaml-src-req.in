@@ -1,0 +1,3 @@
+--no-binary :all:
+
+pyyaml==6.0.3
