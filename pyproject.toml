@@ -64,7 +64,7 @@ where = ["src"]
 
 [tool.setuptools.dynamic.optional-dependencies.dev]
 
-file = ["dev/dev-requirements.txt"]
+file = ["dev/dev-requirements-lower-bounds.txt"]
 
 
 #

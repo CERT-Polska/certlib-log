@@ -1,9 +1,8 @@
+--only-binary :all:
+
 -r ../docs/doc-requirements.txt
 -r ../tests/test-requirements.txt
 build
 mypy
-pip
+pip>=26.2.2
 pip-tools
-setuptools>=80
-setuptools-scm[simple]>=9.2
-wheel
