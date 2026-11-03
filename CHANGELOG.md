@@ -39,12 +39,13 @@ The *public API* is documented in the [API Reference](https://certlib-log.readth
   note in the [*General Security Notes*](#general-security-notes) section
   below.
 
-- **[aux]** Implement some other security fixes and enhancements related to
-  installing and upgrading *development*-only dependencies. In particular,
-  package versions are now specified with cryptographic hashes also in
-  `dev/dev-requirements.txt` (not only in `docs/doc-requirements.txt` and
-  `tests/test-requirements.txt`) -- so that the `dev-install.bash` script
-  is able to verify them using `pip` with the `--require-hashes` flag.
+- **[aux]** Implement some other security fixes/updates/enhancements --
+  related to CI (GitHub *workflows*...) and/or to installing and upgrading
+  *development*-only dependencies. In particular, package versions are
+  now locked with cryptographic hashes also in `dev/dev-requirements.txt`
+  (not only in `docs/doc-requirements.txt` and `tests/test-requirements.txt`)
+  -- so that the `dev-install.bash` script is able to verify them using
+  `pip` with the `--require-hashes` flag.
 
 ### [1.0.0-beta8] and earlier...
 
