@@ -5117,7 +5117,7 @@ class _FastApikWebExtension(_WebExtension):  # type: ignore[misc]
     @_ctx_cached("req", fallback_result=None)
     def request_host(self) -> str:
         request = self.req.start_arg
-        request_host: str = request.headers.get("host", "")
+        request_host: str = request.headers.get("host")
         return request_host
 
     @_auto_maker
@@ -5145,7 +5145,7 @@ class _FastApikWebExtension(_WebExtension):  # type: ignore[misc]
     @_ctx_cached("req", fallback_result=None)
     def user_agent(self) -> str:
         request = self.req.start_arg
-        user_agent: str = request.headers.get("user-agent", "")
+        user_agent: str = request.headers.get("user-agent")
         return user_agent
 
     @_auto_maker
