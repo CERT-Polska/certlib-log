@@ -1,6 +1,6 @@
 # API Reference
 
-!!! danger "Warning"
+!!! warning
 
     The `certlib.log` library is currently in the _**beta**_ stage
     of development. This means, in particular, that _**backward
