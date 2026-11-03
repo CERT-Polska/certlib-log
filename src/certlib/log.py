@@ -5093,7 +5093,7 @@ class _FastApikWebExtension(_WebExtension):  # type: ignore[misc]
             finally:
                 self.on_request_cleanup()
 
-    @_ctx_cached("req", fallback_result=None)  # type: ignore[untyped-decorator]
+    @_ctx_cached("req", fallback_result=None)
     def determine_all_x_forwarded_for(self) -> list[str]:
         request = self.req.start_arg
         all_xff_values: list[str] = request.headers.getlist("X-Forwarded-For")
@@ -5105,51 +5105,51 @@ class _FastApikWebExtension(_WebExtension):  # type: ignore[misc]
     #
     # Auto-makers
 
-    @_auto_maker  # type: ignore[untyped-decorator]
-    @_ctx_cached("req", fallback_result=None)  # type: ignore[untyped-decorator]
+    @_auto_maker
+    @_ctx_cached("req", fallback_result=None)
     def remote_direct_ip(self) -> str | None:
         request = self.req.start_arg
         client = request.client
         remote_direct_ip: str | None = client.host if client is not None else None
         return remote_direct_ip
 
-    @_auto_maker  # type: ignore[untyped-decorator]
-    @_ctx_cached("req", fallback_result=None)  # type: ignore[untyped-decorator]
+    @_auto_maker
+    @_ctx_cached("req", fallback_result=None)
     def request_host(self) -> str:
         request = self.req.start_arg
         request_host: str = request.headers.get("host", "")
         return request_host
 
-    @_auto_maker  # type: ignore[untyped-decorator]
-    @_ctx_cached("req", fallback_result=None)  # type: ignore[untyped-decorator]
+    @_auto_maker
+    @_ctx_cached("req", fallback_result=None)
     def request_method(self) -> str:
         request = self.req.start_arg
         request_method: str = request.method
         return request_method
 
-    @_auto_maker  # type: ignore[untyped-decorator]
-    @_ctx_cached("req", fallback_result=None)  # type: ignore[untyped-decorator]
+    @_auto_maker
+    @_ctx_cached("req", fallback_result=None)
     def request_path(self) -> str:
         request = self.req.start_arg
         request_path: str = request.url.path
         return request_path
 
-    @_auto_maker  # type: ignore[untyped-decorator]
-    @_ctx_cached("req", fallback_result=None)  # type: ignore[untyped-decorator]
+    @_auto_maker
+    @_ctx_cached("req", fallback_result=None)
     def query_string(self) -> str:
         request = self.req.start_arg
         query_string: str = request.url.query
         return query_string
 
-    @_auto_maker  # type: ignore[untyped-decorator]
-    @_ctx_cached("req", fallback_result=None)  # type: ignore[untyped-decorator]
+    @_auto_maker
+    @_ctx_cached("req", fallback_result=None)
     def user_agent(self) -> str:
         request = self.req.start_arg
         user_agent: str = request.headers.get("user-agent", "")
         return user_agent
 
-    @_auto_maker  # type: ignore[untyped-decorator]
-    @_ctx_cached("req", fallback_result=None)  # type: ignore[untyped-decorator]
+    @_auto_maker
+    @_ctx_cached("req", fallback_result=None)
     def request_id(self) -> str | None:
         request = self.req.start_arg
         request_id: str | None = request.headers.get(self.REQUEST_ID_HEADER)
