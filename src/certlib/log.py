@@ -5090,8 +5090,14 @@ class _FastApikWebExtension(_WebExtension):  # type: ignore[misc]
                 response: Response = await call_next(request)
                 self.on_request_finish(req_finish_arg=response)
                 return response
+            except BaseException as exc:
+                if hasattr(exc, "status_code"):
+                    self.on_request_finish(req_finish_arg=exc)
+                raise
             finally:
                 self.on_request_cleanup()
+
+            
 
     @_ctx_cached("req", fallback_result=None)
     def determine_all_x_forwarded_for(self) -> list[str]:
