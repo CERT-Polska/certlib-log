@@ -78,7 +78,7 @@ early pre-releases.
 
 !!! warning "Required security updates for common software"
 
-    A global security incident, known as the [eMudhra Intermediate CA
+    A global security incident, known as [eMudhra Intermediate CA
     Compromise](https://emudhra.we-have-a-problem.com/), affects many
     kinds of software. Python environments are no exception -- most of
     them are **likely affected** [until vulnerable software is upgraded](https://discuss.python.org/t/information-for-python-users-regarding-emudhra-emsign-ca-certificate-security-incident/109576).
@@ -136,8 +136,8 @@ early pre-releases.
     To upgrade them along with the rest of your *development installation*
     of **`certlib.log`**:
 
-      1. Check out the **v1.0.0-beta9** (or later) [source
-         code](https://github.com/CERT-Polska/certlib-log/tree/v1.0.0-beta9).
+      1. Check out the **v1.0.0-beta9** (or later) **[source
+         code](https://github.com/CERT-Polska/certlib-log.git)**.
       2. Activate your **`certlib.log`**-dedicated *virtual environment*.
       3. Run the **`dev-install.bash`** script. Its hardened version will
          securely upgrade all relevant packages (in particular, **`pip`**
