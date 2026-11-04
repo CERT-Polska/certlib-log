@@ -22,35 +22,36 @@ The *public API* is documented in the [API Reference](https://certlib-log.readth
 
 #### Changed
 
-- [**`lib`**, **`docs`**] Several interface refinements/clarifications. All
+- [**lib**, **docs**] Several interface refinements/clarifications. All
   pretty small, even though -- technically speaking -- some of them are
   backward-incompatible (note that this is still a pre-release version...).
   In particular, calling the `StructuredLogsFormatter` constructor with
   `defaults`, `auto_makers` or `conf_corrector_params` set to `None` is no
-  longer officially supported (an empty mapping should be passed instead).
+  longer officially supported (an empty mapping should be passed instead,
+  which is equivalent to omitting the argument).
 
-- [**`lib`**, **`docs`**, **`tests`**, **`aux`**] A number of minor
+- [**lib**, **docs**, **tests**, **aux**] A number of minor
   tweaks/enhancements.
 
 #### Security
 
-- [**`aux`**] Upgrade *development*-only dependencies in `dev/dev-requirements.txt`,
+- [**aux**] Upgrade *development*-only dependencies in `dev/dev-requirements.txt`,
   `docs/doc-requirements.txt` and `tests/test-requirements.txt`; in particular,
   upgrade `pip` and `certifi` to versions which are unaffected by the [eMudhra
   Intermediate CA Compromise](https://emudhra.we-have-a-problem.com/) problem
   (note that the said problem is *not* specific to this library or even to Python
-  environments in general; see the note *Required security updates for common
+  environments in general -- see the note *Required security updates for common
   software* in the section [*General Security Notes*](#general-security-notes)
   below).
 
-- [**`aux`**] In conjunction with the above, suitably enhance the
+- [**aux**] In conjunction with the above, suitably enhance the
   `dev-install.bash` helper script (and other already existing `dev-*.bash`
   scripts) as well as add two new scripts: `ensure-pip-v26.2.2-or-higher.bash`
   and `check-with-curl-if-immune-to-ca-compromise-2026-10.bash`. For more
   information, see the note *Required security updates for common software*
   in the section [*General Security Notes*](#general-security-notes) below.
 
-- [**`aux`**] Implement some other security fixes/updates/enhancements --
+- [**aux**] Implement some other security fixes/updates/enhancements --
   related to CI (GitHub *workflows*...) and/or to installing and upgrading
   *development*-only dependencies. In particular, package versions are
   now locked with cryptographic hashes also in `dev/dev-requirements.txt`
@@ -140,9 +141,9 @@ early pre-releases.
       2. Activate your **`certlib.log`**-dedicated *virtual environment*.
       3. Run the **`dev-install.bash`** script. Its hardened version will
          securely upgrade all relevant packages (in particular, **`pip`**
-         and **`certifi`**).
+         and **`certifi`**) within the *virtual environment*.
 
-    There is also a new script, **[`ensure-pip-v26.2.2-or-higher.bash`](https://github.com/CERT-Polska/certlib-log/blob/main/ensure-pip-v26.2.2-or-higher.bash)**,
+    There is also a separate script, **[`ensure-pip-v26.2.2-or-higher.bash`](https://github.com/CERT-Polska/certlib-log/blob/main/ensure-pip-v26.2.2-or-higher.bash)**,
     which securely upgrades only **`pip`** (if older than **26.2.2**).
 
     Both scripts require [Bash](https://www.gnu.org/software/bash/).
