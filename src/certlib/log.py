@@ -2435,7 +2435,7 @@ class StructuredLogsFormatter(logging.Formatter):
               *not* change (so, for example, it is guaranteed that
               `prepare_value(<dt.timedelta instance>)` will still return
               a string -- even though its exact format may change in a
-              minor* version).
+              *minor* version).
         """
         if isinstance(value, to_str_types):
             if isinstance(value, dt.timedelta):
