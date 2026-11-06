@@ -5078,7 +5078,7 @@ class _FastApikWebExtension(_WebExtension):  # type: ignore[misc]
     # Hooks
 
     def complete_setup(self, positional_arg: Any, /) -> None:
-        from fastapi import Request # type: ignore[import-not-found]
+        from fastapi import Request, HTTPException # type: ignore[import-not-found]
         from fastapi.responses import Response # type: ignore[import-not-found]
 
         fastapi_app = positional_arg
@@ -5090,14 +5090,12 @@ class _FastApikWebExtension(_WebExtension):  # type: ignore[misc]
                 response: Response = await call_next(request)
                 self.on_request_finish(req_finish_arg=response)
                 return response
-            except BaseException as exc:
+            except HTTPException as exc:
                 if hasattr(exc, "status_code"):
                     self.on_request_finish(req_finish_arg=exc)
                 raise
             finally:
                 self.on_request_cleanup()
-
-            
 
     @_ctx_cached("req", fallback_result=None)
     def determine_all_x_forwarded_for(self) -> list[str]:
@@ -5121,9 +5119,9 @@ class _FastApikWebExtension(_WebExtension):  # type: ignore[misc]
 
     @_auto_maker
     @_ctx_cached("req", fallback_result=None)
-    def request_host(self) -> str:
+    def request_host(self) -> str | None:
         request = self.req.start_arg
-        request_host: str = request.headers.get("host")
+        request_host: str | None = request.headers.get("host")
         return request_host
 
     @_auto_maker
@@ -5149,9 +5147,9 @@ class _FastApikWebExtension(_WebExtension):  # type: ignore[misc]
 
     @_auto_maker
     @_ctx_cached("req", fallback_result=None)
-    def user_agent(self) -> str:
+    def user_agent(self) -> str | None:
         request = self.req.start_arg
-        user_agent: str = request.headers.get("user-agent")
+        user_agent: str | None = request.headers.get("user-agent")
         return user_agent
 
     @_auto_maker
