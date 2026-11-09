@@ -27,8 +27,9 @@ versions of Python.
     * specific *runtime types* of any objects bound to an element
       of the API (a variable, attribute, parameter or call result),
       *provided that* they remain correct with respect to the
-      element's type annotation, according to the [static typing
-      rules](https://typing.python.org/en/latest/spec/index.html);
+      element's type annotation included in this *API reference*
+      (according to the [static typing rules](https://typing.python.org/en/latest/spec/index.html))
+      *and* to any relevant descriptions this document includes;
 
     * specific behaviors in cases where -- according to the
       documentation -- *undefined behavior* is expected (see
