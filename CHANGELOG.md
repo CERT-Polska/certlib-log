@@ -8,15 +8,35 @@ The *public API* is documented in the [API Reference](https://certlib-log.readth
 
 !!! warning
 
-    The `certlib.log` library is currently in the _**beta**_ stage
-    of development. This means, in particular, that _**backward
-    incompatible**_ changes to the public API are possible (and they
-    sometimes _**do happen**_) in non-major *pre-release* versions
-    -- _**until**_ the final _**1.0.0**_ version is released.
+    The `certlib.log` library is currently in the *pre-1.0.0* stage of
+    development. This means that _**backward incompatible**_ changes
+    to the public API are still possible (even if not very likely) in
+    non-major *release candidate* versions -- _**until**_ the final
+    _**1.0.0**_ version is released.
 
 ***
 
 ## Release Notes
+
+### [Unreleased] (2026-XX-XX)
+
+- TBD...
+
+### [1.0.0-rc1] (2026-11-09)
+
+#### Added
+
+- [**lib**] Unofficial *extras* (not part of the public API): implement
+  a [FastAPI](https://fastapi.tiangolo.com/)-dedicated concrete subclass
+  of the (`_opinionated_conf_corrector`-related) `_WebExtension` class:
+  `_FastApiWebExtension` (in addition to existing `_FlaskWebExtension`).
+  Contributed by [Jan Napieralski](https://github.com/R3VANEK).
+
+#### Fixed
+
+- [**lib**, **docs**, **aux**] A number of minor fixes/improvements
+  (including also several *post factum* fixes/updates/improvements to
+  existing sections of the *Changelog*).
 
 ### [1.0.0-beta9] (2026-11-03)
 
@@ -68,7 +88,8 @@ It was deemed unnecessary to provide detailed information about all these
 early pre-releases.
 
 
-[Unreleased]: https://github.com/CERT-Polska/certlib-log/compare/v1.0.0-beta9...main
+[Unreleased]: https://github.com/CERT-Polska/certlib-log/compare/v1.0.0-rc1...main
+[1.0.0-rc1]: https://github.com/CERT-Polska/certlib-log/compare/v1.0.0-beta9...v1.0.0-rc1
 [1.0.0-beta9]: https://github.com/CERT-Polska/certlib-log/compare/v1.0.0-beta8...v1.0.0-beta9
 [1.0.0-beta8 and earlier...]: https://github.com/CERT-Polska/certlib-log/compare/initial-commit...v1.0.0-beta8
 
