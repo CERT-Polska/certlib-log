@@ -789,7 +789,7 @@ Essentially, the purpose of [`xm`][] is two-fold:
   (rather than a *pure-data-focused*, message-less one) -- to easily
   replace the legacy `%`-based log message formatting style with the
   modern and more convenient `{}`-based one (regardless of what formatter
-  is in use).
+  class is in use).
 
 !!! note
 
@@ -930,8 +930,8 @@ What that means *if* the logging system is configured to employ a
 
     When you use **[`xm`][]**, you still benefit from the standard
     mechanism of deferring message formatting until the log entry
-    really needs to be emitted (regardless of what formatter is in
-    use).
+    really needs to be emitted (regardless of what formatter class
+    is in use).
 
 The code in the next example does the same as above; the only difference
 is that here the *replacement fields* in the message pattern are explicitly
@@ -1275,8 +1275,8 @@ class StructuredLogsFormatter(logging.Formatter):
             appearing in any of the mappings listed below -- be a
             *string* and *not* exceed 200 characters (otherwise,
             respectively, [`TypeError`][] or [`ValueError`][] will be
-            raised by the constructor). The mappings covered by this
-            requirement are:
+            raised by the `StructuredLogsFormatter` constructor). The
+            mappings covered by this requirement are:
 
             * that returned by the **[`make_base_defaults`][]** method,
 
@@ -1311,8 +1311,8 @@ class StructuredLogsFormatter(logging.Formatter):
             **[`prepare_value`][]** method. In other words, that method is
             what determines those types.
 
-            Note that the default implementation of that method always
-            returns values of [`json.dumps`][]-compatible types.
+            Note that the default implementation of that method returns
+            values of [`json.dumps`][]-compatible types.
 
         ??? warning "Mutability restriction"
 
@@ -1408,7 +1408,7 @@ class StructuredLogsFormatter(logging.Formatter):
             The absence of a key in the *returned mapping* is equivalent
             to assigning to that key the same object that was assigned
             to it in the *given dict*. Note that any in-place changes the
-            *corrector* has made to that object since then are kept.
+            *corrector* has made to that object are kept.
 
             Apart from that, [`None`][] is also a valid return value. It
             is equivalent to an empty dict.
@@ -2406,9 +2406,9 @@ class StructuredLogsFormatter(logging.Formatter):
 
             Regarding the default implementation of this method, certain
             elements of its interface are explicitly excluded from the
-            `certlib.log` public API -- so that they may change in *minor*
-            versions of the library (but, in this case, *not* in *patch*
-            versions).
+            `certlib.log` public API contract -- so that they may change
+            in *minor* versions of the library (but, in this case, *not*
+            in *patch* versions).
 
             Namely:
 
@@ -2428,14 +2428,14 @@ class StructuredLogsFormatter(logging.Formatter):
 
             * the method will continue to accept arbitrary keyword
               arguments (`**kwargs` will stay in the signature);
-            * considering the method's default behavior (no customization
-              with optional arguments or by any other means...), for any
-              runtime type of the object received via the **`value`**
-              parameter, the runtime type of the *return value* will
-              *not* change (so, for example, it is guaranteed that
-              `prepare_value(<dt.timedelta instance>)` will still return
-              a string -- even though its exact format may change in a
-              *minor* version).
+            * considering the method's default behavior (without any
+              customization by passing optional arguments or by any other
+              means...), for any runtime type of the object received via
+              the **`value`** parameter, the runtime type of the *return
+              value* will *not* change (so, for example, it is guaranteed
+              that `prepare_value(<dt.timedelta instance>)` will still
+              return a string -- even though its exact format may change
+              in a *minor* version).
         """
         if isinstance(value, to_str_types):
             if isinstance(value, dt.timedelta):
@@ -3028,11 +3028,11 @@ class ExtendedMessage:
 
     * use the modern `{}`-based style of log message formatting, or --
       if you just need to log pure data -- simply omit passing the text
-      message pattern (regardless of what formatter is in use);
+      message pattern (regardless of what formatter class is in use);
 
     * defer the creation of some values (if it is costly) until the log
       entry is actually about to be emitted (regardless of what formatter
-      is in use).
+      class is in use).
 
     There is a convenience alias of this class: **[`xm`][]**. As being
     very short, it is simply much more ergonomic than the actual class
@@ -3156,7 +3156,7 @@ class ExtendedMessage:
       [`data`][] attribute. Moreover, any items whose names match a
       *named replacement field* in the text message pattern (see above)
       will take part in formatting the actual text message (regardless
-      of what formatter is in use).
+      of what formatter class is in use).
 
     **Alternatively**, a mapping (e.g., a `dict`) of *extra data* items
     can be passed to the [constructor][ExtendedMessage] as the *first
@@ -3182,7 +3182,7 @@ class ExtendedMessage:
     call) being an `ExtendedMessage` (`xm`) instance, that instance's
     [`get_message_value`][] method is always invoked -- either *directly*
     (by the machinery of [`StructuredLogsFormatter`][]) or *indirectly*
-    (via [`__str__`][], by the standard machinery other formatter types
+    (via [`__str__`][], by the standard machinery other formatter classes
     use).
 
     ??? info "Edge case"
@@ -3245,8 +3245,8 @@ class ExtendedMessage:
         Moreover:
 
         * *after* the **`message`** formatting is triggered, further
-          changes to the relevant attributes may not be reflected in
-          the text message;
+          changes to the relevant attributes may remain not reflected
+          in the text message;
         * placing any callables matching
           **[`recognized_deferred_value_creator_types`][]** in the
           relevant collections *after* the aforementioned *deferred
@@ -3269,7 +3269,7 @@ class ExtendedMessage:
     or as a value in the *extra data* mapping -- then that function
     or method will be *called* just after the log record owning the
     `ExtendedMessage` instance arrives at a formatter (no matter what
-    the formatter type will be). The result of that call will then
+    the formatter class will be). The result of that call will then
     *replace* the called function/method object in (respectively)
     [`args`][] or [`data`][]. Every such function/method is expected
     to take no arguments (so, if it is a method, it should already be
@@ -3300,8 +3300,8 @@ class ExtendedMessage:
     ??? warning "Multithreading-related restriction"
 
         Those *value creating* functions/methods should *never* acquire
-        locks that might also be acquired by any code making use of the
-        [`logging`][] stuff (because, in particular, that could result in
+        such locks that might also be acquired by any code making use of
+        the [`logging`][] stuff (because, in particular, that could result in
         a [*deadlock*](https://docs.python.org/3/glossary.html#term-deadlock)).
     """
 
