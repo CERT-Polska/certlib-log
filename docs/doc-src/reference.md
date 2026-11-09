@@ -2,11 +2,11 @@
 
 !!! warning
 
-    The `certlib.log` library is currently in the _**beta**_ stage
-    of development. This means, in particular, that _**backward
-    incompatible**_ changes to the public API are possible (and they
-    sometimes _**do happen**_) in non-major *pre-release* versions
-    -- _**until**_ the final _**1.0.0**_ version is released.
+    The `certlib.log` library is currently in the *pre-1.0.0* stage of
+    development. This means that _**backward incompatible**_ changes
+    to the public API are still possible (even if not very likely) in
+    non-major *release candidate* versions -- _**until**_ the final
+    _**1.0.0**_ version is released.
 
 ## General Remarks
 

@@ -1144,6 +1144,7 @@ import types
 import uuid
 import weakref
 from collections.abc import (
+    Awaitable,
     Callable,
     Hashable,
     Iterable,
@@ -5184,21 +5185,25 @@ class _FlaskWebExtension(_WebExtension):
     # Hooks
 
     def complete_setup(self, positional_arg: Any, /) -> None:
-        from flask import has_request_context, request    # type: ignore[import-not-found]
+        from flask import (            # type: ignore[import-not-found]
+            Flask,
+            has_request_context,
+            request,
+        )
 
-        flask_app = positional_arg
+        flask_app: Flask = positional_arg
 
-        @flask_app.before_request                        # type: ignore[untyped-decorator]
+        @flask_app.before_request      # type: ignore[untyped-decorator]
         def on_request_start_wrapper() -> None:
             if has_request_context():
                 self.on_request_start(req_start_arg=request)
 
-        @flask_app.after_request                         # type: ignore[untyped-decorator]
+        @flask_app.after_request       # type: ignore[untyped-decorator]
         def on_request_finish_wrapper(response: T) -> T:
             self.on_request_finish(req_finish_arg=response)
             return response
 
-        @flask_app.teardown_request                      # type: ignore[untyped-decorator]
+        @flask_app.teardown_request    # type: ignore[untyped-decorator]
         def on_request_cleanup_wrapper(_exc: BaseException | None) -> None:
             self.on_request_cleanup()
 
@@ -5210,7 +5215,8 @@ class _FlaskWebExtension(_WebExtension):
 
     def determine_response_status(self, req_finish_arg: Any, /) -> int:
         response = req_finish_arg
-        return int(response.status_code)
+        response_status: int = response.status_code
+        return response_status
 
     #
     # Auto-makers
@@ -5252,9 +5258,12 @@ class _FlaskWebExtension(_WebExtension):
 
     @_auto_maker
     @_ctx_cached('req', fallback_result=None)
-    def user_agent(self) -> str:
+    def user_agent(self) -> str | None:
         request = self.req.start_arg
-        return str(request.user_agent)
+        user_agent: Any | None = request.user_agent
+        if user_agent is None:
+            return None
+        return str(user_agent)
 
     @_auto_maker
     @_ctx_cached('req', fallback_result=None)
@@ -5264,7 +5273,8 @@ class _FlaskWebExtension(_WebExtension):
         return request_id
 
 
-class _FastApikWebExtension(_WebExtension):  # type: ignore[misc]
+class _FastApiWebExtension(_WebExtension):
+
     """
     A *FastAPI*-dedicated implementation of `_WebExtension`.
     """
@@ -5273,82 +5283,95 @@ class _FastApikWebExtension(_WebExtension):  # type: ignore[misc]
     # Hooks
 
     def complete_setup(self, positional_arg: Any, /) -> None:
-        from fastapi import Request, HTTPException # type: ignore[import-not-found]
-        from fastapi.responses import Response # type: ignore[import-not-found]
+        from fastapi import (              # type: ignore[import-not-found]
+            FastAPI,
+            HTTPException,
+            Request,
+            Response,
+        )
 
-        fastapi_app = positional_arg
+        fastapi_app: FastAPI = positional_arg
 
-        @fastapi_app.middleware("http")  # type: ignore[untyped-decorator]
-        async def on_request_wrapper(request: Request, call_next: Any) -> Response:
+        @fastapi_app.middleware('http')    # type: ignore[untyped-decorator]
+        async def on_request_wrapper(
+            request: Request,
+            call_next: Callable[[Request], Awaitable[Response]],
+        ) -> Response:
             self.on_request_start(req_start_arg=request)
             try:
                 response: Response = await call_next(request)
-                self.on_request_finish(req_finish_arg=response)
-                return response
             except HTTPException as exc:
-                if hasattr(exc, "status_code"):
+                if hasattr(exc, 'status_code'):
                     self.on_request_finish(req_finish_arg=exc)
                 raise
+            else:
+                self.on_request_finish(req_finish_arg=response)
+                return response
             finally:
                 self.on_request_cleanup()
 
-    @_ctx_cached("req", fallback_result=None)
+    @_ctx_cached('req', fallback_result=None)
     def determine_all_x_forwarded_for(self) -> list[str]:
         request = self.req.start_arg
-        all_xff_values: list[str] = request.headers.getlist("X-Forwarded-For")
+        all_xff_values: list[str] = request.headers.getlist('X-Forwarded-For')
         return all_xff_values
 
-    def determine_response_status(self, response: Any, /) -> int:
-        return int(response.status_code)
+    def determine_response_status(self, req_finish_arg: Any, /) -> int:
+        response = req_finish_arg
+        response_status: int = response.status_code
+        return response_status
 
     #
     # Auto-makers
 
     @_auto_maker
-    @_ctx_cached("req", fallback_result=None)
+    @_ctx_cached('req', fallback_result=None)
     def remote_direct_ip(self) -> str | None:
         request = self.req.start_arg
         client = request.client
-        remote_direct_ip: str | None = client.host if client is not None else None
+        remote_direct_ip: str | None = (
+            client.host if client is not None
+            else None
+        )
         return remote_direct_ip
 
     @_auto_maker
-    @_ctx_cached("req", fallback_result=None)
+    @_ctx_cached('req', fallback_result=None)
     def request_host(self) -> str | None:
         request = self.req.start_arg
         request_host: str | None = request.headers.get("host")
         return request_host
 
     @_auto_maker
-    @_ctx_cached("req", fallback_result=None)
+    @_ctx_cached('req', fallback_result=None)
     def request_method(self) -> str:
         request = self.req.start_arg
         request_method: str = request.method
         return request_method
 
     @_auto_maker
-    @_ctx_cached("req", fallback_result=None)
+    @_ctx_cached('req', fallback_result=None)
     def request_path(self) -> str:
         request = self.req.start_arg
         request_path: str = request.url.path
         return request_path
 
     @_auto_maker
-    @_ctx_cached("req", fallback_result=None)
+    @_ctx_cached('req', fallback_result=None)
     def query_string(self) -> str:
         request = self.req.start_arg
         query_string: str = request.url.query
         return query_string
 
     @_auto_maker
-    @_ctx_cached("req", fallback_result=None)
+    @_ctx_cached('req', fallback_result=None)
     def user_agent(self) -> str | None:
         request = self.req.start_arg
         user_agent: str | None = request.headers.get("user-agent")
         return user_agent
 
     @_auto_maker
-    @_ctx_cached("req", fallback_result=None)
+    @_ctx_cached('req', fallback_result=None)
     def request_id(self) -> str | None:
         request = self.req.start_arg
         request_id: str | None = request.headers.get(self.REQUEST_ID_HEADER)
